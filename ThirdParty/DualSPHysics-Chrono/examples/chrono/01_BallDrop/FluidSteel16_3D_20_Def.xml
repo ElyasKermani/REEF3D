@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<case>
+    <casedef>
+        <constantsdef>
+            <gravity x="0" y="0" z="-9.81" comment="Gravitational acceleration" units_comment="m/s^2" />
+            <rhop0 value="1141" comment="Reference density of the fluid" units_comment="kg/m^3" />
+            <hswl value="0.4" auto="false" comment="Maximum still water level to calculate speedofsound using coefsound" units_comment="metres (m)" />
+            <gamma value="7" comment="Polytropic constant for water used in the state equation" />
+            <speedsystem value="0" auto="true" comment="Maximum system speed (by default the dam-break propagation is used)" />
+            <coefsound value="30" comment="Coefficient to multiply speedsystem" />
+            <speedsound value="50" auto="false" comment="Speed of sound to use in the simulation (by default speedofsound=coefsound*speedsystem)" />
+            <_coefh value="1.2" comment="Coefficient to calculate the smoothing length (h=coefh*sqrt(3*dp^2) in 3D)" />
+            <hdp value="2" comment="Alternative option to calculate the smoothing length (h=hdp*dp)" />
+            <cflnumber value="0.2" comment="Coefficient to multiply dt" />
+        </constantsdef>
+        <mkconfig boundcount="230" fluidcount="9">
+            <mkorientfluid mk="0" orient="Xyz" />
+        </mkconfig>
+        <geometry>
+            <predefinition>
+                <!-- User-defined variables  -->
+                <newvarcte sd="16.7/1000" _rem="Sphere diameter" />
+                <newvarcte ndp="20" _rem="Resolution according to sd (sd/dp)" />
+                <newvarcte Dp="sd/ndp" Dpm="Dp/2" />
+                <newvarcte scenz="roundpos(0.16,0,Dp)" _print="1" />
+                <newvarcte stank="110/1000" stankr="stank/2" rlimit="stankr+10*Dp" />
+                <newvarcte btank="0.00" />
+                <newvarcte htank="0.180" hfluid="0.175" _print="1" />
+                <newvarcte y0="-Dp*4" y1="Dp*4" sy="Dp*8" />
+                <!-- User-defined variables for debug -->
+                <newvarcte dgsvnormal="1.5*0" _rem="No zero to create extra VTK with normal direction." />
+            </predefinition>
+            <definition dp="#Dp" units_comment="metres (m)">
+                <pointref x="0" y="0" z="0" />
+                <pointmin x="#-rlimit" y="#-rlimit" z="#-10*Dp" />
+                <pointmax x="#rlimit" y="#rlimit" z="#htank" />
+            </definition>
+            <commands>
+                <list name="GeometryForChrono">
+                    <setactive drawpoints="0" drawshapes="1" />
+                    <setshapemode>actual | bound</setshapemode>
+                    <!-- Tank (for visualisation) -->
+                    <setmkbound mk="0" />
+                    <setnormalinvert invert="true" />
+                    <setdpctes ctecylindernumsides="64" />
+                    <drawcylinder radius="#stankr" mask="2">
+                        <point x="0" y="0" z="#btank" />
+                        <point x="0" y="0" z="#htank" />
+                        <layers vdp="-0.5" />
+                    </drawcylinder>
+                    <setnormalinvert invert="false" />
+                    <shapeout file="Tank" savenormal="#dgsvnormal" />
+                    <!-- Simple floor (for Chrono collision) -->
+                    <drawtriangle>
+                        <point x="#stankr*cosdg(90)" y="#stankr*sindg(90)" z="#btank" />
+                        <point x="#stankr*cosdg(210)" y="#stankr*sindg(210)" z="#btank" />
+                        <point x="#stankr*cosdg(330)" y="#stankr*sindg(330)" z="#btank" />
+                    </drawtriangle>
+                    <shapeout file="Floor" savenormal="#dgsvnormal" />
+                    <!-- Sphere (for Chrono collision) -->
+                    <setmkbound mk="10" />
+                    <setdpctes ctespherenumsides="24" />
+                    <drawsphere radius="#sd/2">
+                        <point x="0" y="0" z="#scenz" />
+                        <layers vdp="0.5" />
+                    </drawsphere>
+                    <!-- Saves hdp geometry -->
+                    <shapeout file="Sphere" />
+                    <resetdraw />
+                </list>
+                <mainlist>
+                    <runlist name="GeometryForChrono" />
+                    <!-- Particle generation -->
+                    <!-- ======================== -->
+                    <setshapemode>actual | bound</setshapemode>
+                    <setdrawmode mode="full" />
+                    <!-- Water -->
+                    <setmkfluid mk="0" />
+                    <setfrdrawmode auto="true" />
+                    <drawcylinder radius="#stankr-Dp">
+                        <point x="0" y="0" z="#btank" />
+                        <point x="0" y="0" z="#hfluid" />
+                    </drawcylinder>
+                    <setfrdrawmode auto="false" />
+                    <!-- Sphere_void (clear fluid particles) -->
+                    <setmkvoid />
+                    <setdrawmode mode="solid" />
+                    <drawsphere radius="#sd/2+Dp*0.2">
+                        <point x="0" y="0" z="#scenz" />
+                    </drawsphere>
+                    <setdrawmode mode="full" />
+                    <!-- Sphere -->
+                    <setmkbound mk="10" />
+                    <setfrdrawmode auto="true" />
+                    <drawsphere radius="#sd/2">
+                        <point x="0" y="0" z="#scenz" />
+                    </drawsphere>
+                    <setfrdrawmode auto="false" />
+                    <!-- Tank -->
+                    <setmkbound mk="0" />
+                    <setfrdrawmode auto="true" />
+                    <drawcylinder radius="#stankr" mask="2">
+                        <point x="0" y="0" z="#btank" />
+                        <point x="0" y="0" z="#htank" />
+                        <layers vdp="*0,1,2,3" />
+                    </drawcylinder>
+                    <setfrdrawmode auto="false" />
+                    <_shapeout file="" />
+                </mainlist>
+            </commands>
+        </geometry>
+        <floatings>
+            <floating mkbound="10">
+                <massbody value="0.01885" />
+                <_translationDOF x="0" y="0" z="1" comment="Use 0 to restrict Degrees Of Freedon for translation (default=(1,1,1))" />
+                <_rotationDOF x="0" y="0" z="0" comment="Use 0 to restrict Degrees Of Freedon for rotation (default=(1,1,1))" />
+            </floating>
+        </floatings>
+        <properties>
+            <propertyfile file="Floating_Materials.xml" path="materials" />
+            <links>
+                <link mkbound="0" property="steelBottom" />
+                <link mkbound="10" property="steel" />
+            </links>
+        </properties>
+        <normals active="true">
+            <ftsupport value="1" comment="Enables support for floating bodies (default=0)" />
+            <geometryfile file="NONE" comment="File with boundary geometry (VTK format). Use NONE to ignore it." />
+        </normals>
+    </casedef>
+    <execution>
+        <special>
+            <initialize>
+                <boundnormal_sphere mkbound="10">
+                    <center x="0" y="0" z="#scenz" />
+                    <radius v="#sd/2+Dpm" />
+                    <inside v="true" comment="Boundary particles inside the sphere" />
+                    <maxdisth v="2.0" comment="Maximum distance to boundary limit. It uses H*maxdisth (default=2)" />
+                </boundnormal_sphere>
+                <boundnormal_cylinder mkbound="0">
+                    <center1 x="0" y="0" z="#btank+Dpm" />
+                    <center2 x="0" y="0" z="#htank+10*Dp" />
+                    <radius v="#stankr-Dpm" />
+                    <inside v="false" comment="Boundary particles inside the cylinder" />
+                    <maxdisth v="2.0" comment="Maximum distance to boundary limit. It uses H*maxdisth (default=2)" />
+                </boundnormal_cylinder>
+            </initialize>
+            <chrono>
+                <savedata value="0.0001" comment="Saves CSV with data exchange for each time interval (0=all steps)" />
+                <schemescale value="1" comment="Scale used to create the initial scheme of Chrono objects (default=1)" />
+                <!-- Enable collisions for chrono -->
+                <collision activate="true">
+                    <distancedp value="0.01" comment="Allowed collision overlap according Dp (default=0.5)" />
+                    <contactmethod value="0" comment="Contact method type. 0:NSC (Non Smooth Contacts), 1:SMC (SMooth Contacts). (default=0)" />
+                </collision>
+                <!-- Define the bodies for Chrono -->
+                <bodyfixed id="floor" mkbound="0" modelfile="[CaseName]_Floor_Actual.vtk" />
+                <bodyfloating id="sphere" mkbound="10" modelfile="[CaseName]_Sphere_Actual.vtk" />
+                <!-- Spheric joint or modified joint by rotvector and rotvector2 that can slide along an axis -->
+                <!-- <link_pointline idbody1="sphere"> -->
+                <!-- <slidingvector x="0" y="0" z="#scenz" comment="Sliding vector direction" /> -->
+                <!-- <rotpoint x="0" y="0" z="0" comment="Sliding point in the body" /> -->
+                <!-- <_rotvector x="0" y="1" z="0" comment="Vector direction for rotation, use (0,0,0) for spheric joint (default=(0,0,0))" /> -->
+                <!-- <_rotvector2 x="1" y="0" z="0" comment="Second vector to avoid rotation (default=(0,0,0))" /> -->
+                <!-- <stiffness value="0" comment="Torsional stiffness [Nm/rad]" /> -->
+                <!-- <damping value="0" comment="Torsional damping [Nms/rad]" /> -->
+                <!-- </link_pointline> -->
+            </chrono>
+        </special>
+        <parameters>
+            <parameter key="SavePosDouble" value="0" comment="Saves particle position using double precision (default=0)" />
+            <parameter key="Boundary" value="2" comment="Boundary method 1:DBC, 2:mDBC (default=1)" />
+            <parameter key="StepAlgorithm" value="2" comment="Step Algorithm 1:Verlet, 2:Symplectic (default=1)" />
+            <parameter key="VerletSteps" value="40" comment="Verlet only: Number of steps to apply Euler timestepping (default=40)" />
+            <parameter key="Kernel" value="2" comment="Interaction Kernel 1:Cubic Spline, 2:Wendland (default=2)" />
+            <parameter key="ViscoTreatment" value="2" comment="Viscosity formulation 1:Artificial, 2:Laminar+SPS (default=1)" />
+            <parameter key="Visco" value="0.000008" comment="Viscosity value" units_comment="m^2/s" />
+            <parameter key="ViscoBoundFactor" value="1" comment="Multiply viscosity value with boundary (default=1)" />
+            <parameter key="DensityDT" value="3" comment="Density Diffusion Term 0:None, 1:Molteni, 2:Fourtakas, 3:Fourtakas(full) (default=0)" />
+            <parameter key="DensityDTvalue" value="0.1" comment="DDT value (default=0.1)" />
+            <parameter key="Shifting" value="0" comment="Shifting mode 0:None, 1:Ignore bound, 2:Ignore fixed, 3:Full (default=0)" />
+            <parameter key="ShiftCoef" value="-2" comment="Coefficient for shifting computation (default=-2)" />
+            <parameter key="ShiftTFS" value="0" comment="Threshold to detect free surface. Typically 1.5 for 2D and 2.75 for 3D (default=0)" />
+            <parameter key="RigidAlgorithm" value="3" comment="Rigid Algorithm 0:collision-free, 1:SPH, 2:DEM, 3:Chrono (default=1)" />
+            <parameter key="FtPause" value="0.0" comment="Time to freeze the floatings at simulation start (warmup) (default=0)" units_comment="seconds" />
+            <parameter key="CoefDtMin" value="0.05" comment="Coefficient to calculate minimum time step dtmin=coefdtmin*h/speedsound (default=0.05)" />
+            <parameter key="DtIni" value="0" comment="Initial time step. Use 0 to defult use (default=h/speedsound)" units_comment="seconds" />
+            <parameter key="DtMin" value="0" comment="Minimum time step. Use 0 to defult use (default=coefdtmin*h/speedsound)" units_comment="seconds" />
+            <parameter key="DtFixed" value="0" comment="Fixed Dt value. Use 0 to disable (default=disabled)" units_comment="seconds" />
+            <parameter key="DtFixedFile" value="NONE" comment="Dt values are loaded from file. Use NONE to disable (default=disabled)" units_comment="milliseconds (ms)" />
+            <parameter key="DtAllParticles" value="0" comment="Velocity of particles used to calculate DT. 1:All, 0:Only fluid/floating (default=0)" />
+            <parameter key="TimeMax" value="0.6" comment="Time of simulation" units_comment="seconds" />
+            <parameter key="TimeOut" value="0.005" comment="Time out data" units_comment="seconds" />
+            <parameter key="PartsOutMax" value="1" comment="%/100 of fluid particles allowed to be excluded from domain (default=1)" units_comment="decimal" />
+            <parameter key="RhopOutMin" value="800" comment="Minimum rhop valid (default=700)" units_comment="kg/m^3" />
+            <parameter key="RhopOutMax" value="1400" comment="Maximum rhop valid (default=1300)" units_comment="kg/m^3" />
+            <simulationdomain comment="Defines domain of simulation (default=Uses minimun and maximum position of the generated particles)">
+                <posmin x="default" y="default" z="default" comment="e.g.: x=0.5, y=default-1, z=default-10%" />
+                <posmax x="default" y="default" z="default + 20%" />
+            </simulationdomain>
+        </parameters>
+    </execution>
+</case>

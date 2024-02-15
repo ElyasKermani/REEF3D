@@ -1,0 +1,3 @@
+# CaseTestPerformance_B0: Base case
+# CaseTestPerformance_Cx: Project Chrono performance
+# CaseTestPerformance_Dx: DualSPHysics performance
