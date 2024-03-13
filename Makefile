@@ -6,10 +6,11 @@ CXX      := mpicxx
 OBJ_DIR   := $(BUILD)
 APP_DIR   := $(BIN)
 HYPRE_DIR := /usr/local/hypre
-EIGEN_DIR := ThirdParty/eigen-3.3.8 
+EIGEN_DIR := ThirdParty/eigen-3.3.8
+CHRONO_DIR := ThirdParty/chrono-8.0.0
 CXXFLAGS := -w -std=c++11 -O3 
-LDFLAGS  := -L ${HYPRE_DIR}/lib/ -lHYPRE
-INCLUDE  := -I ${HYPRE_DIR}/include -I ${EIGEN_DIR} -DEIGEN_MPL2_ONLY 
+LDFLAGS  := -L ${HYPRE_DIR}/lib/ -lHYPRE -L ${CHRONO_DIR}/build/lib/ -lChronoEngine
+INCLUDE  := -I ${HYPRE_DIR}/include -I ${EIGEN_DIR} -DEIGEN_MPL2_ONLY -I ${CHRONO_DIR}/src -I ${CHRONO_DIR}/src/chrono/collision/bullet -I ${CHRONO_DIR}/build/
 SRC      := $(wildcard src/*.cpp)
 OBJECTS  := $(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEPENDENCIES := $(OBJECTS:.o=.d)
