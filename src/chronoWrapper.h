@@ -1,13 +1,12 @@
-// #include "chrono/geometry/ChTriangleMeshConnected.h"
+#include "chrono/geometry/ChTriangleMeshConnected.h"
 
-class sixdof_df_object;
+// class sixdof_df_object;
 
 class chronoWrapper
 {
 public:
-    chronoWrapper(sixdof_df_object* obj);
+    chronoWrapper(double***,int);
     ~chronoWrapper();
-    void start();
 private:
     chrono::geometry::ChTriangleMeshConnected* mesh;
 };
