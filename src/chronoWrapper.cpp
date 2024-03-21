@@ -1,24 +1,24 @@
 #include "chronoWrapper.h"
 #include <vector>
-// #include"6DOF_df_object.h"
+#include <iostream>
 
-chronoWrapper::chronoWrapper(double*** obj,int count)
+chronoWrapper::chronoWrapper()
 {
-    mesh = new chrono::geometry::ChTriangleMeshConnected();
-    for(int n = 0; n < count; n++)
-    {
-        // obj[n][0][0];//A-x
-        // obj[n][0][1];//A-y
-        // obj[n][0][2];//A-z
-        // obj[n][1][0];//B-x
-        // obj[n][2][0];//C-x
-        mesh->addTriangle(chrono::ChVector<>(obj[n][0][0],obj[n][0][1],obj[n][0][2]),chrono::ChVector<>(obj[n][1][0],obj[n][1][1],obj[n][1][2]),chrono::ChVector<>(obj[n][2][0],obj[n][2][1],obj[n][2][2]));
-    }
-    std::vector<chrono::geometry::ChTriangleMeshConnected> output;
-    output.push_back(*mesh);
-    mesh->WriteWavefront("./Chrono-test", output);
 }
 chronoWrapper::~chronoWrapper()
 {
+}
 
+void chronoWrapper::addMeshes(std::vector<std::vector<std::vector<std::vector<double>>>> _meshes)
+{
+    std::vector<chrono::geometry::ChTriangleMeshConnected> meshes;
+    for(int n=0;n<_meshes.size();n++)
+    {
+        chrono::geometry::ChTriangleMeshConnected mesh = chrono::geometry::ChTriangleMeshConnected();
+        for(int m = 0; m < _meshes[n].size(); m++)
+            mesh.addTriangle(chrono::ChVector<>(_meshes[n][m][0][0],_meshes[n][m][0][1],_meshes[n][m][0][2]),chrono::ChVector<>(_meshes[n][m][1][0],_meshes[n][m][1][1],_meshes[n][m][1][2]),chrono::ChVector<>(_meshes[n][m][2][0],_meshes[n][m][2][1],_meshes[n][m][2][2]));
+        meshes.push_back(mesh);
+    }
+    
+    chrono::geometry::ChTriangleMeshConnected::WriteWavefront("Chrono-test.obj", meshes);
 }

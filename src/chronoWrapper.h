@@ -5,8 +5,9 @@
 class chronoWrapper
 {
 public:
-    chronoWrapper(double***,int);
+    chronoWrapper();
     ~chronoWrapper();
+    void addMeshes(std::vector<std::vector<std::vector<std::vector<double>>>> _meshes);
 private:
-    chrono::geometry::ChTriangleMeshConnected* mesh;
+    std::vector<chrono::geometry::ChTriangleMeshConnected> meshes;
 };

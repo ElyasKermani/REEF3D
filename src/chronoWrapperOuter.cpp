@@ -1,11 +1,17 @@
 #include "chronoWrapperOuter.h"
 #include "chronoWrapper.h"
+#include <iostream>
 
-chronoWrapperOuter::chronoWrapperOuter(double*** _obj,int _count)
+chronoWrapperOuter::chronoWrapperOuter()
 {
-    obj = new chronoWrapper(_obj,_count);
+    obj = new chronoWrapper();
 }
 chronoWrapperOuter::~chronoWrapperOuter()
 {
+    delete obj;
+}
 
+void chronoWrapperOuter::addMeshes(std::vector<std::vector<std::vector<std::vector<double>>>> _meshes)
+{
+    obj->addMeshes(_meshes);
 }
