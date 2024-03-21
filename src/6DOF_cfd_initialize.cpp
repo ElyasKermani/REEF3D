@@ -26,14 +26,33 @@ Authors: Tobias Martin, Hans Bihs
 #include"ghostcell.h"
 
 void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet)
-{
+{    
+    std::vector<std::vector<std::vector<std::vector<double>>>> meshes;
     for (int nb = 0; nb < number6DOF; nb++)
-    fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
+    {
+        fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
+
+        std::vector<std::vector<std::vector<double>>> mesh;
+        for(int n=0;n<fb_obj[nb]->tricount;n++)
+        {
+            std::vector<std::vector<double>> triangle;
+            for (int m=0;m<3;m++)
+            {
+                std::vector<double> point;
+                point.push_back(fb_obj[0]->tri_x[n][m]);
+                point.push_back(fb_obj[0]->tri_y[n][m]);
+                point.push_back(fb_obj[0]->tri_z[n][m]);
+                triangle.push_back(point);
+            }
+            mesh.push_back(triangle);
+        }
+        meshes.push_back(mesh);
+    }
+    chrono_obj->addMeshes(meshes);
 }
 
 void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)
-{
-}
+{}
 
 void sixdof_cfd::ini(lexer *p, ghostcell *pgc)
 {

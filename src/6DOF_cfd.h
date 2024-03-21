@@ -20,6 +20,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Authors: Hans Bihs, Tobias Martin
 --------------------------------------------------------------------*/
 
+#include "chronoWrapperOuter.h"
 #include"6DOF.h"
 #include"6DOF_obj.h"
 #include<vector>
@@ -64,6 +65,8 @@ private:
    void setup(lexer*,fdm*,ghostcell*);
    
     int number6DOF;
+    chronoWrapperOuter* chrono_obj;
+    double alpha[3],gamma[3],zeta[3];
     vector<sixdof_obj*> fb_obj;
 
 };
