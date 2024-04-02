@@ -398,8 +398,7 @@ void MakeAndRunDemo3(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
     auto motfun = chrono_types::make_shared<ChFunction_Sequence>();
     motfun->InsertFunct(rampdo, 1, 0, true);
     motfun->InsertFunct(rampup, 1, 0, true);
-    auto motrepeat = chrono_types::make_shared<ChFunction_Repeat>();
-    motrepeat->Set_fa(motfun);
+    auto motrepeat = chrono_types::make_shared<ChFunction_Repeat>(motfun);
     motrepeat->Set_window_length(2);
     auto motfuntot = chrono_types::make_shared<ChFunction_Sequence>();
     motfuntot->InsertFunct(rampup, 0.5, 0, true);
@@ -424,8 +423,7 @@ void MakeAndRunDemo3(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
     // This is needed if you want to see things in Irrlicht 3D view.
     vis->AttachSystem(&sys);
 
-    std::string filename = out_dir + "/plasticity.dat";
-    ChStreamOutAsciiFile my_plasticfile(filename.c_str());
+    ChStreamOutAsciiFile my_plasticfile(out_dir + "/plasticity.dat");
 
     while (vis->Run()) {
         vis->BeginScene();
@@ -517,7 +515,8 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
 
     // Create the flywheel and attach it to the center of the beam
 
-    auto mbodyflywheel = chrono_types::make_shared<ChBodyEasyCylinder>(0.24, 0.05, 7800);  // R, h, density
+    auto mbodyflywheel = chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y,  //
+                                                                       0.24, 0.05, 7800);    // R, h, density
     mbodyflywheel->SetCoord(ChCoordsys<>(
         node_mid->GetPos() + ChVector<>(0, 0.05, 0),  // flywheel initial center (plus Y offset)
         Q_from_AngAxis(CH_C_PI_2, VECT_Z))  // flywheel initial alignment (rotate 90° so cylinder axis is on X)
@@ -594,8 +593,7 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
     // This is needed if you want to see things in Irrlicht 3D view.
     vis->AttachSystem(&sys);
 
-    std::string filename = out_dir + "/rotor_displ.dat";
-    chrono::ChStreamOutAsciiFile file_out1(filename.c_str());
+    chrono::ChStreamOutAsciiFile file_out1(out_dir + "/rotor_displ.dat");
 
     // Set to a more precise HHT timestepper if needed
     // sys.SetTimestepperType(ChTimestepper::Type::HHT);

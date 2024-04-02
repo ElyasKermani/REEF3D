@@ -47,31 +47,19 @@ namespace modal {
 class ChModalAssembly;
 }
 
-/// Physical system.
+/// Chrono physical system.
 ///
-/// This class is used to represent a multibody physical system,
-/// so it acts also as a database for most items involved in
-/// simulations, most noticeably objects of ChBody and ChLink
-/// classes, which are used to represent mechanisms.
+/// This class is used to represent a multibody physical system, so it also acts as a database for most items involved
+/// in simulations, most notably objects of ChBody and ChLink classes, used to represent mechanisms.
 ///
-/// Moreover, it also owns some global settings and features,
-/// like the gravity acceleration, the global time and so on.
+/// Moreover, it also owns some global settings and parameters, like the gravity acceleration and the global time, as
+/// well as settings for the time stepper and solver.
 ///
-/// This object will be responsible of performing the entire
-/// physical simulation (dynamics, kinematics, statics, etc.),
-/// so you need at least one ChSystem object in your program, in
-/// order to perform simulations (you'll insert rigid bodies and
-/// links into it..)
+/// This object is responsible for performing the entire physical simulation (dynamics, kinematics, statics, etc.).
 ///
-/// Note that this is an abstract class, in your code you must
-/// create a system from one of the concrete classes: 
-///   @ref chrono::ChSystemNSC (for non-smooth contacts) or
-///   @ref chrono::ChSystemSMC (for smooth 'penalty' contacts).
+/// Consult the @ref simulation_system manual page for additional details.
 ///
-/// Further info at the @ref simulation_system  manual page.
-
 class ChApi ChSystem : public ChIntegrableIIorder {
-
   public:
     /// Create a physical system.
     ChSystem();
@@ -125,6 +113,16 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// Gets iteration limit for assembly constraints.
     int GetMaxiter() const { return maxiter; }
 
+    /// Set the collision detection system used by this Chrono system to the specified type.
+    virtual void SetCollisionSystemType(ChCollisionSystem::Type type);
+
+    /// Set the collision detection system used by this Chrono system.
+    virtual void SetCollisionSystem(std::shared_ptr<ChCollisionSystem> coll_system);
+
+    /// Access the underlying collision system.
+    /// Usually this is not needed, as the collision system is automatically handled by the ChSystem.
+    std::shared_ptr<ChCollisionSystem> GetCollisionSystem() const { return collision_system; }
+
     /// Change the default composition laws for contact surface materials
     /// (coefficient of friction, cohesion, compliance, etc.)
     virtual void SetMaterialCompositionStrategy(std::unique_ptr<ChMaterialCompositionStrategy>&& strategy);
@@ -138,7 +136,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// If this is too low, aliasing problems can happen with small high frequency
     /// rebounces, and settling to static stacking might be more difficult.
     void SetMinBounceSpeed(double mval) { min_bounce_speed = mval; }
-    
+
     /// Objects will rebounce only if their relative colliding speed is above this threshold.
     double GetMinBounceSpeed() const { return min_bounce_speed; }
 
@@ -161,7 +159,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     ///   - Suggested solver for higher precision: BARZILAIBORWEIN or APGD
     ///   - For problems that involve a stiffness matrix: GMRES, MINRES
     ///
-    /// *Notes*:
+    /// Notes:
     ///   - This function is a shortcut, internally equivalent to a call to SetSolver().
     ///   - Only a subset of available Chrono solvers can be set through this mechanism.
     ///   - Prefer explicitly creating a solver, setting solver parameters, and then attaching the solver with
@@ -216,6 +214,13 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// Set (overwrite) the simulation time of this system.
     void SetChTime(double time) { ch_time = time; }
 
+    /// Remove redundant constraints present in ChSystem through QR decomposition of constraints Jacobian matrix.
+    int RemoveRedundantConstraints(
+        bool remove_zero_constr = false,  ///< false: DEACTIVATE redundant links; true: REMOVE redundant links
+        double qr_tol = 1e-6,             ///< tolerance in QR decomposition to identify linearly dependent constraint
+        bool verbose = false              ///< set verbose output from method
+    );
+
     /// Set the number of OpenMP threads used by Chrono itself, Eigen, and the collision detection system.
     /// <pre>
     ///   num_threads_chrono    - used in FEA (parallel evaluation of internal forces and Jacobians) and
@@ -238,9 +243,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     int GetNumthreadsCollision() const { return nthreads_collision; }
     int GetNumthreadsEigen() const { return nthreads_eigen; }
 
-    //
     // DATABASE HANDLING
-    //
 
     /// Get the underlying assembly containing all physics items.
     const ChAssembly& GetAssembly() const { return assembly; }
@@ -277,19 +280,19 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     void FlushBatch() { assembly.FlushBatch(); }
 
     /// Remove a body from this assembly.
-    virtual void RemoveBody(std::shared_ptr<ChBody> body) { assembly.RemoveBody(body); }
+    virtual void RemoveBody(std::shared_ptr<ChBody> body);
 
     /// Remove a shaft from this assembly.
-    virtual void RemoveShaft(std::shared_ptr<ChShaft> shaft) { assembly.RemoveShaft(shaft); }
+    virtual void RemoveShaft(std::shared_ptr<ChShaft> shaft);
 
     /// Remove a link from this assembly.
-    virtual void RemoveLink(std::shared_ptr<ChLinkBase> link) { assembly.RemoveLink(link); }
+    virtual void RemoveLink(std::shared_ptr<ChLinkBase> link);
 
     /// Remove a mesh from the assembly.
-    virtual void RemoveMesh(std::shared_ptr<fea::ChMesh> mesh) { assembly.RemoveMesh(mesh); }
+    virtual void RemoveMesh(std::shared_ptr<fea::ChMesh> mesh);
 
     /// Remove a ChPhysicsItem object that is not a body or a link
-    virtual void RemoveOtherPhysicsItem(std::shared_ptr<ChPhysicsItem> item) { assembly.RemoveOtherPhysicsItem(item); }
+    virtual void RemoveOtherPhysicsItem(std::shared_ptr<ChPhysicsItem> item);
 
     /// Remove arbitrary ChPhysicsItem that was added to the underlying assembly.
     void Remove(std::shared_ptr<ChPhysicsItem> item);
@@ -319,25 +322,25 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     }
 
     /// Search a body by its name.
-    std::shared_ptr<ChBody> SearchBody(const char* name) { return assembly.SearchBody(name); }
+    std::shared_ptr<ChBody> SearchBody(const std::string& name) const { return assembly.SearchBody(name); }
     /// Search a body by its ID
-    std::shared_ptr<ChBody> SearchBodyID(int bodyID) { return assembly.SearchBodyID(bodyID); }
+    std::shared_ptr<ChBody> SearchBodyID(int id) const { return assembly.SearchBodyID(id); }
     /// Search a shaft by its name.
-    std::shared_ptr<ChShaft> SearchShaft(const char* name) { return assembly.SearchShaft(name); }
+    std::shared_ptr<ChShaft> SearchShaft(const std::string& name) const { return assembly.SearchShaft(name); }
     /// Search a link by its name.
-    std::shared_ptr<ChLinkBase> SearchLink(const char* name) { return assembly.SearchLink(name); }
+    std::shared_ptr<ChLinkBase> SearchLink(const std::string& name) const { return assembly.SearchLink(name); }
     /// Search a mesh by its name.
-    std::shared_ptr<fea::ChMesh> SearchMesh(const char* name) { return assembly.SearchMesh(name); }
+    std::shared_ptr<fea::ChMesh> SearchMesh(const std::string& name) const { return assembly.SearchMesh(name); }
     /// Search from other ChPhysics items (not bodies, links, or meshes) by name.
-    std::shared_ptr<ChPhysicsItem> SearchOtherPhysicsItem(const char* name) {
+    std::shared_ptr<ChPhysicsItem> SearchOtherPhysicsItem(const std::string& name) const {
         return assembly.SearchOtherPhysicsItem(name);
     }
     /// Search a marker by its name.
-    std::shared_ptr<ChMarker> SearchMarker(const char* name) { return assembly.SearchMarker(name); }
+    std::shared_ptr<ChMarker> SearchMarker(const std::string& name) const { return assembly.SearchMarker(name); }
     /// Search a marker by its unique ID.
-    std::shared_ptr<ChMarker> SearchMarker(int markID) { return assembly.SearchMarker(markID); }
+    std::shared_ptr<ChMarker> SearchMarker(int id) const { return assembly.SearchMarker(id); }
     /// Search an item (body, link or other ChPhysics items) by name.
-    std::shared_ptr<ChPhysicsItem> Search(const char* name) { return assembly.Search(name); }
+    std::shared_ptr<ChPhysicsItem> Search(const std::string& name) const { return assembly.Search(name); }
 
     /// Get the number of active bodies (excluding those that are sleeping or are fixed to ground).
     int GetNbodies() const { return assembly.GetNbodies(); }
@@ -407,24 +410,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// Contactables (bodies, FEA nodes, FEA traiangles, etc.) added to this system must be compatible.
     virtual ChContactMethod GetContactMethod() const = 0;
 
-    /// Create and return the pointer to a new body.
-    /// The body is consistent with the type of the collision system currently associated with this ChSystem.
-    /// Note that the body is *not* attached to this system.
-    virtual ChBody* NewBody();
-
-    /// Create and return the pointer to a new body with auxiliary reference frame.
-    /// The body is consistent with the type of the collision system currently associated with this ChSystem.
-    /// Note that the body is *not* attached to this system.
-    virtual ChBodyAuxRef* NewBodyAuxRef();
-
-    /// Given inserted markers and links, restores the
-    /// pointers of links to markers given the information
-    /// about the marker IDs. Will be made obsolete in future with new serialization systems.
-    void Reference_LM_byID();
-
-    //
     // STATISTICS
-    //
 
     /// Gets the number of contacts.
     int GetNcontacts();
@@ -448,33 +434,29 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     virtual double GetTimerUpdate() const { return timer_update(); }
 
     /// Return the time (in seconds) for broadphase collision detection, within the time step.
-    double GetTimerCollisionBroad() const { return collision_system->GetTimerCollisionBroad(); }
+    double GetTimerCollisionBroad() const;
     /// Return the time (in seconds) for narrowphase collision detection, within the time step.
-    double GetTimerCollisionNarrow() const { return collision_system->GetTimerCollisionNarrow(); }
+    double GetTimerCollisionNarrow() const;
+
+    /// Get current estimated RTF (real time factor).
+    double GetRTF() const { return m_RTF; }
+
+    /// Set (overwrite) the RTF value for this system (if calculated externally).
+    void SetRTF(double rtf) { m_RTF = rtf; }
 
     /// Resets the timers.
-    void ResetTimers() {
-        timer_step.reset();
-        timer_advance.reset();
-        timer_ls_solve.reset();
-        timer_ls_setup.reset();
-        timer_jacobian.reset();
-        timer_collision.reset();
-        timer_setup.reset();
-        timer_update.reset();
-        collision_system->ResetTimers();
-    }
+    void ResetTimers();
 
   protected:
     /// Pushes all ChConstraints and ChVariables contained in links, bodies, etc. into the system descriptor.
     virtual void DescriptorPrepareInject(ChSystemDescriptor& mdescriptor);
 
-    // Note: SetupInitial need not be typically called by a user, so it is currently marked protected
-    // (as it may need to be called by derived classes)
-
     /// Initial system setup before analysis.
     /// This function performs an initial system setup, once system construction is completed and before an analysis.
-    void SetupInitial();
+    /// This function also initializes the collision system (if any), as well as any visualization system to which this
+    /// Chrono system was attached. The initialization function is called automatically before starting any type of
+    /// analysis.
+    void Initialize();
 
     /// Return the resultant applied force on the specified body.
     /// This resultant force includes all external applied loads acting on the body (from gravity, loads, springs,
@@ -538,9 +520,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     void ConstraintsFbLoadForces(double factor = 1);
     void ConstraintsFetch_react(double factor = 1);
 
-    //
     // TIMESTEPPER INTERFACE
-    //
 
     /// Tells the number of position coordinates x in y = {x, v}
     virtual int GetNcoords_x() override { return GetNcoords(); }
@@ -555,10 +535,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     virtual void StateGather(ChState& x, ChStateDelta& v, double& T) override;
 
     /// From state Y={x,v} to system. This also triggers an update operation.
-    virtual void StateScatter(const ChState& x,
-                              const ChStateDelta& v,
-                              const double T,
-                              bool full_update) override;
+    virtual void StateScatter(const ChState& x, const ChStateDelta& v, const double T, bool full_update) override;
 
     /// From system to state derivative (acceleration), some timesteppers might need last computed accel.
     virtual void StateGatherAcceleration(ChStateDelta& a) override;
@@ -589,26 +566,25 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// this function computes the solution of the change Du (in a or v or x) for a Newton
     /// iteration within an implicit integration scheme.
     /// <pre>
-    ///  |Du| = [ G   Cq' ]^-1 * | R |
-    ///  |DL|   [ Cq  0   ]      | Qc|
+    ///  | Du| = [ G   Cq' ]^-1 * | R |
+    ///  |-DL|   [ Cq  0   ]      |-Qc|
     /// </pre>
     /// for residual R and  G = [ c_a*M + c_v*dF/dv + c_x*dF/dx ].\n
     /// This function returns true if successful and false otherwise.
-    virtual bool StateSolveCorrection(
-        ChStateDelta& Dv,             ///< result: computed Dv
-        ChVectorDynamic<>& L,         ///< result: computed lagrangian multipliers, if any
-        const ChVectorDynamic<>& R,   ///< the R residual
-        const ChVectorDynamic<>& Qc,  ///< the Qc residual
-        const double c_a,             ///< the factor in c_a*M
-        const double c_v,             ///< the factor in c_v*dF/dv
-        const double c_x,             ///< the factor in c_x*dF/dv
-        const ChState& x,             ///< current state, x part
-        const ChStateDelta& v,        ///< current state, v part
-        const double T,               ///< current time T
-        bool force_state_scatter,     ///< if false, x and v are not scattered to the system
-        bool full_update,             ///< if true, perform a full update during scatter
-        bool force_setup              ///< if true, call the solver's Setup() function
-        ) override;
+    virtual bool StateSolveCorrection(ChStateDelta& Dv,             ///< result: computed Dv
+                                      ChVectorDynamic<>& DL,        ///< result: computed lagrangian multipliers. Note the sign in system above.
+                                      const ChVectorDynamic<>& R,   ///< the R residual
+                                      const ChVectorDynamic<>& Qc,  ///< the Qc residual. Note the sign in system above.
+                                      const double c_a,             ///< the factor in c_a*M
+                                      const double c_v,             ///< the factor in c_v*dF/dv
+                                      const double c_x,             ///< the factor in c_x*dF/dv
+                                      const ChState& x,             ///< current state, x part
+                                      const ChStateDelta& v,        ///< current state, v part
+                                      const double T,               ///< current time T
+                                      bool force_state_scatter,  ///< if false, x and v are not scattered to the system
+                                      bool full_update,          ///< if true, perform a full update during scatter
+                                      bool force_setup           ///< if true, call the solver's Setup() function
+                                      ) override;
 
     /// Increment a vector R with the term c*F:
     ///    R += c*F
@@ -622,6 +598,14 @@ class ChApi ChSystem : public ChIntegrableIIorder {
                                  const ChVectorDynamic<>& w,  ///< the w vector
                                  const double c               ///< a scaling factor
                                  ) override;
+
+    /// Adds the lumped mass to a Md vector, representing a mass diagonal matrix. Used by lumped explicit integrators.
+    /// If mass lumping is impossible or approximate, adds scalar error to "error" parameter.
+    ///    Md += c*diag(M)    or   Md += c*HRZ(M)
+    virtual void LoadLumpedMass_Md(ChVectorDynamic<>& Md,  ///< result: Md vector, diagonal of the lumped mass matrix
+                                   double& err,            ///< result: not touched if lumping does not introduce errors
+                                   const double c          ///< a scaling factor
+                                   ) override;
 
     /// Increment a vectorR with the term Cq'*L:
     ///    R += c*Cq'*L
@@ -644,9 +628,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
                                    const double c          ///< a scaling factor
                                    ) override;
 
-    //
     // UTILITY FUNCTIONS
-    //
 
     /// Executes custom processing at the end of step. By default it does nothing,
     /// but if you inherit a special ChSystem you can implement this.
@@ -655,9 +637,9 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// Perform the collision detection.
     /// New contacts are inserted in the ChContactContainer object(s), and old ones are removed.
     /// This is mostly called automatically by time integration.
-    double ComputeCollisions();
+    double ComputeCollisions();  //// TODO MAKE PRIVATE
 
-    /// Class to be used as a callback interface for user defined actions performed 
+    /// Class to be used as a callback interface for user defined actions performed
     /// at each collision detection step.  For example, additional contact points can
     /// be added to the underlying contact container.
     class ChApi CustomCollisionCallback {
@@ -678,31 +660,12 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     /// Remove the given collision callback from this system.
     void UnregisterCustomCollisionCallback(std::shared_ptr<CustomCollisionCallback> callback);
 
-    /// Change the underlying collision detection system to the specified type.
-    /// By default, a ChSystem uses a Bullet-based collision detection engine
-    /// (collision::ChCollisionSystemType::BULLET).
-    virtual void SetCollisionSystemType(collision::ChCollisionSystemType type);
-
-    /// Change the underlying collision system.
-    /// By default, a ChSystem uses a Bullet-based collision detection engine.
-    virtual void SetCollisionSystem(std::shared_ptr<collision::ChCollisionSystem> coll_sys);
-
-    /// Access the underlying collision system.
-    /// Usually this is not needed, as the collision system is automatically handled by the ChSystem.
-    std::shared_ptr<collision::ChCollisionSystem> GetCollisionSystem() const { return collision_system; }
-
-    /// Change the underlying contact container given the specified type of the collision detection system.
-    /// Usually this is not needed, as the contact container is automatically handled by the ChSystem.
-    /// The default implementation is a no-op, since the default contact container for a ChSystem is suitable for all
-    /// types of supported collision detection systems.
-    virtual void SetContactContainer(collision::ChCollisionSystemType type) {}
-
     /// Change the underlying contact container.
     /// The contact container collects information from the underlying collision detection system required for contact
     /// force generation. Usually this is not needed, as the contact container is automatically handled by the ChSystem.
     /// Make sure the provided contact container is compatible with both the collision detection system and the contact
     /// force formulation (NSC or SMC).
-    virtual void SetContactContainer(std::shared_ptr<ChContactContainer> contactcontainer);
+    virtual void SetContactContainer(std::shared_ptr<ChContactContainer> container);
 
     /// Access the underlying contact container.
     /// Usually this is not needed, as the contact container is automatically handled by the ChSystem.
@@ -794,28 +757,28 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     bool IsSolverMatrixWriteEnabled() const { return write_matrix; }
 
     /// Dump the current M mass matrix, K damping matrix, R damping matrix, Cq constraint jacobian
-    /// matrix (at the current configuration). 
+    /// matrix (at the current configuration).
     /// These can be later used for linearized motion, modal analysis, buckling analysis, etc.
-    /// The name of the files will be [path]_M.dat [path]_K.dat [path]_R.dat [path]_Cq.dat 
+    /// The name of the files will be [path]_M.dat [path]_K.dat [path]_R.dat [path]_Cq.dat
     /// Might throw ChException if file can't be saved.
-    void DumpSystemMatrices(bool save_M, bool save_K, bool save_R, bool save_Cq, const char* path);
+    void DumpSystemMatrices(bool save_M, bool save_K, bool save_R, bool save_Cq, const std::string& path);
 
-    /// Compute the system-level mass matrix. 
+    /// Compute the system-level mass matrix.
     /// This function has a small overhead, because it must assembly the
     /// sparse matrix -which is used only for the purpose of this function.
-    void GetMassMatrix(ChSparseMatrix* M);    ///< fill this system mass matrix
+    void GetMassMatrix(ChSparseMatrix* M);  ///< fill this system mass matrix
 
     /// Compute the system-level stiffness matrix, i.e. the jacobian -dF/dq where F are stiff loads.
     /// Note that not all loads provide a jacobian, as this is optional in their implementation.
     /// This function has a small overhead, because it must assembly the
     /// sparse matrix -which is used only for the purpose of this function.
-    void GetStiffnessMatrix(ChSparseMatrix* K);    ///< fill this system stiffness matrix
+    void GetStiffnessMatrix(ChSparseMatrix* K);  ///< fill this system stiffness matrix
 
     /// Compute the system-level damping matrix, i.e. the jacobian -dF/dv where F are stiff loads.
     /// Note that not all loads provide a jacobian, as this is optional in their implementation.
     /// This function has a small overhead, because it must assembly the
     /// sparse matrix -which is used only for the purpose of this function.
-    void GetDampingMatrix(ChSparseMatrix* R);    ///< fill this system damping matrix
+    void GetDampingMatrix(ChSparseMatrix* R);  ///< fill this system damping matrix
 
     /// Compute the system-level constraint jacobian matrix, i.e. the jacobian
     /// Cq=-dC/dq where C are constraints (the lower left part of the KKT matrix).
@@ -840,7 +803,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
 
     /// Given the current time and state, attempt to satisfy all constraints, using
     /// a Newton-Raphson iteration loop. Used iteratively in inverse kinematics.
-    /// Action can be one of AssemblyLevel::POSITION, AssemblyLevel::VELOCITY, or 
+    /// Action can be one of AssemblyLevel::POSITION, AssemblyLevel::VELOCITY, or
     /// AssemblyLevel::ACCELERATION (or a combination of these)
     /// Returns true if no errors and false if an error occurred (impossible assembly?)
     bool DoAssembly(int action);
@@ -851,7 +814,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     // ---- STATICS
 
     /// Perform a generic static analysis. Low level API, where the user creates and configures a
-    /// ChStaticAnalysis-inherited object by his own. For ready-to-use analysis, use 
+    /// ChStaticAnalysis-inherited object by his own. For ready-to-use analysis, use
     /// DoStaticLinear, DoStaticNonLinear, DoStaticNonlinearRheonomic etc. instead.
     bool DoStaticAnalysis(ChStaticAnalysis& analysis);
 
@@ -867,10 +830,13 @@ class ChApi ChSystem : public ChIntegrableIIorder {
 
     /// Solve the position of static equilibrium (and the reactions).
     /// This function solves the equilibrium for the nonlinear problem (large displacements),
-    /// but differently from DoStaticNonlinear, it considers rheonomic constraints (ex. ChLinkMotorRotationSpeed) 
-    /// that can impose steady-state speeds&accelerations to the mechanism, ex. to generate centrifugal forces in turbine blades.
-    /// This version uses a nonlinear static analysis solver with default parameters.
-    bool DoStaticNonlinearRheonomic(int nsteps = 10, bool verbose = false, std::shared_ptr<ChStaticNonLinearRheonomicAnalysis::IterationCallback> callback = nullptr);
+    /// but differently from DoStaticNonlinear, it considers rheonomic constraints (ex. ChLinkMotorRotationSpeed)
+    /// that can impose steady-state speeds&accelerations to the mechanism, ex. to generate centrifugal forces in
+    /// turbine blades. This version uses a nonlinear static analysis solver with default parameters.
+    bool DoStaticNonlinearRheonomic(
+        int nsteps = 10,
+        bool verbose = false,
+        std::shared_ptr<ChStaticNonLinearRheonomicAnalysis::IterationCallback> callback = nullptr);
 
     /// Finds the position of static equilibrium (and the reactions) starting from the current position.
     /// Since a truncated iterative method is used, you may need to call this method multiple times in case of large
@@ -882,10 +848,10 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     //
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive);
+    virtual void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow deserialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive);
+    virtual void ArchiveIn(ChArchiveIn& marchive);
 
     /// Process a ".chr" binary file containing the full system object
     /// hierarchy as exported -for example- by the R3D modeler, with chrono plug-in version,
@@ -903,7 +869,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
 
     ChVector<> G_acc;  ///< gravitational acceleration
 
-    bool is_initialized;  ///< if false, an initial setup is required (i.e. a call to SetupInitial)
+    bool is_initialized;  ///< if false, an initial setup is required (i.e. a call to Initialize)
     bool is_updated;      ///< if false, a new update is required (i.e. a call to Update)
 
     int ncoords;     ///< number of scalar coordinates (including 4th dimension of quaternions) for all active bodies
@@ -929,7 +895,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     std::shared_ptr<ChSolver> solver;                ///< solver for DVI or DAE problem
 
     double min_bounce_speed;                ///< minimum speed for rebounce after impacts. Lower speeds are clamped to 0
-    double max_penetration_recovery_speed;  ///< limit for the speed of penetration recovery (positive, speed of exiting)
+    double max_penetration_recovery_speed;  ///< limit for speed of penetration recovery (positive)
 
     size_t stepcount;  ///< internal counter for steps
 
@@ -941,8 +907,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
 
     int ncontacts;  ///< total number of contacts
 
-    collision::ChCollisionSystemType collision_system_type;                     ///< type of the collision engine
-    std::shared_ptr<collision::ChCollisionSystem> collision_system;             ///< collision engine
+    std::shared_ptr<ChCollisionSystem> collision_system;                        ///< collision engine
     std::vector<std::shared_ptr<CustomCollisionCallback>> collision_callbacks;  ///< user-defined collision callbacks
     std::unique_ptr<ChMaterialCompositionStrategy> composition_strategy;        /// material composition strategy
 
@@ -954,14 +919,15 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     int nthreads_collision;
 
     // timers for profiling execution speed
-    ChTimer<double> timer_step;       ///< timer for integration step
-    ChTimer<double> timer_advance;    ///< timer for time integration
-    ChTimer<double> timer_ls_solve;   ///< timer for solver (excluding setup phase)
-    ChTimer<double> timer_ls_setup;   ///< timer for solver setup
-    ChTimer<double> timer_jacobian;   ///< timer for computing/loading Jacobian information
-    ChTimer<double> timer_collision;  ///< timer for collision detection
-    ChTimer<double> timer_setup;      ///< timer for system setup
-    ChTimer<double> timer_update;     ///< timer for system update
+    ChTimer timer_step;       ///< timer for integration step
+    ChTimer timer_advance;    ///< timer for time integration
+    ChTimer timer_ls_solve;   ///< timer for solver (excluding setup phase)
+    ChTimer timer_ls_setup;   ///< timer for solver setup
+    ChTimer timer_jacobian;   ///< timer for computing/loading Jacobian information
+    ChTimer timer_collision;  ///< timer for collision detection
+    ChTimer timer_setup;      ///< timer for system setup
+    ChTimer timer_update;     ///< timer for system update
+    double m_RTF;             ///< real-time factor (simulation time / simulated time)
 
     std::shared_ptr<ChTimestepper> timestepper;  ///< time-stepper object
 
@@ -980,6 +946,7 @@ class ChApi ChSystem : public ChIntegrableIIorder {
     friend class ChContactContainerSMC;
 
     friend class ChVisualSystem;
+    friend class ChCollisionSystem;
 
     friend class modal::ChModalAssembly;
 };

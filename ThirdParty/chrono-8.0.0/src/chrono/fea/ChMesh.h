@@ -35,28 +35,8 @@ namespace fea {
 /// @addtogroup chrono_fea
 /// @{
 
-/// Class which defines a mesh of finite elements of class ChElementBase,
-/// between nodes of class ChNodeFEAbase.
+/// Class which defines a mesh of finite elements of class ChElementBase using nodes of class ChNodeFEAbase.
 class ChApi ChMesh : public ChIndexedNodes {
-
-  private:
-    std::vector<std::shared_ptr<ChNodeFEAbase>> vnodes;     ///<  nodes
-    std::vector<std::shared_ptr<ChElementBase>> velements;  ///<  elements
-
-    unsigned int n_dofs;    ///< total degrees of freedom
-    unsigned int n_dofs_w;  ///< total degrees of freedom, derivative (Lie algebra)
-
-    std::vector<std::shared_ptr<ChContactSurface>> vcontactsurfaces;  ///<  contact surfaces
-    std::vector<std::shared_ptr<ChMeshSurface>> vmeshsurfaces;        ///<  mesh surfaces, ex.for loads
-
-    bool automatic_gravity_load;
-    int num_points_gravity;
-
-    ChTimer<> timer_internal_forces;
-    ChTimer<> timer_KRMload;
-    int ncalls_internal_forces;
-    int ncalls_KRMload;
-
   public:
     ChMesh()
         : n_dofs(0),
@@ -123,6 +103,9 @@ class ChApi ChMesh : public ChIndexedNodes {
     /// Add a contact surface.
     void AddContactSurface(std::shared_ptr<ChContactSurface> m_surf);
 
+    /// Get all contact surfaces associated with this mesh.
+    const std::vector<std::shared_ptr<ChContactSurface>>& GetContactSurfaces() const { return vcontactsurfaces; }
+
     /// Access the N-th contact surface.
     std::shared_ptr<ChContactSurface> GetContactSurface(unsigned int n) { return vcontactsurfaces[n]; }
 
@@ -134,6 +117,9 @@ class ChApi ChMesh : public ChIndexedNodes {
 
     /// Add a mesh surface (set of ChLoadableUV items that support area loads such as pressure).
     void AddMeshSurface(std::shared_ptr<ChMeshSurface> m_surf);
+
+    /// Get all mesh surfaces associated with this mesh.
+    const std::vector<std::shared_ptr<ChMeshSurface>>& GetMeshSurfaces() const { return vmeshsurfaces; }
 
     /// Access the N-th mesh surface.
     std::shared_ptr<ChMeshSurface> GetMeshSurface(unsigned int n) { return vmeshsurfaces[n]; }
@@ -158,10 +144,14 @@ class ChApi ChMesh : public ChIndexedNodes {
     /// Updates all [A] coord.systems for all (corotational) elements.
     virtual void Update(double m_time, bool update_assets = true) override;
 
-    // Functions to interface this with ChPhysicsItem container
+    /// Add the mesh contact surfaces (if any) to the provided collision system.
+    virtual void AddCollisionModelsToSystem(ChCollisionSystem* coll_sys) const override;
+
+    /// Remove the mesh contact surfaces (if any) from the provided collision system.
+    virtual void RemoveCollisionModelsFromSystem(ChCollisionSystem* coll_sys) const override;
+
+    // Synchronize the position and bounding box of the mesh contact surfaces (if any).
     virtual void SyncCollisionModels() override;
-    virtual void AddCollisionModelsToSystem() override;
-    virtual void RemoveCollisionModelsFromSystem() override;
 
     /// If true, as by default, this mesh will add automatically a gravity load
     /// to all contained elements (that support gravity) using the G value from the ChSystem.
@@ -179,9 +169,7 @@ class ChApi ChMesh : public ChIndexedNodes {
                                ChMatrix33<>& inertia  ///< ChMesh inertia tensor
                                );
 
-    //
     // STATE FUNCTIONS
-    //
 
     // (override/implement interfaces for global state vectors, see ChPhysicsItem for comments.)
     virtual void IntStateGather(const unsigned int off_x,
@@ -212,6 +200,10 @@ class ChApi ChMesh : public ChIndexedNodes {
                                     ChVectorDynamic<>& R,
                                     const ChVectorDynamic<>& w,
                                     const double c) override;
+    virtual void IntLoadLumpedMass_Md(const unsigned int off,
+                                      ChVectorDynamic<>& Md,
+                                      double& err,
+                                      const double c) override;
     virtual void IntToDescriptor(const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const ChVectorDynamic<>& R,
@@ -223,9 +215,7 @@ class ChApi ChMesh : public ChIndexedNodes {
                                    const unsigned int off_L,
                                    ChVectorDynamic<>& L) override;
 
-    //
-    // SYSTEM FUNCTIONS        for interfacing all elements with solver
-    //
+    // SYSTEM FUNCTIONS (for interfacing all elements with solver)
 
     /// Tell to a system descriptor that there are items of type
     /// ChKblock in this object (for further passing it to a solver)
@@ -284,6 +274,24 @@ class ChApi ChMesh : public ChIndexedNodes {
     ///   - Precompute auxiliary data, such as (local) stiffness matrices Kl, if any, for each element.
     /// </pre>
     virtual void SetupInitial() override;
+
+    std::vector<std::shared_ptr<ChNodeFEAbase>> vnodes;     ///<  nodes
+    std::vector<std::shared_ptr<ChElementBase>> velements;  ///<  elements
+
+    unsigned int n_dofs;    ///< total degrees of freedom
+    unsigned int n_dofs_w;  ///< total degrees of freedom, derivative (Lie algebra)
+
+    std::vector<std::shared_ptr<ChContactSurface>> vcontactsurfaces;  ///<  contact surfaces
+    std::vector<std::shared_ptr<ChMeshSurface>> vmeshsurfaces;        ///<  mesh surfaces, ex.for loads
+
+    bool automatic_gravity_load;
+    int num_points_gravity;
+
+    ChTimer timer_internal_forces;
+    ChTimer timer_KRMload;
+    int ncalls_internal_forces;
+    int ncalls_KRMload;
+
 
     friend class chrono::ChSystem;
     friend class chrono::ChAssembly;

@@ -210,6 +210,17 @@ void ChLinkMotorRotationDriveline::IntLoadResidual_Mv(const unsigned int off,
     innershaft2->IntLoadResidual_Mv(off + 1, R, w, c);
 }
 
+void ChLinkMotorRotationDriveline::IntLoadLumpedMass_Md(const unsigned int off,
+                                                        ChVectorDynamic<>& Md,
+                                                        double& err,
+                                                        const double c) {
+    // First, inherit to parent class
+    ChLinkMotorRotation::IntLoadLumpedMass_Md(off, Md, err, c);
+
+    innershaft1->IntLoadLumpedMass_Md(off + 0, Md, err, c);
+    innershaft2->IntLoadLumpedMass_Md(off + 1, Md, err, c);
+}
+
 void ChLinkMotorRotationDriveline::IntLoadResidual_CqL(const unsigned int off_L,
                                        ChVectorDynamic<>& R,
                                        const ChVectorDynamic<>& L,
@@ -397,12 +408,12 @@ void ChLinkMotorRotationDriveline::VariablesQbIncrementPosition(double step) {
 
 
 
-void ChLinkMotorRotationDriveline::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkMotorRotationDriveline::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinkMotorRotationDriveline>();
 
     // serialize parent class
-    ChLinkMotorRotation::ArchiveOUT(marchive);
+    ChLinkMotorRotation::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(innershaft1);
@@ -412,12 +423,12 @@ void ChLinkMotorRotationDriveline::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 /// Method to allow de serialization of transient data from archives.
-void ChLinkMotorRotationDriveline::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkMotorRotationDriveline::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinkMotorRotationDriveline>();
 
     // deserialize parent class
-    ChLinkMotorRotation::ArchiveIN(marchive);
+    ChLinkMotorRotation::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(innershaft1);

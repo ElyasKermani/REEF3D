@@ -25,10 +25,19 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/physics/ChSystemNSC.h"
 
-#include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
+#include "chrono/assets/ChVisualSystem.h"
+#ifdef CHRONO_IRRLICHT
+    #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
+using namespace chrono::irrlicht;
+#endif
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+using namespace chrono::vsg3d;
+#endif
 
 using namespace chrono;
-using namespace chrono::irrlicht;
+
+ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // -----------------------------------------------------------------------------
 // Callback class for contact reporting
@@ -79,8 +88,7 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
 // -----------------------------------------------------------------------------
 class ContactMaterial : public ChContactContainer::AddContactCallback {
   public:
-    virtual void OnAddContact(const collision::ChCollisionInfo& contactinfo,
-                              ChMaterialComposite* const material) override {
+    virtual void OnAddContact(const ChCollisionInfo& contactinfo, ChMaterialComposite* const material) override {
         // Downcast to appropriate composite material type
         auto mat = static_cast<ChMaterialCompositeNSC* const>(material);
 
@@ -107,6 +115,7 @@ int main(int argc, char* argv[]) {
 
     ChSystemNSC sys;
     sys.Set_G_acc(ChVector<>(0, -10, 0));
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Set solver settings
     sys.SetSolverMaxIterations(100);
@@ -131,10 +140,8 @@ int main(int argc, char* argv[]) {
     container->SetIdentifier(-1);
 
     container->SetCollide(true);
+    utils::AddBoxGeometry(container.get(), material, ChVector<>(8, 1, 8), ChVector<>(0, -0.5, 0));
     container->GetCollisionModel()->SetEnvelope(collision_envelope);
-    container->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(container.get(), material, ChVector<>(4, 0.5, 4), ChVector<>(0, -0.5, 0));
-    container->GetCollisionModel()->BuildModel();
     container->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.4f, 0.4f));
 
     auto box1 = chrono_types::make_shared<ChBody>();
@@ -144,25 +151,21 @@ int main(int argc, char* argv[]) {
     box1->SetPos_dt(ChVector<>(5, 0, 0));
 
     box1->SetCollide(true);
+    utils::AddBoxGeometry(box1.get(), material, ChVector<>(0.8, 0.4, 0.2));
     box1->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box1->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(box1.get(), material, ChVector<>(0.4, 0.2, 0.1));
-    box1->GetCollisionModel()->BuildModel();
     box1->GetVisualShape(0)->SetColor(ChColor(0.1f, 0.1f, 0.4f));
 
     sys.AddBody(box1);
 
-    auto box2 = std::shared_ptr<ChBody>(sys.NewBody());
+    auto box2 = chrono_types::make_shared<ChBody>();
     box2->SetMass(10);
     box2->SetInertiaXX(ChVector<>(1, 1, 1));
     box2->SetPos(ChVector<>(-1, 0.21, +1));
     box2->SetPos_dt(ChVector<>(5, 0, 0));
 
     box2->SetCollide(true);
+    utils::AddBoxGeometry(box2.get(), material, ChVector<>(0.8, 0.4, 0.2));
     box2->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box2->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(box2.get(), material, ChVector<>(0.4, 0.2, 0.1));
-    box2->GetCollisionModel()->BuildModel();
     box2->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.1f, 0.1f));
 
     sys.AddBody(box2);
@@ -171,15 +174,60 @@ int main(int argc, char* argv[]) {
     // Create the visualization window
     // -------------------------------
 
-    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-    vis->AttachSystem(&sys);
-    vis->SetWindowSize(800, 600);
-    vis->SetWindowTitle("NSC callbacks");
-    vis->Initialize();
-    vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddCamera(ChVector<>(4, 4, -6));
-    vis->AddTypicalLights();
+    std::shared_ptr<ChVisualSystem> vis;
+#ifndef CHRONO_IRRLICHT
+    if (vis_type == ChVisualSystem::Type::IRRLICHT)
+        vis_type = ChVisualSystem::Type::VSG;
+#endif
+#ifndef CHRONO_VSG
+    if (vis_type == ChVisualSystem::Type::VSG)
+        vis_type = ChVisualSystem::Type::IRRLICHT;
+#endif
+
+    switch (vis_type) {
+        case ChVisualSystem::Type::IRRLICHT: {
+#ifdef CHRONO_IRRLICHT
+            auto vis_irr = chrono_types::make_shared<ChVisualSystemIrrlicht>();
+            vis_irr->AttachSystem(&sys);
+            vis_irr->SetWindowSize(800, 600);
+            vis_irr->SetWindowTitle("NSC callbacks");
+            vis_irr->Initialize();
+            vis_irr->AddLogo();
+            vis_irr->AddSkyBox();
+            vis_irr->AddCamera(ChVector<>(4, 4, -6));
+            vis_irr->AddTypicalLights();
+            vis_irr->AddGrid(0.5, 0.5, 12, 12, ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
+                             ChColor(1, 0, 0));
+
+            vis = vis_irr;
+#endif
+            break;
+        }
+        default:
+        case ChVisualSystem::Type::VSG: {
+#ifdef CHRONO_VSG
+            auto vis_vsg = chrono_types::make_shared<ChVisualSystemVSG>();
+            vis_vsg->AttachSystem(&sys);
+            vis_vsg->SetWindowTitle("NSC callbacks");
+            vis_vsg->AddCamera(ChVector<>(8, 8, -12));
+            vis_vsg->SetWindowSize(ChVector2<int>(800, 600));
+            vis_vsg->SetWindowPosition(ChVector2<int>(100, 100));
+            vis_vsg->SetClearColor(ChColor(0.8f, 0.85f, 0.9f));
+            vis_vsg->SetUseSkyBox(true);  // use built-in path
+            vis_vsg->SetCameraVertical(CameraVerticalDir::Y);
+            vis_vsg->SetCameraAngleDeg(40.0);
+            vis_vsg->SetLightIntensity(1.0f);
+            vis_vsg->SetLightDirection(1.5 * CH_C_PI_2, CH_C_PI_4);
+            vis_vsg->SetWireFrameMode(false);
+            vis_vsg->AddGrid(0.5, 0.5, 12, 12, ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
+                             ChColor(1, 0, 0));
+            vis_vsg->Initialize();
+
+            vis = vis_vsg;
+#endif
+            break;
+        }
+    }
 
     // ---------------
     // Simulate sys
@@ -193,10 +241,10 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        irrlicht::tools::drawGrid(vis.get(), 0.5, 0.5, 12, 12,
-                                  ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)));
-        sys.DoStepDynamics(1e-3);
+        vis->RenderCOGFrames(1.0);
         vis->EndScene();
+
+        sys.DoStepDynamics(1e-3);
 
         // Process contacts
         std::cout << sys.GetChTime() << "  " << sys.GetNcontacts() << std::endl;

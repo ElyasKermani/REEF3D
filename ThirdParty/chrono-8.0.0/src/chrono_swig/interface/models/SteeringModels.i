@@ -18,8 +18,8 @@
 #include "chrono_vehicle/wheeled_vehicle/steering/RackPinion.h"
 #include "chrono_vehicle/wheeled_vehicle/steering/RotaryArm.h"
 
-#include "chrono_models/vehicle/hmmwv/HMMWV_PitmanArm.h"
-#include "chrono_models/vehicle/hmmwv/HMMWV_RackPinion.h"
+#include "chrono_models/vehicle/hmmwv/steering/HMMWV_PitmanArm.h"
+#include "chrono_models/vehicle/hmmwv/steering/HMMWV_RackPinion.h"
 
 #include "chrono_models/vehicle/citybus/CityBus_RotaryArm.h"
 #include "chrono_models/vehicle/citybus/CityBus_RackPinion.h"
@@ -31,7 +31,7 @@
 
 #include "chrono_models/vehicle/gator/Gator_RackPinion.h"
 
-#include "chrono_models/vehicle/rccar/RCCar_PitmanArm.h"
+#include "chrono_models/vehicle/artcar/ARTcar_PitmanArm.h"
 
 #include "chrono_models/vehicle/feda/FEDA_PitmanArm.h"
 %}
@@ -47,7 +47,7 @@
 
 %shared_ptr(chrono::vehicle::uaz::UAZBUS_RotaryArm)
 
-%shared_ptr(chrono::vehicle::rccar::RCCar_PitmanArm)
+%shared_ptr(chrono::vehicle::artcar::ARTcar_PitmanArm)
 
 %shared_ptr(chrono::vehicle::gator::Gator_RackPinion)
 
@@ -58,8 +58,8 @@
 
 // Model:
 
-%include "../../../chrono_models/vehicle/hmmwv/HMMWV_PitmanArm.h"
-%include "../../../chrono_models/vehicle/hmmwv/HMMWV_RackPinion.h"
+%include "../../../chrono_models/vehicle/hmmwv/steering/HMMWV_PitmanArm.h"
+%include "../../../chrono_models/vehicle/hmmwv/steering/HMMWV_RackPinion.h"
 
 %include "../../../chrono_models/vehicle/citybus/CityBus_RotaryArm.h"
 %include "../../../chrono_models/vehicle/citybus/CityBus_RackPinion.h"
@@ -71,6 +71,6 @@
 
 %include "../../../chrono_models/vehicle/gator/Gator_RackPinion.h"
 
-%include "../../../chrono_models/vehicle/rccar/RCCar_PitmanArm.h"
+%include "../../../chrono_models/vehicle/artcar/ARTcar_PitmanArm.h"
 
 %include "../../../chrono_models/vehicle/feda/FEDA_PitmanArm.h"

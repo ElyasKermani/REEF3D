@@ -30,18 +30,18 @@
 #include "chrono_vehicle/ChVehicleModelData.h"
 
 #include "chrono_vehicle/driver/ChDataDriver.h"
-#include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeDoublePin.h"
 #include "chrono_vehicle/tracked_vehicle/vehicle/TrackedVehicle.h"
-#include "chrono_vehicle/tracked_vehicle/utils/ChTrackedVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/tracked_vehicle/ChTrackedVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "demos/vehicle/SetChronoSolver.h"
+#include "demos/SetChronoSolver.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -61,8 +61,9 @@ class Vehicle_Model {
   public:
     virtual std::string ModelName() const = 0;
     virtual std::string VehicleJSON() const = 0;
-    virtual std::string PowertrainJSON() const = 0;
-    virtual ChVector<> CameraPoint() const = 0; 
+    virtual std::string EngineJSON() const = 0;
+    virtual std::string TransmissionJSON() const = 0;
+    virtual ChVector<> CameraPoint() const = 0;
     virtual double CameraDistance() const = 0;
 };
 
@@ -73,10 +74,14 @@ class M113_SinglePin : public Vehicle_Model {
         return "M113/vehicle/M113_Vehicle_SinglePin.json";
         ////return "M113/vehicle/M113_Vehicle_SinglePin_BDS.json";
     }
-    virtual std::string PowertrainJSON() const override {
-        return "M113/powertrain/M113_SimpleCVTPowertrain.json";
-        ////return "M113/powertrain/M113_SimpleMapPowertrain.json";
-        ////return "M113/powertrain/M113_ShaftsPowertrain.json";
+    virtual std::string EngineJSON() const override {
+        return "M113/powertrain/M113_EngineSimple.json";
+        ////return "M113/powertrain/M113_EngineSimpleMap.json";
+        ////return "M113/powertrain/M113_EngineShafts.json";
+    }
+    virtual std::string TransmissionJSON() const override {
+        return "M113/powertrain/M113_AutomaticTransmissionSimpleMap.json";
+        ////return "M113/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector<> CameraPoint() const override { return ChVector<>(0, 0, 0); }
     virtual double CameraDistance() const override { return 6.0; }
@@ -89,10 +94,14 @@ class M113_DoublePin : public Vehicle_Model {
         return "M113/vehicle/M113_Vehicle_DoublePin.json";
         ////return "M113/vehicle/M113_Vehicle_DoublePin_BDS.json";
     }
-    virtual std::string PowertrainJSON() const override {
-        return "M113/powertrain/M113_SimpleCVTPowertrain.json";
-        ////return "M113/powertrain/M113_SimpleMapPowertrain.json";
-        ////return "M113/powertrain/M113_ShaftsPowertrain.json";
+    virtual std::string EngineJSON() const override {
+        return "M113/powertrain/M113_EngineSimple.json";
+        ////return "M113/powertrain/M113_EngineSimpleMap.json";
+        ////return "M113/powertrain/M113_EngineShafts.json";
+    }
+    virtual std::string TransmissionJSON() const override {
+        return "M113/powertrain/M113_AutomaticTransmissionSimpleMap.json";
+        ////return "M113/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector<> CameraPoint() const override { return ChVector<>(0, 0, 0); }
     virtual double CameraDistance() const override { return 6.0; }
@@ -105,10 +114,14 @@ class M113_RS_SinglePin : public Vehicle_Model {
         ////return "M113_RS/vehicle/M113_Vehicle_SinglePin_Translational_BDS.json";
         return "M113_RS/vehicle/M113_Vehicle_SinglePin_Distance_BDS.json";
     }
-    virtual std::string PowertrainJSON() const override {
-        return "M113_RS/powertrain/M113_SimpleCVTPowertrain.json";
-        ////return "M113_RS/powertrain/M113_SimpleMapPowertrain.json";
-        ////return "M113_RS/powertrain/M113_ShaftsPowertrain.json";
+    virtual std::string EngineJSON() const override {
+        return "M113_RS/powertrain/M113_EngineSimple.json";
+        ////return "M113_RS/powertrain/M113_EngineSimpleMap.json";
+        ////return "M113_RS/powertrain/M113_EngineShafts.json";
+    }
+    virtual std::string TransmissionJSON() const override {
+        return "M113_RS/powertrain/M113_AutomaticTransmissionSimpleMap.json";
+        ////return "M113_RS/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector<> CameraPoint() const override { return ChVector<>(4, 0, 0); }
     virtual double CameraDistance() const override { return 6.0; }
@@ -118,13 +131,13 @@ class Marder_SinglePin : public Vehicle_Model {
   public:
     virtual std::string ModelName() const override { return "Marder_SinglePin"; }
     virtual std::string VehicleJSON() const override {
-        ////return "Marder/vehicle/marder_sp_joints_shafts.json";
+        return "Marder/vehicle/marder_sp_joints_shafts.json";
         ////return "Marder/vehicle/marder_sp_bushings_shafts.json";
-        return "Marder/vehicle/marder_sp_bushings_simple.json";
+        ////return "Marder/vehicle/marder_sp_bushings_simple.json";
     }
-    virtual std::string PowertrainJSON() const override {
-        return "Marder/powertrain/simpleCVTPowertrain.json";
-        ////return "Marder/powertrain/simplePowertrain.json";
+    virtual std::string EngineJSON() const override { return "Marder/powertrain/Marder_EngineSimple.json"; }
+    virtual std::string TransmissionJSON() const override {
+        return "Marder/powertrain/Marder_AutomaticTransmissionSimpleMap.json";
     }
     virtual ChVector<> CameraPoint() const override { return ChVector<>(0, 0, 0); }
     virtual double CameraDistance() const override { return 8.0; }
@@ -135,10 +148,10 @@ class Marder_SinglePin : public Vehicle_Model {
 // =============================================================================
 
 // Current vehicle model selection
-auto vehicle_model = M113_SinglePin();
+////auto vehicle_model = M113_SinglePin();
 ////auto vehicle_model = M113_DoublePin();
 ////auto vehicle_model = M113_RS_SinglePin();
-////auto vehicle_model = Marder_SinglePin();
+auto vehicle_model = Marder_SinglePin();
 
 // JSON files for terrain (rigid plane)
 std::string rigidterrain_file("terrain/RigidPlane.json");
@@ -169,22 +182,6 @@ ChContactMethod contact_method = ChContactMethod::SMC;
 // Simulation step size
 double step_size_NSC = 1e-3;
 double step_size_SMC = 5e-4;
-
-// Solver and integrator types
-////ChSolver::Type slvr_type = ChSolver::Type::BARZILAIBORWEIN;
-////ChSolver::Type slvr_type = ChSolver::Type::PSOR;
-////ChSolver::Type slvr_type = ChSolver::Type::PMINRES;
-////ChSolver::Type slvr_type = ChSolver::Type::MINRES;
-////ChSolver::Type slvr_type = ChSolver::Type::GMRES;
-////ChSolver::Type slvr_type = ChSolver::Type::SPARSE_LU;
-////ChSolver::Type slvr_type = ChSolver::Type::SPARSE_QR;
-ChSolver::Type slvr_type = ChSolver::Type::PARDISO_MKL;
-////ChSolver::Type slvr_type = ChSolver::Type::MUMPS;
-
-////ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED;
-ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_PROJECTED;
-////ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT;
-////ChTimestepper::Type intgr_type = ChTimestepper::Type::HHT;
 
 // Verbose output level (solver and integrator)
 bool verbose_solver = false;
@@ -302,7 +299,9 @@ int main(int argc, char* argv[]) {
     ////vehicle.SetRenderContactForces(true, 1e-4);
 
     // Create and initialize the powertrain system
-    auto powertrain = ReadPowertrainJSON(vehicle::GetDataFile(vehicle_model.PowertrainJSON()));
+    auto engine = ReadEngineJSON(vehicle::GetDataFile(vehicle_model.EngineJSON()));
+    auto transmission = ReadTransmissionJSON(vehicle::GetDataFile(vehicle_model.TransmissionJSON()));
+    auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
     vehicle.InitializePowertrain(powertrain);
 
     cout << "  Track assembly templates" << endl;
@@ -311,9 +310,13 @@ int main(int argc, char* argv[]) {
     cout << "     Idler:      " << vehicle.GetTrackAssembly(LEFT)->GetIdler()->GetTemplateName() << endl;
     cout << "     Suspension: " << vehicle.GetTrackAssembly(LEFT)->GetTrackSuspension(0)->GetTemplateName() << endl;
     cout << "     Track shoe: " << vehicle.GetTrackShoe(LEFT, 0)->GetTemplateName() << endl;
-    cout << "  Driveline type:  " << vehicle.GetDriveline()->GetTemplateName() << endl;
-    cout << "  Powertrain type: " << powertrain->GetTemplateName() << endl;
-    cout << "  Vehicle mass:    " << vehicle.GetMass() << endl;
+    cout << "  Driveline type:    " << vehicle.GetDriveline()->GetTemplateName() << endl;
+    cout << "  Engine type:       " << engine->GetTemplateName() << endl;
+    cout << "  Transmission type: " << transmission->GetTemplateName() << endl;
+    cout << "  Vehicle mass:      " << vehicle.GetMass() << endl;
+
+    // Associate a collision system
+    vehicle.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create the terrain
     RigidTerrain terrain(vehicle.GetSystem(), vehicle::GetDataFile(rigidterrain_file));
@@ -340,7 +343,7 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<ChDriver> driver;
     switch (driver_mode) {
         case DriverMode::KEYBOARD: {
-            auto irr_driver = chrono_types::make_shared<ChIrrGuiDriver>(*vis);
+            auto irr_driver = chrono_types::make_shared<ChInteractiveDriverIRR>(*vis);
             double steering_time = 0.5;  // time to go from 0 to +1 (or from 0 to -1)
             double throttle_time = 1.0;  // time to go from 0 to +1
             double braking_time = 0.3;   // time to go from 0 to +1
@@ -357,7 +360,8 @@ int main(int argc, char* argv[]) {
             break;
         }
         case DriverMode::PATH: {
-            auto path = chrono::vehicle::StraightLinePath(chrono::ChVector<>(0, 0, 0.02), chrono::ChVector<>(500, 0, 0.02), 50);
+            auto path =
+                chrono::vehicle::StraightLinePath(chrono::ChVector<>(0, 0, 0.02), chrono::ChVector<>(500, 0, 0.02), 50);
             auto path_driver = std::make_shared<ChPathFollowerDriver>(vehicle, path, "my_path", target_speed);
             path_driver->GetSteeringController().SetLookAheadDistance(5.0);
             path_driver->GetSteeringController().SetGains(0.5, 0, 0);
@@ -383,22 +387,17 @@ int main(int argc, char* argv[]) {
             break;
     }
 
-    SetChronoSolver(*vehicle.GetSystem(), slvr_type, intgr_type);
+    SetChronoSolver(*vehicle.GetSystem(), ChSolver::Type::BARZILAIBORWEIN,
+                    ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
     vehicle.GetSystem()->GetSolver()->SetVerbose(verbose_solver);
     vehicle.GetSystem()->GetTimestepper()->SetVerbose(verbose_integrator);
 
-    cout << "SOLVER TYPE:     " << (int)slvr_type << endl;
-    cout << "INTEGRATOR TYPE: " << (int)intgr_type << endl;
+    cout << "SOLVER TYPE:     " << (int)vehicle.GetSystem()->GetSolver()->GetType() << endl;
+    cout << "INTEGRATOR TYPE: " << (int)vehicle.GetSystem()->GetTimestepper()->GetType() << endl;
 
     // ---------------
     // Simulation loop
     // ---------------
-
-    // Inter-module communication data
-    BodyStates shoe_states_left(vehicle.GetNumTrackShoes(LEFT));
-    BodyStates shoe_states_right(vehicle.GetNumTrackShoes(RIGHT));
-    TerrainForces shoe_forces_left(vehicle.GetNumTrackShoes(LEFT));
-    TerrainForces shoe_forces_right(vehicle.GetNumTrackShoes(RIGHT));
 
     // Number of simulation steps between two 3D view render frames
     int render_steps = (int)std::ceil(render_step_size / step_size);
@@ -414,10 +413,8 @@ int main(int argc, char* argv[]) {
             vis->EndScene();
         }
 
-        // Collect output data from modules (for inter-module communication)
+        // Current driver inputs
         DriverInputs driver_inputs = driver->GetInputs();
-        vehicle.GetTrackShoeStates(LEFT, shoe_states_left);
-        vehicle.GetTrackShoeStates(RIGHT, shoe_states_right);
 
         // Release chassis
         ////if (vehicle.GetChTime() < 1) {
@@ -432,8 +429,8 @@ int main(int argc, char* argv[]) {
         double time = vehicle.GetChTime();
         driver->Synchronize(time);
         terrain.Synchronize(time);
-        vehicle.Synchronize(time, driver_inputs, shoe_forces_left, shoe_forces_right);
-        vis->Synchronize("", driver_inputs);
+        vehicle.Synchronize(time, driver_inputs);
+        vis->Synchronize(time, driver_inputs);
 
         // Advance simulation for one timestep for all modules
         driver->Advance(step_size);

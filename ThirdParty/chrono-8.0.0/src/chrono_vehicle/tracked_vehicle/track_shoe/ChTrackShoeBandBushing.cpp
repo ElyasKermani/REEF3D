@@ -17,13 +17,14 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/core/ChGlobal.h"
 
 #include "chrono_vehicle/ChSubsysDefs.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeBandBushing.h"
+
 
 namespace chrono {
 namespace vehicle {
@@ -54,7 +55,7 @@ void ChTrackShoeBandBushing::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     auto web_mat = m_body_matinfo.CreateMaterial(chassis->GetSystem()->GetContactMethod());
     ChVector<> seg_loc = loc + (0.5 * GetToothBaseLength()) * xdir;
     for (int is = 0; is < GetNumWebSegments(); is++) {
-        m_web_segments.push_back(std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody()));
+        m_web_segments.push_back(chrono_types::make_shared<ChBody>());
         m_web_segments[is]->SetNameString(m_name + "_web_" + std::to_string(is));
         m_web_segments[is]->SetPos(seg_loc + ((2 * is + 1) * m_seg_length / 2) * xdir);
         m_web_segments[is]->SetRot(rot);
@@ -112,14 +113,12 @@ void ChTrackShoeBandBushing::UpdateInertiaProperties() {
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandBushing::AddWebContact(std::shared_ptr<ChBody> segment,
                                            std::shared_ptr<ChMaterialSurface> web_mat) {
-    segment->GetCollisionModel()->ClearModel();
+    auto shape =
+        chrono_types::make_shared<ChCollisionShapeBox>(web_mat, m_seg_length, GetBeltWidth(), GetWebThickness());
+    segment->AddCollisionShape(shape);
 
     segment->GetCollisionModel()->SetFamily(TrackedCollisionFamily::SHOES);
     segment->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::SHOES);
-
-    segment->GetCollisionModel()->AddBox(web_mat, m_seg_length / 2, GetBeltWidth() / 2, GetWebThickness() / 2);
-
-    segment->GetCollisionModel()->BuildModel();
 }
 
 // -----------------------------------------------------------------------------
@@ -140,16 +139,14 @@ void ChTrackShoeBandBushing::RemoveVisualizationAssets() {
 }
 
 void ChTrackShoeBandBushing::AddWebVisualization(std::shared_ptr<ChBody> segment) {
-    auto box = chrono_types::make_shared<ChBoxShape>();
-    box->GetBoxGeometry().SetLengths(ChVector<>(m_seg_length, GetBeltWidth(), GetWebThickness()));
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(m_seg_length, GetBeltWidth(), GetWebThickness());
     segment->AddVisualShape(box);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
     double radius = GetWebThickness() / 4;
-    cyl->GetCylinderGeometry().rad = radius;
-    cyl->GetCylinderGeometry().p1 = ChVector<>(m_seg_length / 2, -GetBeltWidth() / 2 - 2 * radius, 0);
-    cyl->GetCylinderGeometry().p2 = ChVector<>(m_seg_length / 2, +GetBeltWidth() / 2 + 2 * radius, 0);
-    segment->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(segment,                                                            //
+                                                ChVector<>(m_seg_length / 2, -GetBeltWidth() / 2 - 2 * radius, 0),  //
+                                                ChVector<>(m_seg_length / 2, +GetBeltWidth() / 2 + 2 * radius, 0),  //
+                                                radius);
 }
 
 // -----------------------------------------------------------------------------
@@ -207,9 +204,9 @@ void ChTrackShoeBandBushing::ExportComponentList(rapidjson::Document& jsonDocume
     std::vector<std::shared_ptr<ChBody>> bodies;
     bodies.push_back(m_shoe);
     bodies.insert(bodies.end(), m_web_segments.begin(), m_web_segments.end());
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
-    ChPart::ExportBodyLoadList(jsonDocument, m_web_bushings);
+    ExportBodyLoadList(jsonDocument, m_web_bushings);
 }
 
 void ChTrackShoeBandBushing::Output(ChVehicleOutput& database) const {

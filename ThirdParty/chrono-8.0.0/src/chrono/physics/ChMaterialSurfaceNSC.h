@@ -73,10 +73,10 @@ class ChApi ChMaterialSurfaceNSC : public ChMaterialSurface {
     void SetComplianceSpinning(float mval) { complianceSpin = mval; }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow deserialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
     float cohesion;
     float dampingf;
@@ -108,7 +108,16 @@ class ChApi ChMaterialCompositeNSC : public ChMaterialComposite {
     ChMaterialCompositeNSC(ChMaterialCompositionStrategy* strategy,
                            std::shared_ptr<ChMaterialSurfaceNSC> mat1,
                            std::shared_ptr<ChMaterialSurfaceNSC> mat2);
+
+    /// Method to allow serialization of transient data to archives.
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
+
+    /// Method to allow deserialization of transient data from archives.
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
+
+CH_CLASS_VERSION(ChMaterialCompositeNSC, 0)
+
 
 }  // end namespace chrono
 

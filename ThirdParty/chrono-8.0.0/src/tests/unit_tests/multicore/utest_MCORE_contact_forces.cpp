@@ -20,7 +20,7 @@
 // =============================================================================
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
 #include "chrono/utils/ChUtilsCreators.h"
 
 #include "chrono_multicore/physics/ChSystemMulticore.h"
@@ -103,9 +103,12 @@ ContactForceTest::ContactForceTest() : sys(nullptr) {
             break;
     }
 
+    // Set associated collision detection system
+    sys->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
+
     // Set other sys properties
     double gravity = -9.81;
-    sys->Set_G_acc(ChVector<>(0, gravity, 0));
+    sys->Set_G_acc(ChVector<>(0, 0, gravity));
     sys->GetSettings()->solver.tolerance = 1e-5;
     sys->GetSettings()->solver.max_iteration_bilateral = 100;
     sys->GetSettings()->solver.clamp_bilaterals = false;
@@ -115,7 +118,7 @@ ContactForceTest::ContactForceTest() : sys(nullptr) {
     unsigned int num_balls = 8;
     double radius = 0.5;
     double mass = 5;
-    ChVector<> pos(0, 1.1 * radius, 0);
+    ChVector<> pos(0, 0, 1.1 * radius);
     ChQuaternion<> rot(1, 0, 0, 0);
     ChVector<> init_vel(0, 0, 0);
     ChVector<> init_omg(0, 0, 0);
@@ -123,23 +126,21 @@ ContactForceTest::ContactForceTest() : sys(nullptr) {
     std::vector<std::shared_ptr<ChBody>> balls(num_balls);
     total_weight = 0;
     for (unsigned int i = 0; i < num_balls; i++) {
-        auto ball = std::shared_ptr<ChBody>(sys->NewBody());
+        auto ball = chrono_types::make_shared<ChBody>();
 
         ball->SetMass(mass);
         ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector<>(1, 1, 1));
-        ball->SetPos(pos + ChVector<>(i * 2 * radius, 0, i * 2 * radius));
+        ball->SetPos(pos + ChVector<>(i * 2 * radius, i * 2 * radius, 0));
         ball->SetRot(rot);
         ball->SetPos_dt(init_vel);
         ball->SetWvel_par(init_omg);
         ball->SetCollide(true);
         ball->SetBodyFixed(false);
 
-        ball->GetCollisionModel()->ClearModel();
-        ball->GetCollisionModel()->AddSphere(material, radius);
-        ball->GetCollisionModel()->BuildModel();
+        auto ct_shape = chrono_types::make_shared<ChCollisionShapeSphere>(material, radius);
+        ball->AddCollisionShape(ct_shape);
 
-        auto sphere = chrono_types::make_shared<ChSphereShape>();
-        sphere->GetSphereGeometry().rad = radius;
+        auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(radius);
         sphere->SetColor(ChColor(1, 0, 1));
         ball->AddVisualShape(sphere);
 
@@ -152,8 +153,7 @@ ContactForceTest::ContactForceTest() : sys(nullptr) {
     ////std::cout << "Total weight = " << total_weight << std::endl;
 
     // Create container box
-    ground = utils::CreateBoxContainer(sys, 0, material, ChVector<>(20, 20, 2 * radius), 0.1, ChVector<>(0, 0, 0),
-                                       ChQuaternion<>(1, 0, 0, 0), true, true, false, false);
+    ground = utils::CreateBoxContainer(sys, 0, material, ChVector<>(20, 20, 2 * radius), 0.1);
 }
 
 TEST_P(ContactForceTest, simulate) {
@@ -171,7 +171,7 @@ TEST_P(ContactForceTest, simulate) {
         vis.SetWindowSize(1200, 800);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.SetCameraPosition(ChVector<>(20, 0, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector<>(20, 0, 0), ChVector<>(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
 
         if (!vis.Run())
@@ -185,10 +185,10 @@ TEST_P(ContactForceTest, simulate) {
         sys->GetContactContainer()->ComputeContactForces();
         ChVector<> contact_force = ground->GetContactForce();
         ////std::cout << "t = " << sys->GetChTime() << " num contacts = " << sys->GetNumContacts()
-        ////          << "  force =  " << contact_force.y() << std::endl;
+        ////          << "  force =  " << contact_force.z() << std::endl;
 
         if (sys->GetChTime() > start_time) {
-            ASSERT_LT(std::abs(1 - contact_force.y() / total_weight), rtol);
+            ASSERT_LT(std::abs(1 - contact_force.z() / total_weight), rtol);
         }
     }
 }

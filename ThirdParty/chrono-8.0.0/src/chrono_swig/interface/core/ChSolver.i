@@ -1,63 +1,47 @@
 #ifdef SWIGCSHARP  // --------------------------------------------------------------------- CSHARP
 
 // MULTIPLE INHERITANCE WORKAROUND
-
 // (B) Methods of a base class that SWIG discards that *are* overriden in ChSolver***
-
 // Ensure that these functions are not marked as 'overrides' in the generated C# code.
 
-%csmethodmodifiers chrono::ChIterativeSolverLS::Setup "public"
+%csmethodmodifiers chrono::ChIterativeSolverLS::Setup "public virtual"
+%csmethodmodifiers chrono::ChIterativeSolverVI::Setup "public virtual"
 
-%csmethodmodifiers chrono::ChIterativeSolverLS::Solve "public"
-%csmethodmodifiers chrono::ChSolverAPGD::Solve "public"
-%csmethodmodifiers chrono::ChSolverBB::Solve "public"
-%csmethodmodifiers chrono::ChSolverPJacobi::Solve "public"
-%csmethodmodifiers chrono::ChSolverPSOR::Solve "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::Solve "public"
-%csmethodmodifiers chrono::ChSolverGMRES::Solve "public"
-%csmethodmodifiers chrono::ChSolverMINRES::Solve "public"
-%csmethodmodifiers chrono::ChSolverADMM::Solve "public"
+%csmethodmodifiers chrono::ChIterativeSolverLS::Solve "public virtual"
+%csmethodmodifiers chrono::ChIterativeSolverVI::Solve "public virtual"
 
-%csmethodmodifiers chrono::ChSolverAPGD::GetType "public"
-%csmethodmodifiers chrono::ChSolverBB::GetType "public"
-%csmethodmodifiers chrono::ChSolverPJacobi::GetType "public"
-%csmethodmodifiers chrono::ChSolverPSOR::GetType "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::GetType "public"
-%csmethodmodifiers chrono::ChSolverGMRES::GetType "public"
-%csmethodmodifiers chrono::ChSolverMINRES::GetType "public"
-%csmethodmodifiers chrono::ChSolverADMM::GetType "public"
+%csmethodmodifiers chrono::ChIterativeSolverLS::ArchiveIn "public virtual"
+%csmethodmodifiers chrono::ChIterativeSolverVI::ArchiveIn "public virtual"
 
-%csmethodmodifiers chrono::ChSolverAPGD::GetError "public"
-%csmethodmodifiers chrono::ChSolverBB::GetError "public"
-%csmethodmodifiers chrono::ChSolverPJacobi::GetError "public"
-%csmethodmodifiers chrono::ChSolverPSOR::GetError "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::GetError "public"
-%csmethodmodifiers chrono::ChSolverGMRES::GetError "public"
-%csmethodmodifiers chrono::ChSolverMINRES::GetError "public"
-%csmethodmodifiers chrono::ChSolverADMM::GetError "public"
+%csmethodmodifiers chrono::ChIterativeSolverLS::ArchiveOut "public virtual"
+%csmethodmodifiers chrono::ChIterativeSolverVI::ArchiveOut "public virtual"
 
-%csmethodmodifiers chrono::ChIterativeSolverVI::GetIterations "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::GetIterations "public"
-%csmethodmodifiers chrono::ChSolverGMRES::GetIterations "public"
-%csmethodmodifiers chrono::ChSolverMINRES::GetIterations "public"
+%csmethodmodifiers chrono::ChSolver::GetType "public virtual new"
+%csmethodmodifiers chrono::ChIterativeSolverLS::GetType "public virtual new"
+%csmethodmodifiers chrono::ChIterativeSolverVI::GetType "public virtual new"
 
-%csmethodmodifiers chrono::ChSolverAPGD::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverBB::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverPJacobi::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverPSOR::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverGMRES::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverMINRES::ArchiveIN "public"
-%csmethodmodifiers chrono::ChSolverADMM::ArchiveIN "public"
+%csmethodmodifiers chrono::ChSolverADMM::ArchiveOut "public override"
+%csmethodmodifiers chrono::ChSolverBB::ArchiveOut "public override"
 
-%csmethodmodifiers chrono::ChSolverAPGD::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverBB::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverPJacobi::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverPSOR::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverBiCGSTAB::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverGMRES::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverMINRES::ArchiveOUT "public"
-%csmethodmodifiers chrono::ChSolverADMM::ArchiveOUT "public"
+%csmethodmodifiers chrono::ChSolverADMM::ArchiveIn "public override"
+%csmethodmodifiers chrono::ChSolverBB::ArchiveIn "public override"
+
+
+// Methods inherited from ChSolver; they are re-created here where the multiple
+// inheritance happens, so that derived classes can simply override them
+
+%extend chrono::ChIterativeSolverLS 
+{
+Type GetType() const { return chrono::ChSolver::Type::CUSTOM; }
+};
+
+%extend chrono::ChIterativeSolverVI 
+{
+Type GetType() const { return chrono::ChSolver::Type::CUSTOM; }
+};
+
+
+
 
 #endif             // --------------------------------------------------------------------- CSHARP
 
@@ -115,3 +99,21 @@ using namespace chrono;
 %include "../../../chrono/solver/ChSolverPSOR.h"
 %include "../../../chrono/solver/ChSolverPJacobi.h"
 %include "../../../chrono/solver/ChSolverADMM.h"
+
+
+%DefSharedPtrDynamicDowncast(chrono, ChSolver, ChDirectSolverLS)
+%DefSharedPtrDynamicDowncast(chrono, ChSolver, ChIterativeSolverLS)
+%DefSharedPtrDynamicDowncast(chrono, ChSolver, ChIterativeSolverVI)
+
+
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverVI, ChSolverADMM)
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverVI, ChSolverAPGD)
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverVI, ChSolverBB)
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverVI, ChSolverPSOR)
+
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverLS, ChSolverGMRES)
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverLS, ChSolverMINRES)
+%DefSharedPtrDynamicDowncast(chrono, ChIterativeSolverLS, ChSolverBiCGSTAB)
+
+%DefSharedPtrDynamicDowncast(chrono, ChDirectSolverLS, ChSolverSparseQR)
+%DefSharedPtrDynamicDowncast(chrono, ChDirectSolverLS, ChSolverSparseLU)

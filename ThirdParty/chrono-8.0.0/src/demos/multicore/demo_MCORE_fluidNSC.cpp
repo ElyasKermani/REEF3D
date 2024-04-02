@@ -40,7 +40,6 @@
 #endif
 
 using namespace chrono;
-using namespace chrono::collision;
 
 double time_step = 1e-3;
 double kernel_radius = .016 * 2;
@@ -55,10 +54,10 @@ void AddContainer(ChSystemMulticoreNSC* sys) {
     auto mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
     mat->SetFriction(0.4f);
 
-    ChVector<> hdim(.55, .6, .55);
-
-    utils::CreateBoxContainer(sys, 0, mat, hdim, 0.05, Vector(0, 0, .3), Q_from_AngAxis(-10, VECT_Y), true, false, true,
-                              true);
+    utils::CreateBoxContainer(sys, 0, mat,                              //
+                              ChVector<>(1.1, 1.2, 1.1), 0.1,           //
+                              ChVector<>(0, 0, 0.3), Q_from_AngY(-10),  //
+                              true, true, true);
 }
 
 // -----------------------------------------------------------------------------
@@ -127,6 +126,9 @@ int main(int argc, char* argv[]) {
 
     ChSystemMulticoreNSC sys;
 
+    // Set associated collision detection system
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
+
     // Set number of threads
     sys.SetNumThreads(8);
 
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.SetCameraPosition(ChVector<>(0, -2.5, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector<>(0, -2.5, 0), ChVector<>(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Uncomment the following two lines for the OpenGL manager to automatically

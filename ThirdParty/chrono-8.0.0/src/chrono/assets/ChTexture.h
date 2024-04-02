@@ -22,6 +22,9 @@
 
 namespace chrono {
 
+/// @addtogroup chrono_assets
+/// @{
+
 /// Class for defining a texture.
 /// Encapsulates the texture filename and texture scale.
 class ChApi ChTexture {
@@ -52,15 +55,17 @@ class ChApi ChTexture {
     const ChVector2<float>& GetScale() const { return m_scale; }
 
     /// Method to allow serialization of transient data to archives.
-    void ArchiveOUT(ChArchiveOut& marchive);
+    void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient data from archives.
-    void ArchiveIN(ChArchiveIn& marchive);
+    void ArchiveIn(ChArchiveIn& marchive);
 
   private:
     std::string m_filename;
     ChVector2<float> m_scale;
 };
+
+/// @} chrono_assets
 
 CH_CLASS_VERSION(ChTexture, 0)
 

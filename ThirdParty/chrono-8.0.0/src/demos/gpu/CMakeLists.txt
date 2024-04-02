@@ -7,7 +7,6 @@ INCLUDE_DIRECTORIES(${CH_GPU_INCLUDES})
 SET(LIBRARIES
     ChronoEngine
     ChronoEngine_gpu
-    ChronoModels_robot
 )
 
 # ------------------------------------------------------------------------------
@@ -15,14 +14,11 @@ SET(LIBRARIES
 # ------------------------------------------------------------------------------
 
 SET(DEMOS
-    demo_GPU_soilBin
     demo_GPU_ballCosim
     demo_GPU_movingBoundary
     demo_GPU_fixedTerrain
     demo_GPU_mixer
-    demo_GPU_compression
     demo_GPU_repose
-    demo_GPU_ballDrop
 )
 
 # ------------------------------------------------------------------------------

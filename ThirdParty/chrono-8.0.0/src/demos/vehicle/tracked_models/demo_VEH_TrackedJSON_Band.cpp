@@ -22,25 +22,26 @@
 
 #include "chrono/ChConfig.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/solver/ChDirectSolverLS.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
+#include "chrono_vehicle/utils/ChUtilsJSON.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeBand.h"
 
-#include "chrono_vehicle/powertrain/SimplePowertrain.h"
 #include "chrono_vehicle/tracked_vehicle/vehicle/TrackedVehicle.h"
 
-#include "chrono_vehicle/driver/ChIrrGuiDriver.h"
-#include "chrono_vehicle/tracked_vehicle/utils/ChTrackedVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
+#include "chrono_vehicle/tracked_vehicle/ChTrackedVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
 #ifdef CHRONO_MUMPS
-#include "chrono_mumps/ChSolverMumps.h"
+    #include "chrono_mumps/ChSolverMumps.h"
 #endif
 
 #ifdef CHRONO_PARDISO_MKL
-#include "chrono_pardisomkl/ChSolverPardisoMKL.h"
+    #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
 
 #define USE_IRRLICHT
@@ -58,8 +59,9 @@ using std::endl;
 std::string vehicle_file("M113/vehicle/M113_Vehicle_BandBushing.json");
 ////std::string vehicle_file("M113/vehicle/M113_Vehicle_BandANCF.json");
 
-// JSON file for powertrain
-std::string simplepowertrain_file("M113/powertrain/M113_SimpleCVTPowertrain.json");
+// JSON files for powertrain
+std::string engine_file("M113/powertrain/M113_EngineSimple.json");
+std::string transmission_file("M113/powertrain/M113_AutomaticTransmissionSimpleMap.json");
 
 // Initial vehicle position
 ChVector<> initLoc(0, 0, 1.1);
@@ -76,8 +78,8 @@ double t_end = 1.0;
 // Simulation step size
 double step_size = 1e-4;
 
-// Linear solver (MUMPS or PARDISO_MKL)
-ChSolver::Type solver_type = ChSolver::Type::MUMPS;
+// Linear solver (SPARSE_QR, SPARSE_LU, MUMPS, or PARDISO_MKL)
+ChSolver::Type solver_type = ChSolver::Type::PARDISO_MKL;
 
 // Time interval between two render frames
 double render_step_size = 1.0 / 50;  // FPS = 50
@@ -171,6 +173,12 @@ int main(int argc, char* argv[]) {
     // monitored parts.  Data can be written to a file by invoking ChTrackedVehicle::WriteContacts().
     ////vehicle.SetContactCollection(true);
 
+    // ----------------------------
+    // Associate a collision system
+    // ----------------------------
+
+    vehicle.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     // ------------------
     // Create the terrain
     // ------------------
@@ -182,7 +190,9 @@ int main(int argc, char* argv[]) {
     // Create the powertrain system
     // ----------------------------
 
-    auto powertrain = chrono_types::make_shared<SimplePowertrain>(vehicle::GetDataFile(simplepowertrain_file));
+    auto engine = ReadEngineJSON(vehicle::GetDataFile(engine_file));
+    auto transmission = ReadTransmissionJSON(vehicle::GetDataFile(transmission_file));
+    auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
     vehicle.InitializePowertrain(powertrain);
 
 #ifdef USE_IRRLICHT
@@ -205,7 +215,7 @@ int main(int argc, char* argv[]) {
     // Create the driver system
     // ------------------------
 
-    ChIrrGuiDriver driver(*vis);
+    ChInteractiveDriverIRR driver(*vis);
 
     // Set the time response for keyboard inputs.
     double steering_time = 0.5;  // time to go from 0 to +1 (or from 0 to -1)
@@ -247,11 +257,14 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    //Setup chassis position output with column headers
+    // Setup chassis position output with column headers
     utils::CSV_writer csv("\t");
     csv.stream().setf(std::ios::scientific | std::ios::showpos);
     csv.stream().precision(6);
-    csv << "Time (s)" << "Chassis X Pos (m)" << "Chassis Y Pos (m)" << "Chassis Z Pos (m)" << endl;
+    csv << "Time (s)"
+        << "Chassis X Pos (m)"
+        << "Chassis Y Pos (m)"
+        << "Chassis Z Pos (m)" << endl;
 
     // Set up vehicle output
     ////vehicle.SetChassisOutput(true);
@@ -272,34 +285,56 @@ int main(int argc, char* argv[]) {
 
 #ifndef CHRONO_PARDISO_MKL
     if (solver_type == ChSolver::Type::PARDISO_MKL)
-        solver_type = ChSolver::Type::MUMPS;
+        solver_type = ChSolver::Type::SPARSE_QR;
 #endif
 #ifndef CHRONO_MUMPS
     if (solver_type == ChSolver::Type::MUMPS)
-        solver_type = ChSolver::Type::PARDISO_MKL;
+        solver_type = ChSolver::Type::SPARSE_QR;
 #endif
 
     switch (solver_type) {
-        default:
+        case ChSolver::Type::SPARSE_QR: {
+            std::cout << "Using SparseQR solver" << std::endl;
+            auto solver = chrono_types::make_shared<ChSolverSparseQR>();
+            solver->UseSparsityPatternLearner(true);
+            solver->LockSparsityPattern(true);
+            solver->SetVerbose(false);
+            vehicle.GetSystem()->SetSolver(solver);
             break;
-#ifdef CHRONO_MUMPS
+        }
+        case ChSolver::Type::SPARSE_LU: {
+            std::cout << "Using SparseLU solver" << std::endl;
+            auto solver = chrono_types::make_shared<ChSolverSparseLU>();
+            solver->UseSparsityPatternLearner(true);
+            solver->LockSparsityPattern(true);
+            solver->SetVerbose(false);
+            vehicle.GetSystem()->SetSolver(solver);
+            break;
+        }
         case ChSolver::Type::MUMPS: {
-            auto mumps_solver = chrono_types::make_shared<ChSolverMumps>();
-            mumps_solver->LockSparsityPattern(true);
-            mumps_solver->SetVerbose(verbose_solver);
-            vehicle.GetSystem()->SetSolver(mumps_solver);
+#ifdef CHRONO_MUMPS
+            std::cout << "Using MUMPS solver" << std::endl;
+            auto solver = chrono_types::make_shared<ChSolverMumps>();
+            solver->LockSparsityPattern(true);
+            solver->SetVerbose(verbose_solver);
+            vehicle.GetSystem()->SetSolver(solver);
+#endif
             break;
         }
-#endif
-#ifdef CHRONO_PARDISO_MKL
         case ChSolver::Type::PARDISO_MKL: {
-            auto mkl_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
-            mkl_solver->LockSparsityPattern(true);
-            mkl_solver->SetVerbose(verbose_solver);
-            vehicle.GetSystem()->SetSolver(mkl_solver);
+#ifdef CHRONO_PARDISO_MKL
+            std::cout << "Using PardisoMKL solver" << std::endl;
+            auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
+            solver->LockSparsityPattern(true);
+            solver->SetVerbose(verbose_solver);
+            vehicle.GetSystem()->SetSolver(solver);
+#endif
             break;
         }
-#endif
+        default: {
+            std::cout << "Solver type not supported." << std::endl;
+            return 1;
+        }
     }
 
     vehicle.GetSystem()->SetTimestepperType(ChTimestepper::Type::HHT);
@@ -307,21 +342,13 @@ int main(int argc, char* argv[]) {
     integrator->SetAlpha(-0.2);
     integrator->SetMaxiters(50);
     integrator->SetAbsTolerances(1e-2, 1e2);
-    integrator->SetMode(ChTimestepperHHT::ACCELERATION);
     integrator->SetStepControl(false);
     integrator->SetModifiedNewton(true);
-    integrator->SetScaling(true);
     integrator->SetVerbose(verbose_integrator);
 
     // ---------------
     // Simulation loop
     // ---------------
-
-    // Inter-module communication data
-    BodyStates shoe_states_left(vehicle.GetNumTrackShoes(LEFT));
-    BodyStates shoe_states_right(vehicle.GetNumTrackShoes(RIGHT));
-    TerrainForces shoe_forces_left(vehicle.GetNumTrackShoes(LEFT));
-    TerrainForces shoe_forces_right(vehicle.GetNumTrackShoes(RIGHT));
 
     // Number of steps to run for the simulation
     int sim_steps = (int)std::ceil(t_end / step_size);
@@ -387,34 +414,33 @@ int main(int argc, char* argv[]) {
 #endif
 
         if (step_number % render_steps == 0) {
+            // Zero-pad frame numbers in file names for postprocessing
             if (povray_output) {
-                char filename[100];
-                sprintf(filename, "%s/data_%03d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteVisualizationAssets(vehicle.GetSystem(), filename);
+                std::ostringstream filename;
+                filename << pov_dir << "/data_" << std::setw(4) << std::setfill('0') << render_frame + 1 << ".dat";
+                utils::WriteVisualizationAssets(vehicle.GetSystem(), filename.str());
             }
 
 #ifdef USE_IRRLICHT
             if (img_output && step_number > 200) {
-                char filename[100];
-                sprintf(filename, "%s/img_%03d.jpg", img_dir.c_str(), render_frame + 1);
-                vis->WriteImageToFile(filename);
+                std::ostringstream filename;
+                filename << img_dir << "/img_" << std::setw(4) << std::setfill('0') << render_frame + 1 << ".jpg";
+                vis->WriteImageToFile(filename.str());
             }
 #endif
             render_frame++;
         }
 
-        // Collect data from modules
+        // Current driver inputs
         DriverInputs driver_inputs = driver.GetInputs();
-        vehicle.GetTrackShoeStates(LEFT, shoe_states_left);
-        vehicle.GetTrackShoeStates(RIGHT, shoe_states_right);
 
         // Update modules (process data from other modules)
         double time = vehicle.GetChTime();
         driver.Synchronize(time);
         terrain.Synchronize(time);
-        vehicle.Synchronize(time, driver_inputs, shoe_forces_left, shoe_forces_right);
+        vehicle.Synchronize(time, driver_inputs);
 #ifdef USE_IRRLICHT
-        vis->Synchronize("", driver_inputs);
+        vis->Synchronize(time, driver_inputs);
 #endif
 
         // Advance simulation for one timestep for all modules

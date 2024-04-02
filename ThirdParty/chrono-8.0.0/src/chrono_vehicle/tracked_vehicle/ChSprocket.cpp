@@ -20,7 +20,7 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChLineShape.h"
+#include "chrono/assets/ChVisualShapeLine.h"
 #include "chrono/assets/ChColor.h"
 
 #include "chrono_vehicle/tracked_vehicle/ChSprocket.h"
@@ -56,7 +56,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector<>
     ChMatrix33<> rot_y2z(y2z);
 
     // Create and initialize the gear body (same orientation as the chassis).
-    m_gear = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_gear = chrono_types::make_shared<ChBody>();
     m_gear->SetNameString(m_name + "_gear");
     m_gear->SetIdentifier(BodyID::SPROCKET_BODY);
     m_gear->SetPos(loc);
@@ -64,6 +64,9 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector<>
     m_gear->SetMass(GetGearMass());
     m_gear->SetInertiaXX(GetGearInertia());
     chassis->GetSystem()->AddBody(m_gear);
+
+    // Create an empty collision model for the gear body (needed for the custom collision detection algorithms)
+    m_gear->AddCollisionModel(chrono_types::make_shared<ChCollisionModel>());
 
     // Create and initialize the revolute joint between chassis and gear.
     ChCoordsys<> rev_csys(loc, chassisRot * y2z);
@@ -91,6 +94,9 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector<>
     // Set user-defined custom collision callback class for sprocket-shoes contact.
     m_callback = GetCollisionCallback(track);
     chassis->GetSystem()->RegisterCustomCollisionCallback(m_callback);
+
+    // Mark as initialized
+    m_initialized = true;
 }
 
 void ChSprocket::InitializeInertiaProperties() {
@@ -117,12 +123,12 @@ void ChSprocket::AddVisualizationAssets(VisualizationType vis) {
 
     //// RADU TODO: can use a single instance of the LineShape
 
-    auto asset_1 = chrono_types::make_shared<ChLineShape>();
+    auto asset_1 = chrono_types::make_shared<ChVisualShapeLine>();
     asset_1->SetLineGeometry(profile);
     asset_1->SetColor(ChColor(1, 0, 0));
     m_gear->AddVisualShape(asset_1, ChFrame<>(ChVector<>(0, sep / 2, 0), rot_y2z));
 
-    auto asset_2 = chrono_types::make_shared<ChLineShape>();
+    auto asset_2 = chrono_types::make_shared<ChVisualShapeLine>();
     asset_2->SetLineGeometry(profile);
     asset_2->SetColor(ChColor(1, 0, 0));
     m_gear->AddVisualShape(asset_2, ChFrame<>(ChVector<>(0, -sep / 2, 0), rot_y2z));
@@ -147,12 +153,11 @@ std::shared_ptr<geometry::ChTriangleMeshConnected> ChSprocket::CreateVisualizati
     std::vector<ChVector<>> rpoints; // points on ring
     std::vector<ChVector<>> pnormals; // normals on profile
     std::vector<ChVector<>> rnormals; // normals on ring
-    ChVector<> p;
     for (auto il = 0; il < profile->GetSubLinesCount(); il++) {
         auto line = profile->GetSubLineN(il);
         auto n = static_cast<int>(std::ceil(line->Length(2) / delta));
         for (auto ip = 0; ip < n; ip++) {            
-            line->Evaluate(p, (1.0 * ip)/n);
+            auto p = line->Evaluate((1.0 * ip)/n);
             ppoints.push_back(ChVector<>(p.x(), 0, p.y())); // Point on profile
             p *= radius / p.Length();
             rpoints.push_back(ChVector<>(p.x(), 0, p.y())); // Point on ring
@@ -311,15 +316,15 @@ void ChSprocket::ExportComponentList(rapidjson::Document& jsonDocument) const {
 
     std::vector<std::shared_ptr<ChBody>> bodies;
     bodies.push_back(m_gear);
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChShaft>> shafts;
     shafts.push_back(m_axle);
-    ChPart::ExportShaftList(jsonDocument, shafts);
+    ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     joints.push_back(m_revolute);
-    ChPart::ExportJointList(jsonDocument, joints);
+    ExportJointList(jsonDocument, joints);
 }
 
 void ChSprocket::Output(ChVehicleOutput& database) const {

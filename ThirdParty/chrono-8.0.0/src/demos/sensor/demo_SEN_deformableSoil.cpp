@@ -27,9 +27,9 @@
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/ChDriver.h"
-#include "chrono_vehicle/terrain/SCMDeformableTerrain.h"
+#include "chrono_vehicle/terrain/SCMTerrain.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
-#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
@@ -40,7 +40,6 @@
 #include "chrono_sensor/filters/ChFilterVisualize.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::irrlicht;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
@@ -170,9 +169,6 @@ void CreateLuggedGeometry(std::shared_ptr<ChBody> wheel_body, std::shared_ptr<Ch
     utils::LoadConvexMesh(vehicle::GetDataFile(lugged_file), lugged_mesh, lugged_convex);
     int num_hulls = lugged_convex.GetHullCount();
 
-    auto coll_model = wheel_body->GetCollisionModel();
-    coll_model->ClearModel();
-
     // Assemble the tire contact from 15 segments, properly offset.
     // Each segment is further decomposed in convex hulls.
     for (int iseg = 0; iseg < 15; iseg++) {
@@ -180,19 +176,20 @@ void CreateLuggedGeometry(std::shared_ptr<ChBody> wheel_body, std::shared_ptr<Ch
         for (int ihull = 0; ihull < num_hulls; ihull++) {
             std::vector<ChVector<> > convexhull;
             lugged_convex.GetConvexHullResult(ihull, convexhull);
-            coll_model->AddConvexHull(wheel_material, convexhull, VNULL, rot);
+            auto ct_shape = chrono_types::make_shared<ChCollisionShapeConvexHull>(wheel_material, convexhull);
+            wheel_body->AddCollisionShape(ct_shape, ChFrame<>(VNULL, rot));
         }
     }
 
     // Add a cylinder to represent the wheel hub.
-    coll_model->AddCylinder(wheel_material, 0.223, 0.223, 0.126);
-    coll_model->BuildModel();
+    auto cyl_shape = chrono_types::make_shared<ChCollisionShapeCylinder>(wheel_material, 0.223, 0.252);
+    wheel_body->AddCollisionShape(cyl_shape, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
 
     // Visualization
     auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(
         vehicle::GetDataFile("hmmwv/lugged_wheel.obj"), false, false);
 
-    auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetName("lugged_wheel");
     trimesh_shape->SetMutable(false);
@@ -216,7 +213,8 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetContactMethod(ChContactMethod::SMC);
     my_hmmwv.SetChassisFixed(false);
     my_hmmwv.SetInitPosition(ChCoordsys<>(initLoc, initRot));
-    my_hmmwv.SetPowertrainType(PowertrainModelType::SHAFTS);
+    my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
+    my_hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::AWD);
     switch (tire_type) {
         case TireType::CYLINDRICAL:
@@ -262,7 +260,7 @@ int main(int argc, char* argv[]) {
     // ------------------
     ChSystem* system = my_hmmwv.GetSystem();
 
-    SCMDeformableTerrain terrain(system);
+    SCMTerrain terrain(system);
     terrain.SetSoilParameters(2e6,   // Bekker Kphi
                               0,     // Bekker Kc
                               1.1,   // Bekker n exponent
@@ -290,8 +288,8 @@ int main(int argc, char* argv[]) {
     ////}
 
     ////terrain.SetTexture(vehicle::GetDataFile("terrain/textures/grass.jpg"), 80, 16);
-    ////terrain.SetPlotType(vehicle::SCMDeformableTerrain::PLOT_PRESSURE_YELD, 0, 30000.2);
-    terrain.SetPlotType(vehicle::SCMDeformableTerrain::PLOT_SINKAGE, 0, 0.1);
+    ////terrain.SetPlotType(vehicle::SCMTerrain::PLOT_PRESSURE_YELD, 0, 30000.2);
+    terrain.SetPlotType(vehicle::SCMTerrain::PLOT_SINKAGE, 0, 0.1);
 
     terrain.Initialize(terrainLength, terrainWidth, delta);
 
@@ -373,7 +371,7 @@ int main(int argc, char* argv[]) {
     int step_number = 0;
     int render_frame = 0;
 
-    ChTimer<> timer;
+    ChTimer timer;
 
     while (vis->Run()) {
         double time = system->GetChTime();
@@ -410,7 +408,7 @@ int main(int argc, char* argv[]) {
         driver.Synchronize(time);
         terrain.Synchronize(time);
         my_hmmwv.Synchronize(time, driver_inputs, terrain);
-        vis->Synchronize("", driver_inputs);
+        vis->Synchronize(time, driver_inputs);
 
         manager->Update();
 

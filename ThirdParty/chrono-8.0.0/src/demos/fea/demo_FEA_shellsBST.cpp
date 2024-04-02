@@ -27,9 +27,11 @@
 #include "chrono/fea/ChElementShellBST.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
-#include "chrono/assets/ChVisualShapeFEA.h"
 #include "chrono/fea/ChMeshFileLoader.h"
+#include "chrono/fea/ChContactSurfaceMesh.h"
+#include "chrono/fea/ChContactSurfaceNodeCloud.h"
 
+#include "chrono/assets/ChVisualShapeFEA.h"
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
 #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
@@ -38,14 +40,10 @@
 
 #include "chrono_thirdparty/filesystem/path.h"
 
-// Remember to use the namespace 'chrono' because all classes
-// of Chrono::Engine belong to this namespace and its children...
-
 using namespace chrono;
 using namespace chrono::fea;
 using namespace chrono::irrlicht;
 using namespace chrono::postprocess;
-using namespace irr;
 
 // Output directory
 const std::string out_dir = GetChronoOutputPath() + "FEA_SHELLS";
@@ -82,7 +80,7 @@ int main(int argc, char* argv[]) {
     ChVector<> load_force;
 
     //
-    // BENCHMARK n.1
+    // BENCHMARK 1
     //
     // Add a single BST element:
     //
@@ -168,7 +166,7 @@ int main(int argc, char* argv[]) {
     }
 
     //
-    // BENCHMARK n.2
+    // BENCHMARK 2
     //
     // Add a rectangular mesh of BST elements:
     //
@@ -275,7 +273,7 @@ int main(int argc, char* argv[]) {
     }
 
     //
-    // BENCHMARK n.3
+    // BENCHMARK 3
     //
     // Load and create shells from a .obj file containing a triangle mesh surface
     //
@@ -290,40 +288,72 @@ int main(int argc, char* argv[]) {
         auto material = chrono_types::make_shared<ChMaterialShellKirchhoff>(elasticity);
         material->SetDensity(density);
 
-        ChMeshFileLoader::BSTShellFromObjFile(mesh, GetChronoDataFile("models/cube.obj").c_str(), material, thickness);
+        ChMeshFileLoader::BSTShellFromObjFile(mesh, GetChronoDataFile("models/sphere.obj").c_str(), material, thickness);
+
+        if (auto mnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(0)))
+            mnode->SetFixed(true);
     }
 
     // Visualization of the FEM mesh.
-    // This will automatically update a triangle mesh (a ChTriangleMeshShape asset that is internally managed) by
-    // setting  proper coordinates and vertex colors as in the FEM elements. Such triangle mesh can be rendered by
-    // Irrlicht or POVray or whatever postprocessor that can handle a colored ChTriangleMeshShape).
+    auto vis_shell_mesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    vis_shell_mesh->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
+    vis_shell_mesh->SetWireframe(true);
+    vis_shell_mesh->SetShellResolution(2);
+    ////vis_shell_mesh->SetBackfaceCull(true);
+    mesh->AddVisualShapeFEA(vis_shell_mesh);
 
-    auto vis_shell_A = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
-    // vis_shell_A->SetSmoothFaces(true);
-    // vis_shell_A->SetWireframe(true);
-    vis_shell_A->SetShellResolution(2);
-    // vis_shell_A->SetBackfaceCull(true);
-    mesh->AddVisualShapeFEA(vis_shell_A);
+    auto vis_shell_speed = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    vis_shell_speed->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
+    vis_shell_speed->SetColorscaleMinMax(0.0, 5.0);
+    vis_shell_speed->SetWireframe(false);
+    vis_shell_speed->SetShellResolution(3);
+    mesh->AddVisualShapeFEA(vis_shell_speed);
 
-    auto vis_shell_B = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
-    vis_shell_B->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
-    vis_shell_B->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
-    vis_shell_B->SetSymbolsThickness(0.006);
-    mesh->AddVisualShapeFEA(vis_shell_B);
+    auto vis_shell_nodes = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    vis_shell_nodes->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
+    vis_shell_nodes->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
+    vis_shell_nodes->SetSymbolsThickness(0.006);
+    mesh->AddVisualShapeFEA(vis_shell_nodes);
+
+    if (false) {
+        // Create a contact material
+        auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+        mat->SetYoungModulus(6e4f);
+        mat->SetFriction(0.3f);
+        mat->SetRestitution(0.5f);
+        mat->SetAdhesion(0);
+
+        // Add collision geometry to the FEA mesh
+        // (a) contact surface
+        auto contact_surf = chrono_types::make_shared<ChContactSurfaceMesh>(mat);
+        mesh->AddContactSurface(contact_surf);
+        contact_surf->AddFacesFromBoundary(0.01);
+        // (b) contact points
+        ////auto contact_cloud = chrono_types::make_shared<ChContactSurfaceNodeCloud>(mat);
+        ////mesh->AddContactSurface(contact_cloud);
+        ////contact_cloud->AddAllNodes(0.01);
+
+        // Create a fixed collision shape
+        auto cylinder =
+            chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, 0.1, 1.0, 1000, true, true, mat);
+        cylinder->SetBodyFixed(true);
+        cylinder->SetPos(ChVector<>(0.75, -0.25, 0.5));
+        cylinder->SetRot(Q_from_AngZ(CH_C_PI_2));
+        cylinder->GetVisualShape(0)->SetColor(ChColor(0.6f, 0.4f, 0.4f));
+        sys.AddBody(cylinder);
+    }
 
     // Create the Irrlicht visualization system
-    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-    vis->AttachSystem(&sys);
-    vis->SetWindowSize(1024, 768);
-    vis->SetWindowTitle("Shells FEA test: triangle BST elements");
-    vis->Initialize();
-    vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddCamera(ChVector<>(1, 0.3, 1.3), ChVector<>(0.5, -0.3, 0.5));
-    vis->AddLightWithShadow(ChVector<>(2, 2, 2), ChVector<>(0, 0, 0), 6, 0.2, 6, 50);
-    vis->AddLight(ChVector<>(-2, -2, 0), 6, ChColor(0.6f, 1.0f, 1.0f));
-    vis->AddLight(ChVector<>(0, -2, -2), 6, ChColor(0.6f, 1.0f, 1.0f));
-    vis->EnableShadows();
+    auto vsys = chrono_types::make_shared<ChVisualSystemIrrlicht>();
+    vsys->AttachSystem(&sys);
+    vsys->SetWindowSize(1024, 768);
+    vsys->SetWindowTitle("Shells FEA test: triangle BST elements");
+    vsys->Initialize();
+    vsys->AddLogo();
+    vsys->AddSkyBox();
+    vsys->AddCamera(ChVector<>(1, 0.3, 1.3), ChVector<>(0.5, -0.3, 0.5));
+    vsys->AddLight(ChVector<>(2, 2, 0), 6, ChColor(0.6f, 0.6f, 0.6f));
+    vsys->AddLight(ChVector<>(0, -2, 2), 6, ChColor(0.6f, 0.6f, 0.6f));
 
     // Change solver to PardisoMKL
     auto mkl_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
@@ -342,12 +372,60 @@ int main(int argc, char* argv[]) {
     ChFunction_Recorder rec_X;
     ChFunction_Recorder rec_Y;
 
-    while (vis->Run()) {
-        vis->BeginScene();
-        vis->Render();
-        vis->EndScene();
+    while (vsys->Run()) {
+        vsys->BeginScene();
+        vsys->Render();
+        vsys->EndScene();
         sys.DoStepDynamics(timestep);
     }
+    
+    
+    // EXPLICIT INTEGRATION
+    // 
+    // Explicit integration is an alternative to implicit integration. If you want to test
+    // the explicit integration, just delete the previous while(){...} loop and uncomment the following piece of code.
+    // 
+    // As you may know, explicit integration does not have to solve systems with stiffness or damping matrices at each
+    // time step, so each time step has less CPU overhead, but this comes at a cost: very short time steps must
+    // be used otherwise the integration will diverge - especially if the system has high stiffness and/or low masses.
+    // For the case of the falling cloth, we succesfully tested
+    //   ChTimestepperEulerExplIIorder  timestep = 0.00002  (not suggested, better use higher order)
+    //   ChTimestepperHeun              timestep = 0.0001   (Heun is like a 2nd order Runge Kutta)
+    //   ChTimestepperRungeKuttaExpl    timestep = 0.0005   (the famous 4th order Runge Kutta, of course slower)
+    //
+    // You will see that the explicit integrator does not introduce numerical damping unlike implicit integrators, 
+    // so the motion will be more oscillatory and undamped, thus amplificating the risk of divergence (if you add ù
+    // structural damping, this might help with stability, by the way)
+    // 
+    // In explicit integrators, you can optionally enable mass lumping via  SetDiagonalLumpingON() , just remember:
+    // - this helps reducing CPU overhead because it does not lead to linear systems
+    // - not all finite elements/bodies support this: nodes with non-diagonal inertias lead to approximation in lumping
+    // - to avoid linear systems, this option also enables "constraints by penalty". Constraints, if any, 
+    //   will turn into penalty forces. Penalty factors can be set as optional parameters in SetDiagonalLumpingON(..)
+    //   It is not the case of this demo, but if you add constraints, you'll see that they will be satisfied approximately
+    //   with some oscillatory clearance. The higher the penalty, the smaller the amplitude of such clearances, but the higher
+    //   the risk of divergence.
+    // 
+    // Final tip: if the time step is extremely small, it is not worth while rendering all time steps, in some cases the 
+    // video rendering could become the real bottleneck.
+    /*
+    auto explicit_timestepper = chrono_types::make_shared<ChTimestepperHeun>(&sys);
+    explicit_timestepper->SetDiagonalLumpingON(); // use diagonal mass lumping, skip linear systems completely
+    sys.SetTimestepper(explicit_timestepper);
+    timestep = 0.0001;
+
+    while (vsys->Run()) {
+        vsys->BeginScene();
+        vsys->Render();
+        vsys->EndScene();
+
+        // Tip: draw scene only each N steps of the explicit integrator because
+        // explicit integration requires many small timesteps, each with low CPU overhead, though.
+        // So the video rendering could become the real bottleneck if redrawing each time step.
+        for (int i = 0; i<5; ++i)
+            sys.DoStepDynamics(timestep);
+    }
+    */
 
     return 0;
 }

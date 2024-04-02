@@ -1,7 +1,7 @@
 // =============================================================================
 // PROJECT CHRONO - http://projectchrono.org
 //
-// Copyright (c) 2015 projectchrono.org
+// Copyright (c) 2023 projectchrono.org
 // All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found
@@ -18,10 +18,10 @@
 // https://simcompanion.mscsoftware.com/infocenter/index?page=content&id=DOC10645&cat=2014_ADAMS_DOCS&actp=LIST
 //
 // =============================================================================
-// Authors: Radu Serban, Mike Taylor
+// Authors: Radu Serban, Mike Taylor, Rainer Gericke
 // =============================================================================
 //
-// Fiala tire model.
+// Fiala tire model with Coulomb friction based stand-still algorithm
 //
 // =============================================================================
 
@@ -43,7 +43,9 @@ ChFialaTire::ChFialaTire(const std::string& name)
       m_mu_0(0.8),
       m_time_trans(0.2),
       m_c_slip(0),
-      m_c_alpha(0) {
+      m_c_alpha(0),
+      m_frblend_begin(1),
+      m_frblend_end(3) {
     m_tireforce.force = ChVector<>(0, 0, 0);
     m_tireforce.point = ChVector<>(0, 0, 0);
     m_tireforce.moment = ChVector<>(0, 0, 0);
@@ -63,10 +65,12 @@ void ChFialaTire::Initialize(std::shared_ptr<ChWheel> wheel) {
     // Initialize contact patch state variables to 0
     m_states.kappa = 0;
     m_states.alpha = 0;
+
+    m_states.brx = 0;
+    m_states.bry = 0;
 }
 
-void ChFialaTire::Synchronize(double time,
-                              const ChTerrain& terrain) {
+void ChFialaTire::Synchronize(double time, const ChTerrain& terrain) {
     m_time = time;
     WheelState wheel_state = m_wheel->GetState();
 
@@ -117,6 +121,8 @@ void ChFialaTire::Synchronize(double time,
         m_states.vsy = 0;
         m_states.omega = 0;
         m_states.abs_vt = 0;
+        m_states.brx = 0;
+        m_states.bry = 0;
         m_states.disc_normal = ChVector<>(0, 0, 0);
     }
 }
@@ -139,7 +145,6 @@ void ChFialaTire::Advance(double step) {
     //  m_states.kappa_l = 0;
     //  m_states.alpha_l = 0;
     //}
-
     const double vnum = 0.01;
 
     // smoothing interval for My
@@ -169,12 +174,19 @@ void ChFialaTire::Advance(double step) {
     // Now calculate the new force and moment values.
     // Normal force and moment have already been accounted for in Synchronize().
     // See reference for more detail on the calculations
-    double Fx = 0;
-    double Fy = 0;
+    double Fx = 0, Fx0 = 0;
+    double Fy = 0, Fy0 = 0;
     double My = 0;
     double Mz = 0;
 
+    CombinedCoulombForces(Fx0, Fy0, m_data.normal_force, m_mu / m_mu_0);
+
+    double frblend = ChSineStep(m_data.vel.x(), m_frblend_begin, 0.0, m_frblend_end, 1.0);
+
     FialaPatchForces(Fx, Fy, Mz, m_states.kappa, m_states.alpha, m_data.normal_force);
+
+    Fx = (1.0 - frblend) * Fx0 + frblend * Fx;
+    Fy = (1.0 - frblend) * Fy0 + frblend * Fy;
 
     // Smoothing factor dependend on m_state.abs_vx, allows soft switching of My
     double myStartUp = ChSineStep(m_states.abs_vx, vx_min, 0.0, vx_max, 1.0);
@@ -209,25 +221,47 @@ void ChFialaTire::Advance(double step) {
     m_tireforce.moment = ChVector<>(0, My, Mz);
 }
 
-// -----------------------------------------------------------------------------
+void ChFialaTire::CombinedCoulombForces(double& fx, double& fy, double fz, double muscale) {
+    ChVector2<> F;
+    /*
+     The Dahl Friction Model elastic tread blocks representated by a single bristle. At tire stand still it acts
+     like a spring which enables holding of a vehicle on a slope without creeping (hopefully). Damping terms
+     have been added to calm down the oscillations of the pure spring.
 
-void ChFialaTire::AddVisualizationAssets(VisualizationType vis) {
-    if (vis == VisualizationType::NONE)
-        return;
+     The time step h must be actually the same as for the vehicle system!
 
-    m_cyl_shape = chrono_types::make_shared<ChCylinderShape>();
-    m_cyl_shape->GetCylinderGeometry().rad = GetRadius();
-    m_cyl_shape->GetCylinderGeometry().p1 = ChVector<>(0, GetOffset() + GetVisualizationWidth() / 2, 0);
-    m_cyl_shape->GetCylinderGeometry().p2 = ChVector<>(0, GetOffset() - GetVisualizationWidth() / 2, 0);
-    m_cyl_shape->SetTexture(GetChronoDataFile("textures/greenwhite.png"));
-    m_wheel->GetSpindle()->AddVisualShape(m_cyl_shape);
-}
+     This model is experimental and needs some testing.
 
-void ChFialaTire::RemoveVisualizationAssets() {
-    // Make sure we only remove the assets added by ChFialaTire::AddVisualizationAssets.
-    // This is important for the ChTire object because a wheel may add its own assets to the same body (the
-    // spindle/wheel).
-    ChPart::RemoveVisualizationAsset(m_wheel->GetSpindle(), m_cyl_shape);
+     With bristle deformation z, Coulomb force fc, sliding velocity v and stiffness sigma we have this
+     differential equation:
+         dz/dt = v - sigma0*z*abs(v)/fc
+
+     When z is known, the friction force F can be calulated to:
+        F = sigma0 * z
+
+     For practical use some damping is needed, that leads to:
+        F = sigma0 * z + sigma1 * dz/dt
+
+     Longitudinal and lateral forces are calculated separately and then combined. For stand still a friction
+     circle is used.
+     */
+    double fc = fz * muscale;
+    double h = this->m_stepsize;
+    // Longitudinal Friction Force
+    double brx_dot = m_states.vsx - m_sigma0 * m_states.brx * fabs(m_states.vsx) / fc;  // dz/dt
+    F.x() = -(m_sigma0 * m_states.brx + m_sigma1 * brx_dot);
+    // Lateral Friction Force
+    double bry_dot = m_states.vsy - m_sigma0 * m_states.bry * fabs(m_states.vsy) / fc;  // dz/dt
+    F.y() = -(m_sigma0 * m_states.bry + m_sigma1 * bry_dot);
+    // Calculate the new ODE states (implicit Euler)
+    m_states.brx = (fc * m_states.brx + fc * h * m_states.vsx) / (fc + h * m_sigma0 * fabs(m_states.vsx));
+    m_states.bry = (fc * m_states.bry + fc * h * m_states.vsy) / (fc + h * m_sigma0 * fabs(m_states.vsy));
+    if (F.Length() > fz * muscale) {
+        F.Normalize();
+        F *= fz * muscale;
+    }
+    fx = F.x();
+    fy = F.y();
 }
 
 // -----------------------------------------------------------------------------
@@ -240,7 +274,6 @@ void ChFialaTire::FialaPatchForces(double& fx, double& fy, double& mz, double ka
 
     // modify U due to local friction
     U *= m_mu / m_mu_0;
-
     // Longitudinal Force:
     if (std::abs(kappa) < S_critical) {
         fx = m_c_slip * kappa;

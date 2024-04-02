@@ -19,6 +19,9 @@
 
 namespace chrono {
 
+/// @addtogroup chrono_assets
+/// @{
+
 // Forward declaration
 class ChPhysicsItem;
 
@@ -79,10 +82,10 @@ class ChApi ChCamera {
     virtual void Update() {}
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& archive);
+    virtual void ArchiveOut(ChArchiveOut& archive);
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& archive);
+    virtual void ArchiveIn(ChArchiveIn& archive);
 
   private:
     ChVector<> position;
@@ -97,6 +100,8 @@ class ChApi ChCamera {
 
     friend class ChPhysicsItem;
 };
+
+/// @} chrono_assets
 
 CH_CLASS_VERSION(ChCamera, 0)
 

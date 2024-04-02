@@ -27,7 +27,6 @@
 
 // Chrono namespaces
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::fsi;
 
 // Set a tolerance to control the test
@@ -81,21 +80,22 @@ void CreateSolidPhase(ChSystemSMC& sysMBS, ChSystemFsi& sysFSI) {
     body->SetIdentifier(-1);
     body->SetBodyFixed(true);
     body->SetCollide(true);
-    body->GetCollisionModel()->ClearModel();
 
     // Size and position of the bottom and top walls
     auto initSpace0 = sysFSI.GetInitialSpacing();
-    ChVector<> size_XY(bxDim / 2, byDim / 2, 2 * initSpace0);
+    ChVector<> size_XY(bxDim, byDim, 4 * initSpace0);
     ChVector<> pos_zn(0, 0, -3 * initSpace0);
     ChVector<> pos_zp(0, 0, bzDim + 1 * initSpace0);
 
     // Add a geometry to the body and set the collision model
     chrono::utils::AddBoxGeometry(body.get(), mysurfmaterial, size_XY, pos_zn, QUNIT, true);
-    body->GetCollisionModel()->BuildModel();
     sysMBS.AddBody(body);
 
     // Add BCE particles to the bottom and top wall boundary
-    sysFSI.AddContainerBCE(body, ChFrame<>(), ChVector<>(bxDim, byDim, bzDim), ChVector<int>(0, 0, 2));
+    sysFSI.AddBoxContainerBCE(body,                                           //
+                              ChFrame<>(ChVector<>(0, 0, bzDim / 2), QUNIT),  //
+                              ChVector<>(bxDim, byDim, bzDim),                //
+                              ChVector<int>(0, 0, 2));
 }
 
 // ===============================

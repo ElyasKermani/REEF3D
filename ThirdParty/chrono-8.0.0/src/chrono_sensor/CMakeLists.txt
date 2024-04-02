@@ -6,62 +6,82 @@
 
 option(ENABLE_MODULE_SENSOR "Enable the Chrono Sensor module" OFF)
 
-IF(NOT ENABLE_MODULE_SENSOR)
+if(NOT ENABLE_MODULE_SENSOR)
   return()
-ENDIF()
+endif()
 
 message(STATUS "\n==== Chrono Sensor module ====\n")
 
 # Return now if CUDA is not available
 if(NOT CUDA_FOUND)
     message(WARNING "Chrono::Sensor requires CUDA, but CUDA was not found; disabling Chrono::Sensor")
+
+    mark_as_advanced(FORCE GLM_INCLUDE_DIR)
+    mark_as_advanced(FORCE GLEW_DIR)
+    mark_as_advanced(FORCE glfw3_DIR)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+      mark_as_advanced(FORCE GLEW_DLL)
+      mark_as_advanced(FORCE GLFW_DLL)
+    endif()
+
     set(ENABLE_MODULE_SENSOR OFF CACHE BOOL "Enable the Chrono Sensor module" FORCE)
     return()
 endif()
 
-#Check for GLFW to use as window to display data for debug purposes
-mark_as_advanced(CLEAR GLFW_INCLUDE_DIR)
-mark_as_advanced(CLEAR GLFW_LIBRARY)
-mark_as_advanced(CLEAR GLEW_INCLUDE_DIR)
-mark_as_advanced(CLEAR GLEW_LIBRARY)
+mark_as_advanced(CLEAR GLM_INCLUDE_DIR)
+mark_as_advanced(CLEAR GLEW_DIR)
+mark_as_advanced(CLEAR glfw3_DIR)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   mark_as_advanced(CLEAR GLEW_DLL)
   mark_as_advanced(CLEAR GLFW_DLL)
 endif()
 
-find_package(GLFW OPTIONAL_COMPONENTS)
-find_package(OpenGL OPTIONAL_COMPONENTS)
-find_package(GLEW OPTIONAL_COMPONENTS)
+# ------------------------------------------------------------------------------
+# Hack to deal with MSVC runtime libraries
+# ------------------------------------------------------------------------------
 
-message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
-message(STATUS "GLEW libraries:   ${GLEW_LIBRARY}")
-message(STATUS "GLFW libraries:   ${GLFW_LIBRARY}")
+if(MSVC)
+  if(USE_MSVC_STATIC_RUNTIME)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+  else()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+  endif()
+endif()
+
+# ------------------------------------------------------------------------------
+# Find optional GL support
+# ------------------------------------------------------------------------------
+
+find_package(OpenGL QUIET)
+find_package(GLEW QUIET)
+find_package(glfw3 QUIET)
+
+message(STATUS "OpenGL found: ${OPENGL_FOUND}")
+message(STATUS "GLEW found:   ${GLEW_FOUND}")
+message(STATUS "GLFW3 found:  ${glfw3_FOUND}")
 
 # On windows, ask for the GLEW and GLFW DLLs so that we can copy. This is
 # optional.  If not specified, it is the user's responsibility to make them
 # available at runtime.
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     SET(GLEW_DLL  "" CACHE FILEPATH "The GLEW DLL")
     SET(GLFW_DLL  "" CACHE FILEPATH "The GLFW DLL")
-ENDIF()
-
-
-if(${OPENGL_FOUND} AND ${GLEW_FOUND} AND ${GLFW_FOUND})
-  SET(CH_SENSOR_INCLUDES
-    ${CH_SENSOR_INCLUDES}
-    ${GLFW_INCLUDE_DIR}
-    ${GLEW_INCLUDE_DIR}
-  )
-  #add the necessary opengl, glfw, glew libraries to link list
-  list(APPEND LIBRARIES ${GLFW_LIBRARY})
-  list(APPEND LIBRARIES ${GLEW_LIBRARY})
-  list(APPEND LIBRARIES ${OPENGL_LIBRARIES})
 endif()
 
+if(${OPENGL_FOUND} AND ${GLEW_FOUND} AND ${glfw3_FOUND})
+  set(HAVE_GL TRUE)
+  message(STATUS "GL libraries found.")
+else()
+  set(HAVE_GL FALSE)
+  message(STATUS "GL libraries not found. OpenGL support disabled.")
+endif()
 
 # ------------------------------------------------------------------------------
 # Find and set everything needed for OptiX
 # ------------------------------------------------------------------------------
+
 find_package(OptiX REQUIRED)
 
 message(STATUS "OptiX include directory: ${OptiX_INCLUDE}")
@@ -71,8 +91,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	message(STATUS "NOMINMAX set for windows")
 endif()
 
-SET(CH_SENSOR_INCLUDES
-    ${CH_SENSOR_INCLUDES}
+set(CH_SENSOR_INCLUDES ${CH_SENSOR_INCLUDES}
     ${OptiX_INCLUDE}
     ${CUDA_INCLUDE_DIRS}
 )
@@ -88,6 +107,7 @@ list(APPEND CUDA_NVCC_FLAGS "--use_fast_math")
 # ------------------------------------------------------------------------------
 # Optionally find TensorRT Version___ and set libaries and includes
 # ------------------------------------------------------------------------------
+
 option(USE_TENSOR_RT "Enable the TensorRT for Sensor Module" OFF)
 
 IF(USE_TENSOR_RT)
@@ -119,6 +139,7 @@ ENDIF()
 # ------------------------------------------------------------------------------
 # Optionally use NVRTC to compile shader code rather than NVCC to PTX
 # ------------------------------------------------------------------------------
+
 set(USE_CUDA_NVRTC ON CACHE BOOL "Compile shader code at run-time with NVRTC rather than NVCC at build time to PTX")
 if(USE_CUDA_NVRTC)
   find_library(CUDA_NVRTC_LIBRARY nvrtc HINTS ${CUDA_TOOLKIT_ROOT_DIR}
@@ -177,6 +198,7 @@ install(FILES "${PROJECT_BINARY_DIR}/chrono_sensor/ChConfigSensor.h"
 #-----------------------------------------------------------------------------
 # LIST CUDA FILES USED FOR RT PROGRAMS - TO BE COMPILED TO PTX SHADERS
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_RT_SOURCES
     optix/shaders/box.cu
     optix/shaders/sphere.cu
@@ -188,8 +210,7 @@ set(ChronoEngine_sensor_RT_SOURCES
     optix/shaders/radar.cu
 )
 set(ChronoEngine_sensor_RT_HEADERS
-optix/shaders/device_utils.h
-
+    optix/shaders/device_utils.h
 )
 
 source_group("RT Programs" FILES
@@ -200,6 +221,7 @@ source_group("RT Programs" FILES
 #-----------------------------------------------------------------------------
 # LIST CUDA FILES THAT ARE TO BE COMPILED AS SOURCE
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_CUDA_SOURCES
 	cuda/grayscale.cu
     cuda/pointcloud.cu
@@ -212,6 +234,7 @@ set(ChronoEngine_sensor_CUDA_SOURCES
     cuda/lidar_clip.cu
     cuda/radarprocess.cu
 )
+
 set(ChronoEngine_sensor_CUDA_HEADERS
 	cuda/grayscale.cuh
     cuda/grayscale.cuh
@@ -239,6 +262,7 @@ set(ChronoEngine_sensor_SOURCES
     ChSensorManager.cpp
     ChDynamicsManager.cpp
 )
+
 set(ChronoEngine_sensor_HEADERS
   	ChApiSensor.h
     ChSensorManager.h
@@ -263,6 +287,7 @@ set(ChronoEngine_sensor_SENSORS_SOURCES
     sensors/ChTachometerSensor.cpp
     sensors/Sensor.cpp
 )
+
 set(ChronoEngine_sensor_SENSORS_HEADERS
     sensors/ChSensor.h
     sensors/ChNoiseModel.h
@@ -286,9 +311,11 @@ source_group("Source" FILES
 #-----------------------------------------------------------------------------
 # LIST THE FILES THAT MAKE THE CORE SENSOR LIBRARY
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_SCENE_SOURCES
     optix/scene/ChScene.cpp
 )
+
 set(ChronoEngine_sensor_SCENE_HEADERS
     optix/scene/ChScene.h
 )
@@ -301,6 +328,7 @@ source_group("Scene" FILES
 #-----------------------------------------------------------------------------
 # LIST THE FILES THAT MAKE THE SENSOR OPTIX LIBRARY
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_OPTIX_SOURCES
     optix/ChOptixEngine.cpp
     optix/ChOptixGeometry.cpp
@@ -308,6 +336,7 @@ set(ChronoEngine_sensor_OPTIX_SOURCES
     optix/ChOptixUtils.cpp
     optix/ChFilterOptixRender.cpp
 )
+
 set(ChronoEngine_sensor_OPTIX_HEADERS
     optix/ChOptixEngine.h
     optix/ChOptixGeometry.h
@@ -325,6 +354,7 @@ source_group("Optix" FILES
 #-----------------------------------------------------------------------------
 # LIST THE FILES THAT MAKE THE FILTERS FOR THE SENSOR LIBRARY
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_FILTERS_SOURCES
   	filters/ChFilter.cpp
   	filters/ChFilterIMUUpdate.cpp
@@ -348,6 +378,7 @@ set(ChronoEngine_sensor_FILTERS_SOURCES
     filters/ChFilterRadarVisualizeCluster.cpp
     filters/ChFilterTachometerUpdate.cpp
 )
+
 set(ChronoEngine_sensor_FILTERS_HEADERS
   	filters/ChFilter.h
     filters/ChFilterIMUUpdate.h
@@ -377,11 +408,11 @@ source_group("Filters" FILES
   	${ChronoEngine_sensor_FILTERS_HEADERS}
 )
 
-
 #-----------------------------------------------------------------------------
 # LIST THE FILES THAT MAKE THE FILTERS FOR THE SENSOR LIBRARY
 #-----------------------------------------------------------------------------
-IF(USE_TENSOR_RT)
+
+if(USE_TENSOR_RT)
     set(ChronoEngine_sensor_TENSORRT_SOURCES
       	tensorrt/ChFilterUFF.cpp
         tensorrt/ChFilterONNX.cpp
@@ -396,18 +427,20 @@ IF(USE_TENSOR_RT)
         ${ChronoEngine_sensor_TENSORRT_SOURCES}
       	${ChronoEngine_sensor_TENSORRT_HEADERS}
     )
-ENDIF()
+endif()
 
 
 #-----------------------------------------------------------------------------
 # LIST THE UTILITY FILES THAT WILL BE EXPOSED TO THE USER
 #-----------------------------------------------------------------------------
+
 set(ChronoEngine_sensor_UTILS_SOURCES
     utils/ChUtilsJSON.cpp
     utils/ChGPSUtils.cpp
     utils/Kdtree.cpp
     utils/Dbscan.cpp
 )
+
 set(ChronoEngine_sensor_UTILS_HEADERS
   	utils/CudaMallocHelper.h
     utils/ChUtilsJSON.h
@@ -456,11 +489,7 @@ endif()
 # reset the cuda generate directory for cuda files being compiled into obj
 set(CUDA_GENERATED_OUTPUT_DIR "")
 
-# ----------------------------------------------------------------------------
-# Collect additional include directories necessary for the Sensor module.
-# Make some variables visible from parent directory
-# ----------------------------------------------------------------------------
-
+# Collect all sources
 list(APPEND ALL_CH_SENSOR_FILES ${ChronoEngine_sensor_SOURCES})
 list(APPEND ALL_CH_SENSOR_FILES ${ChronoEngine_sensor_HEADERS})
 list(APPEND ALL_CH_SENSOR_FILES ${ChronoEngine_sensor_SENSORS_SOURCES})
@@ -482,14 +511,12 @@ if(NOT USE_CUDA_NVRTC)
     list(APPEND ALL_CH_SENSOR_FILES ${generated_rt_files})
 endif()
 
-IF(USE_TENSOR_RT)
+if(USE_TENSOR_RT)
     list(APPEND ALL_CH_SENSOR_FILES ${ChronoEngine_sensor_TENSORRT_SOURCES})
     list(APPEND ALL_CH_SENSOR_FILES ${ChronoEngine_sensor_TENSORRT_HEADERS})
-ENDIF()
+endif()
 
-cuda_add_library(ChronoEngine_sensor SHARED
-    ${ALL_CH_SENSOR_FILES}
-)
+cuda_add_library(ChronoEngine_sensor ${ALL_CH_SENSOR_FILES})
 
 if(USE_CUDA_NVRTC)
   target_compile_definitions(ChronoEngine_sensor PUBLIC -DUSE_CUDA_NVRTC )
@@ -498,64 +525,39 @@ else()
   target_compile_definitions(ChronoEngine_sensor PUBLIC -DCMAKE_SHADER_OUTPUT_PATH="${CMAKE_BINARY_DIR}/lib/sensor_ptx/")
 endif()
 
-if(${OPENGL_FOUND} AND ${GLEW_FOUND} AND ${GLFW_FOUND})
+if(${HAVE_GL})
   target_compile_definitions(ChronoEngine_sensor PUBLIC -DUSE_SENSOR_GLFW )
-  message(STATUS "GLEW, GLFW, and GL found. Enabling visualization in Chrono::SENSOR")
-else()
-	message(STATUS "GLEW, GLFW, or GL not found. Disabling visualization in Chrono::SENSOR")
 endif()
-
 
 # windows builds should disable warning 4661 and 4005
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4661 /wd4005")
-
-    #FIGURE OUT WHERE ALL THE LIBRARY DLLS FROM WINDOWS ARE
-    #SET(CH_IRRLICHT_DLL "${IRRLICHT_ROOT}/bin/Win32-VisualStudio/Irrlicht.dll")
 endif()
 
 target_compile_definitions(ChronoEngine_sensor PUBLIC CH_API_COMPILE_SENSOR)
 
 set_target_properties(ChronoEngine_sensor PROPERTIES
                     COMPILE_FLAGS "${CH_CXX_FLAGS}"
-                    LINK_FLAGS "${CH_LINKERFLAG_SHARED}")
+                    LINK_FLAGS "${CH_LINKERFLAG_LIB}")
 
 target_include_directories(ChronoEngine_sensor PUBLIC ${CH_SENSOR_INCLUDES})
 
 target_link_libraries(ChronoEngine_sensor ChronoEngine ${LIBRARIES})
+if(${HAVE_GL})
+  target_link_libraries(ChronoEngine_sensor ${OPENGL_LIBRARIES})
+  target_link_libraries(ChronoEngine_sensor GLEW::glew)
+  target_link_libraries(ChronoEngine_sensor glfw)
+endif()
 
-#MAKE INCLUDES AND DEPENDENCIES AVAILABLE TO USERS
-set(CH_SENSOR_INCLUDES "${CH_SENSOR_INCLUDES}" PARENT_SCOPE)
-SET(SENSOR_LIBRARIES         "${LIBRARIES}"                  PARENT_SCOPE)
-set(CH_SENSOR_CXX_FLAGS     "${CH_SENSOR_CXX_FLAGS}"        PARENT_SCOPE)
-set(CH_SENSOR_C_FLAGS       "${CH_SENSOR_C_FLAGS}"          PARENT_SCOPE)
-
-#-------------------------------------------------------------------------------
-# On Windows, copy the GLEW and Optix DLLs to the bin/ directory
-# We do this through a custom command so that the DLLs are copied to the
-# appropriate directory (depending on the build type); however, we use
-# copy_if_different.
-
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    IF(EXISTS "${GLEW_DLL}")
-      ADD_CUSTOM_COMMAND(TARGET ChronoEngine_sensor POST_BUILD
-                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                                 "${GLEW_DLL}"
-                                 "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
-    ENDIF()
-    IF(EXISTS "${GLFW_DLL}")
-      ADD_CUSTOM_COMMAND(TARGET ChronoEngine_sensor POST_BUILD
-                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                         "${GLFW_DLL}"
-                         "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
-    ENDIF()
-
-  # Make variables visible from outside this directory
-  SET(CH_GLEW_DLL "${CH_GLEW_DLL}" PARENT_SCOPE)
-ENDIF()
+# Make some variables available to users
+set(CH_SENSOR_INCLUDES  "${CH_SENSOR_INCLUDES}"  PARENT_SCOPE)
+SET(SENSOR_LIBRARIES    "${LIBRARIES}"           PARENT_SCOPE)
+set(CH_SENSOR_CXX_FLAGS "${CH_SENSOR_CXX_FLAGS}" PARENT_SCOPE)
+set(CH_SENSOR_C_FLAGS   "${CH_SENSOR_C_FLAGS}"   PARENT_SCOPE)
 
 #-------------------------------------------------------------------------------
 # Install the ChronoEngine_sensor library
+#-------------------------------------------------------------------------------
 
 install(TARGETS ChronoEngine_sensor
         RUNTIME DESTINATION bin
@@ -579,11 +581,31 @@ install(FILES ${ChronoEngine_sensor_SCENE_HEADERS}
 install(FILES ${ChronoEngine_sensor_RT_HEADERS}
       DESTINATION include/chrono_sensor/optix/shaders)
 
-IF(NOT USE_CUDA_NVRTC)
+if(NOT USE_CUDA_NVRTC)
   install(FILES ${generated_rt_files}
-        DESTINATION lib/sensor_ptx)
-ELSE()
+          DESTINATION lib/sensor_ptx)
+else()
   install(FILES ${ChronoEngine_sensor_RT_SOURCES}
-        DESTINATION include/chrono_sensor/optix/shaders)  
-ENDIF()
+          DESTINATION include/chrono_sensor/optix/shaders)  
+endif()
 
+#-------------------------------------------------------------------------------
+# On Windows, copy the GLEW and GLFW DLLs (if specified)
+#-------------------------------------------------------------------------------
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    if(EXISTS "${GLEW_DLL}")
+      ADD_CUSTOM_COMMAND(TARGET ChronoEngine_sensor POST_BUILD
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                 "${GLEW_DLL}"
+                                 "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
+      install(FILES "${GLEW_DLL}" DESTINATION bin)
+    endif()
+    if(EXISTS "${GLFW_DLL}")
+      ADD_CUSTOM_COMMAND(TARGET ChronoEngine_sensor POST_BUILD
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                         "${GLFW_DLL}"
+                         "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
+      install(FILES "${GLFW_DLL}" DESTINATION bin)
+    endif()
+endif()

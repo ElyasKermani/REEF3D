@@ -29,9 +29,9 @@
 
 #include "chrono_vehicle/ChConfigVehicle.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
-#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_models/vehicle/uaz/UAZBUS_SAE.h"
 
@@ -125,6 +125,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Vehicle mass: " << uaz.GetVehicle().GetMass() << std::endl;
 
+    // Associate a collision system
+    uaz.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     // ------------------
     // Create the terrain
     // ------------------
@@ -153,7 +156,7 @@ int main(int argc, char* argv[]) {
     vis->AttachVehicle(&uaz.GetVehicle());
 
     // Create the interactive driver system
-    ChIrrGuiDriver driver(*vis);
+    ChInteractiveDriverIRR driver(*vis);
 
     // Set the time response for steering and throttle keyboard inputs.
     double steering_time = 1.0;  // time to go from 0 to +1 (or from 0 to -1)
@@ -205,9 +208,10 @@ int main(int argc, char* argv[]) {
             vis->EndScene();
 
             if (povray_output && step_number % render_steps == 0) {
-                char filename[100];
-                sprintf(filename, "%s/data_%03d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteVisualizationAssets(uaz.GetSystem(), filename);
+                // Zero-pad frame numbers in file names for postprocessing
+                std::ostringstream filename;
+                filename << pov_dir << "/data_" << std::setw(4) << std::setfill('0') << render_frame + 1 << ".dat";
+                utils::WriteVisualizationAssets(uaz.GetSystem(), filename.str());
             }
 
             render_frame++;
@@ -220,7 +224,7 @@ int main(int argc, char* argv[]) {
         driver.Synchronize(time);
         terrain.Synchronize(time);
         uaz.Synchronize(time, driver_inputs, terrain);
-        vis->Synchronize(driver.GetInputModeAsString(), driver_inputs);
+        vis->Synchronize(time, driver_inputs);
 
         // Test for validity of kingpin angles (max. allowed by UAZ: 27 deg)
         auto suspF = std::static_pointer_cast<ChSAEToeBarLeafspringAxle>(uaz.GetVehicle().GetSuspension(0));

@@ -23,7 +23,7 @@ namespace chrono {
 /// @{
 
 /// Sine function
-/// `y = sin (phase + w*x )` where w=2*PI*freq
+/// y = sin (phase + w*x )` where w=2*PI*freq
 class ChApi ChFunction_Sine : public ChFunction {
   private:
     double amp;
@@ -64,10 +64,10 @@ class ChApi ChFunction_Sine : public ChFunction {
     double Get_amp() const { return amp; }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
 
 /// @} chrono_functions

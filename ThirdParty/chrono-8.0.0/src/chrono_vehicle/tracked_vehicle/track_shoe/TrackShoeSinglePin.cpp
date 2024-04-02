@@ -16,7 +16,7 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/TrackShoeSinglePin.h"
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
@@ -113,10 +113,10 @@ void TrackShoeSinglePin::Create(const rapidjson::Document& d) {
                 m_ground_geometry.m_coll_boxes.push_back(box);
         } else if (type.compare("CYLINDER") == 0) {
             ChVector<> pos = ReadVectorJSON(shape["Location"]);
-            ChQuaternion<> rot = ReadQuaternionJSON(shape["Orientation"]);
+            ChVector<> axis = ReadVectorJSON(shape["Axis"]);
             double radius = shape["Radius"].GetDouble();
             double length = shape["Length"].GetDouble();
-            ChVehicleGeometry::CylinderShape cylinder(pos, rot, radius, length, matID);
+            ChVehicleGeometry::CylinderShape cylinder(pos, axis, radius, length, matID);
             m_geometry.m_coll_cylinders.push_back(cylinder);
             if (ground_geometry)
                 m_ground_geometry.m_coll_cylinders.push_back(cylinder);
@@ -163,10 +163,10 @@ void TrackShoeSinglePin::Create(const rapidjson::Document& d) {
                     m_geometry.m_vis_boxes.push_back(ChVehicleGeometry::BoxShape(pos, rot, dims));
                 } else if (type.compare("CYLINDER") == 0) {
                     ChVector<> pos = ReadVectorJSON(shape["Location"]);
-                    ChQuaternion<> rot = ReadQuaternionJSON(shape["Orientation"]);
+                    ChVector<> axis = ReadVectorJSON(shape["Axis"]);
                     double radius = shape["Radius"].GetDouble();
                     double length = shape["Length"].GetDouble();
-                    m_geometry.m_vis_cylinders.push_back(ChVehicleGeometry::CylinderShape(pos, rot, radius, length));
+                    m_geometry.m_vis_cylinders.push_back(ChVehicleGeometry::CylinderShape(pos, axis, radius, length));
                 }
             }
             m_geometry.m_has_primitives = true;

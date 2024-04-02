@@ -153,6 +153,20 @@ void ChNodeFEAxyzrot::NodeIntLoadResidual_Mv(const unsigned int off,
     R.segment(off + 3, 3) += c * Iw.eigen();
 }
 
+void ChNodeFEAxyzrot::NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                               ChVectorDynamic<>& Md,
+                                               double& error,
+                                               const double c) {
+    Md(off + 0) += c * GetMass();
+    Md(off + 1) += c * GetMass();
+    Md(off + 2) += c * GetMass();
+    Md(off + 3) += c * GetInertia()(0, 0);
+    Md(off + 4) += c * GetInertia()(1, 1);
+    Md(off + 5) += c * GetInertia()(2, 2);
+    // if there is off-diagonal inertia, add to error, as lumping can give inconsistent results
+    error += GetInertia()(0, 1) + GetInertia()(0, 2) + GetInertia()(1, 2);
+}
+
 void ChNodeFEAxyzrot::NodeIntToDescriptor(const unsigned int off_v, const ChStateDelta& v, const ChVectorDynamic<>& R) {
     variables.Get_qb() = v.segment(off_v, 6);
     variables.Get_fb() = R.segment(off_v, 6);
@@ -287,26 +301,26 @@ void ChNodeFEAxyzrot::ComputeNF(
 
 // -----------------------------------------------------------------------------
 
-void ChNodeFEAxyzrot::ArchiveOUT(ChArchiveOut& marchive) {
+void ChNodeFEAxyzrot::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChNodeFEAxyzrot>();
     // serialize parent class
-    ChNodeFEAbase::ArchiveOUT(marchive);
+    ChNodeFEAbase::ArchiveOut(marchive);
     // serialize parent class
-    ChBodyFrame::ArchiveOUT(marchive);
+    ChBodyFrame::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(X0);
     marchive << CHNVP(Force);
     marchive << CHNVP(Torque);
 }
 
-void ChNodeFEAxyzrot::ArchiveIN(ChArchiveIn& marchive) {
+void ChNodeFEAxyzrot::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChNodeFEAxyzrot>();
     // deserialize parent class
-    ChNodeFEAbase::ArchiveIN(marchive);
+    ChNodeFEAbase::ArchiveIn(marchive);
     // serialize parent class
-    ChBodyFrame::ArchiveIN(marchive);
+    ChBodyFrame::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(X0);
     marchive >> CHNVP(Force);

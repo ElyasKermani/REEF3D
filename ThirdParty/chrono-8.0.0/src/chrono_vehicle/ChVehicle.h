@@ -30,7 +30,7 @@
 #include "chrono_vehicle/ChSubsysDefs.h"
 #include "chrono_vehicle/ChVehicleOutput.h"
 #include "chrono_vehicle/ChChassis.h"
-#include "chrono_vehicle/ChPowertrain.h"
+#include "chrono_vehicle/ChPowertrainAssembly.h"
 
 namespace chrono {
 namespace vehicle {
@@ -80,7 +80,13 @@ class CH_VEHICLE_API ChVehicle {
     std::shared_ptr<ChBodyAuxRef> GetChassisRearBody(int id) const { return m_chassis_rear[id]->GetBody(); }
 
     /// Get the powertrain attached to this vehicle.
-    virtual std::shared_ptr<ChPowertrain> GetPowertrain() const { return nullptr; }
+    std::shared_ptr<ChPowertrainAssembly> GetPowertrainAssembly() const { return m_powertrain_assembly; }
+
+    /// Get the engine in the powertrain assembly (if a powertrain is attached).
+    std::shared_ptr<ChEngine> GetEngine() const;
+
+    /// Get the transmission in the powertrain assembly (if a powertrain is attached).
+    std::shared_ptr<ChTransmission> GetTransmission() const;
 
     /// Get the vehicle total mass.
     /// This includes the mass of the chassis and all vehicle subsystems.
@@ -92,6 +98,10 @@ class CH_VEHICLE_API ChVehicle {
 
     /// Get the current vehicle inertia (relative to the vehicle COM frame).
     const ChMatrix33<>& GetInertia() const { return m_inertia; }
+
+    /// Get the current vehicle reference frame.
+    /// This is the same as the reference frame of the chassis.
+    const ChFrameMoving<>& GetRefFrame() const { return GetChassisBody()->GetFrame_REF_to_abs(); }
 
     /// Get the current vehicle transform relative to the global frame.
     /// This is the same as the global transform of the main chassis.
@@ -110,6 +120,22 @@ class CH_VEHICLE_API ChVehicle {
     /// Return the speed measured at the origin of the main chassis reference frame.
     double GetSpeed() const { return m_chassis->GetSpeed(); }
 
+    /// Get the vehicle roll rate.
+    /// The yaw rate is referenced to the chassis frame.
+    double GetRollRate() const { return m_chassis->GetRollRate(); }
+
+    /// Get the vehicle pitch rate.
+    /// The yaw rate is referenced to the chassis frame.
+    double GetPitchRate() const { return m_chassis->GetPitchRate(); }
+
+    /// Get the vehicle yaw rate.
+    /// The yaw rate is referenced to the chassis frame.
+    double GetYawRate() const { return m_chassis->GetYawRate(); }
+
+    /// Get the vehicle turn rate.
+    /// Unlike the yaw rate (referenced to the chassis frame), the turn rate is referenced to the global frame.
+    double GetTurnRate() const { return m_chassis->GetTurnRate(); }
+
     /// Get the global position of the specified point.
     /// The point is assumed to be given relative to the main chassis reference frame.
     /// The returned location is expressed in the global reference frame.
@@ -125,24 +151,22 @@ class CH_VEHICLE_API ChVehicle {
     /// The returned acceleration is expressed in the chassis reference frame.
     ChVector<> GetPointAcceleration(const ChVector<>& locpos) const { return m_chassis->GetPointAcceleration(locpos); }
 
-    /// Get a handle to the vehicle's driveshaft body.
-    virtual std::shared_ptr<ChShaft> GetDriveshaft() const = 0;
-
     /// Get the global location of the driver.
     ChVector<> GetDriverPos() const { return m_chassis->GetDriverPos(); }
 
     /// Enable/disable soft real-time (default: false).
-    /// If enabled, a spinning timer is used to maintain simulation time in sync with real time (if simulation is faster).
+    /// If enabled, a spinning timer is used to maintain simulation time in sync with real time (if simulation is
+    /// faster).
     void EnableRealtime(bool val) { m_realtime_force = val; }
 
     /// Get current estimated RTF (real time factor).
     /// Note that the "true" RTF is returned, even if soft real-time is enforced.
-    double GetRTF() const { return m_RTF; }
+    double GetRTF() const;
 
     /// Change the default collision detection system.
     /// Note that this function should be called *before* initialization of the vehicle system in order to create
     /// consistent collision models.
-    void SetCollisionSystemType(collision::ChCollisionSystemType collsys_type);
+    void SetCollisionSystemType(ChCollisionSystem::Type collsys_type);
 
     /// Enable output for this vehicle system.
     void SetOutput(ChVehicleOutput::Type type,   ///< [int] type of output DB
@@ -151,11 +175,21 @@ class CH_VEHICLE_API ChVehicle {
                    double output_step            ///< [in] interval between output times
     );
 
+    /// Enable output for this vehicle system using an existing output stream.
+    void SetOutput(ChVehicleOutput::Type type,  ///< [int] type of output DB
+                   std::ostream& out_stream,    ///< [in] output stream
+                   double output_step           ///< [in] interval between output times
+    );
+
     /// Initialize this vehicle at the specified global location and orientation.
     /// Derived classes must invoke this base class implementation after they initialize all their subsystem.
     virtual void Initialize(const ChCoordsys<>& chassisPos,  ///< [in] initial global position and orientation
                             double chassisFwdVel = 0         ///< [in] initial chassis forward velocity
-                            );
+    );
+
+    /// Initialize the given powertrain assembly and associate it to this vehicle.
+    /// The powertrain is initialized by connecting it to this vehicle's chassis and driveline shaft.
+    void InitializePowertrain(std::shared_ptr<ChPowertrainAssembly> powertrain);
 
     /// Calculate total vehicle mass from subsystems.
     /// This function is called at the end of the vehicle initialization, but can also be called explicitly.
@@ -167,13 +201,12 @@ class CH_VEHICLE_API ChVehicle {
     /// Set visualization mode for the rear chassis subsystems.
     void SetChassisRearVisualizationType(VisualizationType vis);
 
-    /// Enable/disable collision for the chassis subsystem. This function controls
-    /// contact of the chassis with all other collision shapes in the simulation.
+    /// Enable/disable collision for the chassis subsystem.
+    /// This function controls contact of the chassis with all other collision shapes in the simulation.
     void SetChassisCollide(bool state);
 
-    /// Enable/disable collision between the chassis and all other vehicle
-    /// subsystems. Note that some of these collisions may be always disabled,
-    /// as set by the particular derived vehicle class.
+    /// Enable/disable collision between the chassis and all other vehicle subsystems.
+    /// Note that some of these collisions may be always disabled, as set by the particular derived vehicle class.
     virtual void SetChassisVehicleCollide(bool state) {}
 
     /// Enable/disable output from the chassis subsystem.
@@ -224,7 +257,7 @@ class CH_VEHICLE_API ChVehicle {
     template <typename T>
     static bool AnyOutput(const std::vector<std::shared_ptr<T>>& list) {
         bool val = std::accumulate(list.begin(), list.end(), false,
-            [](bool a, std::shared_ptr<T> b) {return a || b->OutputEnabled(); });
+                                   [](bool a, std::shared_ptr<T> b) { return a || b->OutputEnabled(); });
         return val;
     }
 
@@ -246,11 +279,13 @@ class CH_VEHICLE_API ChVehicle {
     ChChassisRearList m_chassis_rear;             ///< list of rear chassis subsystems (can be empty)
     ChChassisConnectorList m_chassis_connectors;  ///< list of chassis connector (must match m_chassis_rear)
 
+    std::shared_ptr<ChPowertrainAssembly> m_powertrain_assembly;  ///< associated powertrain system
+
   private:
     bool m_initialized;
     bool m_realtime_force;
     ChRealtimeStepTimer m_realtime_timer;
-    ChTimer<> m_sim_timer;
+    ChTimer m_sim_timer;
     double m_RTF;
 
     friend class ChVehicleCosimWheeledVehicleNode;

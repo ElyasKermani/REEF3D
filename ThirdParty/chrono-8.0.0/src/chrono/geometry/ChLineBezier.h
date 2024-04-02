@@ -39,19 +39,23 @@ class ChApi ChLineBezier : public ChLine {
     /// "Virtual" copy constructor (covariant return type).
     virtual ChLineBezier* Clone() const override { return new ChLineBezier(*this); }
 
-    virtual GeometryType GetClassType() const override { return LINE_BEZIER; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::LINE_BEZIER; }
 
     virtual void Set_closed(bool mc) override {}
     virtual void Set_complexity(int mc) override {}
 
-    /// Curve evaluation (only parU is used, in 0..1 range)
-    virtual void Evaluate(ChVector<>& pos, const double parU) const override;
+    /// Compute bounding in the frame of the Bezier curve knots.
+    virtual ChAABB GetBoundingBox() const override;
+
+    /// Return a point on the line, given parametric coordinate U (in [0,1]).
+    virtual ChVector<> Evaluate(double U) const override;
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
   private:
     std::shared_ptr<ChBezierCurve> m_path;  ///< handle to a Bezier curve

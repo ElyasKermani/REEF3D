@@ -7,7 +7,7 @@
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/ChPart.h"
 #include "chrono_vehicle/ChTerrain.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 
 #include "chrono_vehicle/wheeled_vehicle/ChTire.h"
@@ -23,7 +23,6 @@
 #include "chrono_vehicle/wheeled_vehicle/tire/ChRigidTire.h"
 #include "chrono_vehicle/wheeled_vehicle/tire/ChForceElementTire.h"
 #include "chrono_vehicle/wheeled_vehicle/tire/ChReissnerTire.h"
-#include "chrono_vehicle/wheeled_vehicle/tire/ChPac2002_data.h"
 #include "chrono_vehicle/wheeled_vehicle/tire/ChPac89Tire.h"
 #include "chrono_vehicle/wheeled_vehicle/tire/ChPac02Tire.h"
 #include "chrono_vehicle/wheeled_vehicle/tire/ChFialaTire.h"
@@ -41,7 +40,6 @@
 %shared_ptr(chrono::vehicle::ChRigidTire)
 %shared_ptr(chrono::vehicle::ChForceElementTire)
 %shared_ptr(chrono::vehicle::ChReissnerTire)
-%shared_ptr(chrono::vehicle::ChPac2002_data)
 %shared_ptr(chrono::vehicle::ChPac89Tire)
 %shared_ptr(chrono::vehicle::ChPac02Tire)
 %shared_ptr(chrono::vehicle::ChFialaTire)
@@ -67,11 +65,10 @@
 // Parse the header file to generate wrappers
 %include "../../../chrono_vehicle/wheeled_vehicle/ChTire.h"
 
-%include "../../../chrono_vehicle/wheeled_vehicle/tire/ChTMeasyTire.h"
 %include "../../../chrono_vehicle/wheeled_vehicle/tire/ChRigidTire.h"
 %include "../../../chrono_vehicle/wheeled_vehicle/tire/ChForceElementTire.h"
+%include "../../../chrono_vehicle/wheeled_vehicle/tire/ChTMeasyTire.h"
 %ignore chrono::vehicle::ChReissnerTire::ChReissnerTire;
-%include "../../../chrono_vehicle/wheeled_vehicle/tire/ChPac2002_data.h"
 %include "../../../chrono_vehicle/wheeled_vehicle/tire/ChPac89Tire.h"
 %include "../../../chrono_vehicle/wheeled_vehicle/tire/ChPac02Tire.h"
 %include "../../../chrono_vehicle/wheeled_vehicle/tire/ChFialaTire.h"

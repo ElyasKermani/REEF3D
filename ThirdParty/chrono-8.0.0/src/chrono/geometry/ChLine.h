@@ -39,24 +39,17 @@ class ChApi ChLine : public ChGeometry {
     /// "Virtual" copy constructor (covariant return type).
     // virtual ChLine* Clone() const override { };
 
-    /// Get the class type as unique numerical ID (faster
-    /// than using ChronoRTTI mechanism).
-    /// Each inherited class must return an unique ID.
-    virtual GeometryType GetClassType() const override { return LINE; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::LINE; }
 
-    /// Evaluates a point on the line, given parametric coordinate U.
+    /// Return a point on the line, given parametric coordinate U.
     /// Parameter U always work in 0..1 range.
-    /// Computed value goes into the 'pos' reference.
-    /// It must be implemented by inherited classes.
-    virtual void Evaluate(ChVector<>& pos, const double parU) const = 0;
+    /// The default implementation always returns the origin of the surface frame.
+    virtual ChVector<> Evaluate(double U) const = 0;
 
-    /// Evaluates a tangent versor, given parametric coordinate.
-    /// Parameter U always work in 0..1 range.
-    /// Computed value goes into the 'pos' reference.
-    /// It could be overridden by inherited classes if a precise solution is
-    /// known (otherwise it defaults to numerical BDF using the Evaluate()
-    /// function).
-    virtual void Derive(ChVector<>& dir, const double parU) const;
+    /// Return the tangent unit vector at the parametric coordinate U (in [0,1]).
+    /// This default implementation uses finite differences.
+    virtual ChVector<> GetTangent(double parU) const;
 
     /// Tell if the curve is closed
     virtual bool Get_closed() const { return closed; }
@@ -77,19 +70,11 @@ class ChApi ChLine : public ChGeometry {
 
     /// Return the start point of the line.
     /// By default, evaluates line at U=0.
-    virtual ChVector<> GetEndA() const {
-        ChVector<> pos;
-        Evaluate(pos, 0);
-        return pos;
-    }
+    virtual ChVector<> GetEndA() const { return Evaluate(0); }
 
     /// Return the end point of the line.
     /// By default, evaluates line at U=1.
-    virtual ChVector<> GetEndB() const {
-        ChVector<> pos;
-        Evaluate(pos, 1);
-        return pos;
-    }
+    virtual ChVector<> GetEndB() const { return Evaluate(1); }
 
     /// Returns adimensional information on "how much" this curve is similar to another
     /// in its overall shape (does not matter parametrization or start point). Try with 20 samples.
@@ -113,10 +98,10 @@ class ChApi ChLine : public ChGeometry {
     virtual bool DrawPostscript(ChFile_ps* mfle, int markpoints, int bezier_interpolate);
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
 
 }  // end namespace geometry

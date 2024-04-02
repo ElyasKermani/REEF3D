@@ -41,6 +41,8 @@ class CH_VEHICLE_API TMeasyTire : public ChTMeasyTire {
     virtual double GetTireMass() const override { return m_mass; }
     virtual ChVector<> GetTireInertia() const override { return m_inertia; }
 
+    virtual double GetVisualizationWidth() const override { return m_visualization_width; }
+
     virtual void AddVisualizationAssets(VisualizationType vis) override;
     virtual void RemoveVisualizationAssets() override final;
 
@@ -50,10 +52,11 @@ class CH_VEHICLE_API TMeasyTire : public ChTMeasyTire {
     double m_mass;
     ChVector<> m_inertia;
 
+    double m_visualization_width;
     bool m_has_mesh;
     std::string m_meshFile_left;
     std::string m_meshFile_right;
-    std::shared_ptr<ChTriangleMeshShape> m_trimesh_shape;
+    std::shared_ptr<ChVisualShapeTriangleMesh> m_trimesh_shape;
 };
 
 /// @} vehicle_wheeled_tire

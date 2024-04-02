@@ -53,7 +53,8 @@ class ChVector {
     const Real& y() const { return m_data[1]; }
     const Real& z() const { return m_data[2]; }
 
-    /// Return const pointer to underlying array storage.
+    /// Access to underlying array storage.
+    Real* data() { return m_data; }
     const Real* data() const { return m_data; }
 
     // EIGEN INTER-OPERABILITY
@@ -231,10 +232,10 @@ class ChVector {
     ChVector<Real> GetOrthogonalVector() const;
 
     /// Method to allow serialization of transient m_data to archives.
-    void ArchiveOUT(ChArchiveOut& marchive);
+    void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient m_data from archives.
-    void ArchiveIN(ChArchiveIn& marchive);
+    void ArchiveIn(ChArchiveIn& marchive);
 
   private:
     Real m_data[3];
@@ -456,7 +457,7 @@ void XdirToDxDyDz(const ChVector<RealA>& Vxdir,
     Vy = Vcross(Vz, Vx);
 }
 
-/// Insertion ov 3d vector to output stream.
+/// Insertion of a 3D vector to output stream.
 template <typename Real>
 inline std::ostream& operator<<(std::ostream& out, const ChVector<Real>& v) {
     out << v.x() << "  " << v.y() << "  " << v.z();
@@ -942,7 +943,7 @@ inline ChVector<Real> ChVector<Real>::GetOrthogonalVector() const {
 // Streaming operations
 
 template <class Real>
-inline void ChVector<Real>::ArchiveOUT(ChArchiveOut& marchive) {
+inline void ChVector<Real>::ArchiveOut(ChArchiveOut& marchive) {
     // suggested: use versioning
     marchive.VersionWrite<ChVector<double>>();  // must use specialized template (any)
     // stream out all member m_data
@@ -952,7 +953,7 @@ inline void ChVector<Real>::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 template <class Real>
-inline void ChVector<Real>::ArchiveIN(ChArchiveIn& marchive) {
+inline void ChVector<Real>::ArchiveIn(ChArchiveIn& marchive) {
     // suggested: use versioning
     /*int version =*/ marchive.VersionRead<ChVector<double>>();  // must use specialized template (any)
     // stream in all member m_data

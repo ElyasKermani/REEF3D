@@ -25,8 +25,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 
 #include "chrono_vehicle/wheeled_vehicle/suspension/ChDoubleWishboneReduced.h"
 
@@ -60,6 +60,8 @@ void ChDoubleWishboneReduced::Initialize(std::shared_ptr<ChChassis> chassis,
                                          const ChVector<>& location,
                                          double left_ang_vel,
                                          double right_ang_vel) {
+    ChSuspension::Initialize(chassis, subchassis, steering, location, left_ang_vel, right_ang_vel);
+
     m_parent = chassis;
     m_rel_loc = location;
 
@@ -99,7 +101,7 @@ void ChDoubleWishboneReduced::InitializeSide(VehicleSide side,
     auto spindleRot = chassisRot * Q_from_AngZ(sign * getToeAngle()) * Q_from_AngX(sign * getCamberAngle());
 
     // Create and initialize spindle body
-    m_spindle[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_spindle[side] = chrono_types::make_shared<ChBody>();
     m_spindle[side]->SetNameString(m_name + "_spindle" + suffix);
     m_spindle[side]->SetPos(points[SPINDLE]);
     m_spindle[side]->SetRot(spindleRot);
@@ -109,7 +111,7 @@ void ChDoubleWishboneReduced::InitializeSide(VehicleSide side,
     chassis->GetSystem()->AddBody(m_spindle[side]);
 
     // Create and initialize upright body (same orientation as the chassis)
-    m_upright[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_upright[side] = chrono_types::make_shared<ChBody>();
     m_upright[side]->SetNameString(m_name + "_upright" + suffix);
     m_upright[side]->SetPos(points[UPRIGHT]);
     m_upright[side]->SetRot(chassisRot);
@@ -205,18 +207,13 @@ double ChDoubleWishboneReduced::GetTrack() {
 // -----------------------------------------------------------------------------
 // Return current suspension forces
 // -----------------------------------------------------------------------------
-ChSuspension::Force ChDoubleWishboneReduced::ReportSuspensionForce(VehicleSide side) const {
-    ChSuspension::Force force;
+std::vector<ChSuspension::ForceTSDA> ChDoubleWishboneReduced::ReportSuspensionForce(VehicleSide side) const {
+    std::vector<ChSuspension::ForceTSDA> forces(1);
 
-    force.spring_force = m_shock[side]->GetForce();
-    force.spring_length = m_shock[side]->GetLength();
-    force.spring_velocity = m_shock[side]->GetVelocity();
+    forces[0] = ChSuspension::ForceTSDA("Shock", m_shock[side]->GetForce(), m_shock[side]->GetLength(),
+                                        m_shock[side]->GetVelocity());
 
-    force.shock_force = force.spring_force;
-    force.shock_length = force.spring_length;
-    force.shock_velocity = force.spring_velocity;
-
-    return force;
+    return forces;
 }
 
 // -----------------------------------------------------------------------------
@@ -234,24 +231,24 @@ void ChDoubleWishboneReduced::AddVisualizationAssets(VisualizationType vis) {
                             m_pointsR[LCA_U], m_pointsR[TIEROD_U], getUprightRadius());
 
     // Add visualization for the spring-dampers
-    m_shock[LEFT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
-    m_shock[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
+    m_shock[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
+    m_shock[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
 
     // Add visualization for the arm and tie-rod distance constraints
-    m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_distUCA_F[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_distUCA_F[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_distUCA_F[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_distUCA_F[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_distUCA_B[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_distUCA_B[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_distUCA_B[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_distUCA_B[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_distLCA_F[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_distLCA_F[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_distLCA_F[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_distLCA_F[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_distLCA_B[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_distLCA_B[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_distLCA_B[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_distLCA_B[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 }
 
 void ChDoubleWishboneReduced::RemoveVisualizationAssets() {
@@ -296,27 +293,15 @@ void ChDoubleWishboneReduced::AddVisualizationUpright(std::shared_ptr<ChBody> up
     ChVector<> p_T = upright->TransformPointParentToLocal(pt_T);
 
     if ((p_L - p_C).Length2() > threshold2) {
-        auto cyl_L = chrono_types::make_shared<ChCylinderShape>();
-        cyl_L->GetCylinderGeometry().p1 = p_L;
-        cyl_L->GetCylinderGeometry().p2 = p_C;
-        cyl_L->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_L);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_L, p_C, radius);
     }
 
     if ((p_U - p_C).Length2() > threshold2) {
-        auto cyl_U = chrono_types::make_shared<ChCylinderShape>();
-        cyl_U->GetCylinderGeometry().p1 = p_U;
-        cyl_U->GetCylinderGeometry().p2 = p_C;
-        cyl_U->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_U);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_U, p_C, radius);
     }
 
     if ((p_T - p_C).Length2() > threshold2) {
-        auto cyl_T = chrono_types::make_shared<ChCylinderShape>();
-        cyl_T->GetCylinderGeometry().p1 = p_T;
-        cyl_T->GetCylinderGeometry().p2 = p_C;
-        cyl_T->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_T);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_T, p_C, radius);
     }
 }
 
@@ -361,12 +346,12 @@ void ChDoubleWishboneReduced::ExportComponentList(rapidjson::Document& jsonDocum
     bodies.push_back(m_spindle[1]);
     bodies.push_back(m_upright[0]);
     bodies.push_back(m_upright[1]);
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChShaft>> shafts;
     shafts.push_back(m_axle[0]);
     shafts.push_back(m_axle[1]);
-    ChPart::ExportShaftList(jsonDocument, shafts);
+    ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     joints.push_back(m_revolute[0]);
@@ -381,12 +366,12 @@ void ChDoubleWishboneReduced::ExportComponentList(rapidjson::Document& jsonDocum
     joints.push_back(m_distLCA_B[1]);
     joints.push_back(m_distTierod[0]);
     joints.push_back(m_distTierod[1]);
-    ChPart::ExportJointList(jsonDocument, joints);
+    ExportJointList(jsonDocument, joints);
 
     std::vector<std::shared_ptr<ChLinkTSDA>> springs;
     springs.push_back(m_shock[0]);
     springs.push_back(m_shock[1]);
-    ChPart::ExportLinSpringList(jsonDocument, springs);
+    ExportLinSpringList(jsonDocument, springs);
 }
 
 void ChDoubleWishboneReduced::Output(ChVehicleOutput& database) const {

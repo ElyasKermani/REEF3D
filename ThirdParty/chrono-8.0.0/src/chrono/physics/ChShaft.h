@@ -142,6 +142,10 @@ class ChApi ChShaft : public ChPhysicsItem, public ChLoadable {
                                     ChVectorDynamic<>& R,
                                     const ChVectorDynamic<>& w,
                                     const double c) override;
+    virtual void IntLoadLumpedMass_Md(const unsigned int off,
+                                      ChVectorDynamic<>& Md,
+                                      double& err,
+                                      const double c) override;
     virtual void IntToDescriptor(const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const ChVectorDynamic<>& R,
@@ -278,10 +282,10 @@ class ChApi ChShaft : public ChPhysicsItem, public ChLoadable {
     //
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow deserialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
 
 CH_CLASS_VERSION(ChShaft,0)

@@ -213,7 +213,7 @@ double ChDirectSolverLS::SolveCurrent() {
 // ---------------------------------------------------------------------------
 
 void ChDirectSolverLS::WriteMatrix(const std::string& filename, const ChSparseMatrix& M) {
-    ChStreamOutAsciiFile file(filename.c_str());
+    ChStreamOutAsciiFile file(filename);
     file.SetNumFormat("%.12g");
     for (int i = 0; i < M.rows(); i++) {
         for (int j = 0; j < M.cols(); j++) {
@@ -226,7 +226,7 @@ void ChDirectSolverLS::WriteMatrix(const std::string& filename, const ChSparseMa
 }
 
 void ChDirectSolverLS::WriteVector(const std::string& filename, const ChVectorDynamic<double>& v) {
-    ChStreamOutAsciiFile file(filename.c_str());
+    ChStreamOutAsciiFile file(filename);
     file.SetNumFormat("%.12g");
     for (int i = 0; i < v.size(); i++)
         file << v(i) << "\n";
@@ -234,12 +234,12 @@ void ChDirectSolverLS::WriteVector(const std::string& filename, const ChVectorDy
 
 // ---------------------------------------------------------------------------
 
-void ChDirectSolverLS::ArchiveOUT(ChArchiveOut& marchive) {
+void ChDirectSolverLS::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChDirectSolverLS>();
 
     // serialize parent class
-    ChSolver::ArchiveOUT(marchive);
+    ChSolver::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(m_lock);
@@ -248,12 +248,12 @@ void ChDirectSolverLS::ArchiveOUT(ChArchiveOut& marchive) {
     marchive << CHNVP(m_use_rhs_sparsity);
 }
 
-void ChDirectSolverLS::ArchiveIN(ChArchiveIn& marchive) {
+void ChDirectSolverLS::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/marchive.VersionRead<ChDirectSolverLS>();
 
     // deserialize parent class
-    ChSolver::ArchiveIN(marchive);
+    ChSolver::ArchiveIn(marchive);
 
     // stream in all member data:
     marchive >> CHNVP(m_lock);

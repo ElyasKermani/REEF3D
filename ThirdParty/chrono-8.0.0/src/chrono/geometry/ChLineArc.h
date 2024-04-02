@@ -33,23 +33,24 @@ class ChApi ChLineArc : public ChLine {
     bool counterclockwise;  ///< flag indicating arc direction
 
   public:
-    ChLineArc(const ChCoordsys<> morigin = CSYSNULL,
-              const double mradius = 1,
-              const double mangle1 = CH_C_2PI,
-              const double mangle2 = 0,
-              const bool mcounterclockwise = false);
+    ChLineArc(const ChCoordsys<>& morigin = CSYSNULL,
+              double mradius = 1,
+              double mangle1 = CH_C_2PI,
+              double mangle2 = 0,
+              bool mcounterclockwise = false);
     ChLineArc(const ChLineArc& source);
     ~ChLineArc() {}
 
     /// "Virtual" copy constructor (covariant return type).
     virtual ChLineArc* Clone() const override { return new ChLineArc(*this); }
 
-    virtual GeometryType GetClassType() const override { return LINE_ARC; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::LINE_ARC; }
 
     virtual int Get_complexity() const override { return 2; }
 
-    /// Curve evaluation (only parU is used, in 0..1 range)
-    virtual void Evaluate(ChVector<>& pos, const double parU) const override;
+    /// Return a point on the line, given parametric coordinate U (in [0,1]).
+    virtual ChVector<> Evaluate(double U) const override;
 
     /// Returns curve length. sampling does not matter
     double Length(int sampling) const override { return fabs(radius * (angle1 - angle2)); }
@@ -64,10 +65,10 @@ class ChApi ChLineArc : public ChLine {
     void SetAngle2deg(double a2) { angle2 = a2 * CH_C_DEG_TO_RAD; }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
 
 }  // end namespace geometry

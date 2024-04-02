@@ -112,6 +112,10 @@ class ChApi ChNodeFEAxyzD : public ChNodeFEAxyz {
                                         ChVectorDynamic<>& R,
                                         const ChVectorDynamic<>& w,
                                         const double c) override;
+    virtual void NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                          ChVectorDynamic<>& Md,
+                                          double& error,
+                                          const double c) override;
     virtual void NodeIntToDescriptor(const unsigned int off_v,
                                      const ChStateDelta& v,
                                      const ChVectorDynamic<>& R) override;
@@ -172,8 +176,8 @@ class ChApi ChNodeFEAxyzD : public ChNodeFEAxyz {
 
     // SERIALIZATION
 
-    virtual void ArchiveOUT(ChArchiveOut& archive) override;
-    virtual void ArchiveIN(ChArchiveIn& archive) override;
+    virtual void ArchiveOut(ChArchiveOut& archive) override;
+    virtual void ArchiveIn(ChArchiveIn& archive) override;
 
   protected:
     /// Initial setup. Set number of degrees of freedom for this node.

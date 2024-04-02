@@ -92,6 +92,8 @@ print("Brake type:     " + gator.GetVehicle().GetBrake(1, veh.LEFT).GetTemplateN
 print("Tire type:      " + gator.GetVehicle().GetTire(1, veh.LEFT).GetTemplateName())
 print("\n")
 
+gator.GetSystem().SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
+
 # ------------------
 # Create the terrain
 # ------------------
@@ -123,7 +125,7 @@ vis.AddSkyBox()
 vis.AttachVehicle(gator.GetVehicle())
 
 # Create the interactive driver system
-driver = veh.ChIrrGuiDriver(vis)
+driver = veh.ChInteractiveDriverIRR(vis)
 
 # Set the time response for steering and throttle keyboard inputs.
 steering_time = 1.0  # time to go from 0 to +1 (or from 0 to -1)
@@ -156,7 +158,7 @@ while vis.Run() :
     driver.Synchronize(time)
     terrain.Synchronize(time)
     gator.Synchronize(time, driver_inputs, terrain)
-    vis.Synchronize(driver.GetInputModeAsString(), driver_inputs)
+    vis.Synchronize(time, driver_inputs)
 
     # Advance simulation for one timestep for all modules
     driver.Advance(step_size)

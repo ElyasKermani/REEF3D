@@ -31,15 +31,13 @@ using namespace chrono;
 using namespace chrono::fea;
 using namespace chrono::irrlicht;
 
-using namespace irr;
-
 int main(int argc, char* argv[]) {
     GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     double time_step = 1e-3;
 
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.80665));
+    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
 
     GetLog() << "-----------------------------------------------------------------\n";
     GetLog() << " Higher order ANCF Shell Element demo with different constraints \n";
@@ -279,10 +277,8 @@ int main(int argc, char* argv[]) {
     mystepper->SetAlpha(-0.2);
     mystepper->SetMaxiters(50);
     mystepper->SetAbsTolerances(1e-4, 1e2);
-    mystepper->SetMode(ChTimestepperHHT::ACCELERATION);
     mystepper->SetStepControl(false);
     mystepper->SetModifiedNewton(true);
-    mystepper->SetScaling(false);
 
     while (vis->Run()) {
         std::cout << "Time: " << sys.GetChTime() << "s. \n";

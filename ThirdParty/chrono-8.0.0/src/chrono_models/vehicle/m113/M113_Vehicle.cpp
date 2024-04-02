@@ -16,20 +16,20 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 
-#include "chrono_models/vehicle/m113/M113_Chassis.h"
-#include "chrono_models/vehicle/m113/M113_DrivelineBDS.h"
-#include "chrono_models/vehicle/m113/M113_SimpleDriveline.h"
-#include "chrono_models/vehicle/m113/M113_TrackAssemblyBandBushing.h"
-#include "chrono_models/vehicle/m113/M113_TrackAssemblyDoublePin.h"
-#include "chrono_models/vehicle/m113/M113_TrackAssemblySinglePin.h"
-#include "chrono_models/vehicle/m113/M113_TrackAssemblyBandANCF.h"
 #include "chrono_models/vehicle/m113/M113_Vehicle.h"
+#include "chrono_models/vehicle/m113/M113_Chassis.h"
+#include "chrono_models/vehicle/m113/driveline/M113_DrivelineBDS.h"
+#include "chrono_models/vehicle/m113/driveline/M113_SimpleDriveline.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblyBandBushing.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblyDoublePin.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblySinglePin.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblyBandANCF.h"
 
 namespace chrono {
 namespace vehicle {
@@ -323,8 +323,6 @@ void M113_Vehicle::Create(bool fixed,
             m_driveline = chrono_types::make_shared<M113_DrivelineBDS>();
             break;
     }
-
-    GetLog() << "M113 vehicle mass = " << GetMass() << " kg.\n";
 }
 
 // -----------------------------------------------------------------------------

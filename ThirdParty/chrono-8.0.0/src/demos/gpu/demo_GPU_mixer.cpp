@@ -22,7 +22,7 @@
 
 #include "chrono/core/ChGlobal.h"
 #include "chrono/utils/ChUtilsSamplers.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 #include "chrono_gpu/physics/ChSystemGpu.h"
 #include "chrono_gpu/utils/ChGpuJsonParser.h"
@@ -153,13 +153,13 @@ int main(int argc, char* argv[]) {
     if (render) {
         // Create proxy body for mixer mesh
         mixer = chrono_types::make_shared<ChBody>();
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(mixer_mesh);
         mixer->AddVisualShape(trimesh_shape, ChFrame<>());
         gpu_vis.AddProxyBody(mixer);
 
         gpu_vis.SetTitle("Chrono::Gpu mixer demo");
-        gpu_vis.SetCameraPosition(ChVector<>(0, -100, 75), ChVector<>(0, 0, 0));
+        gpu_vis.AddCamera(ChVector<>(0, -100, 75), ChVector<>(0, 0, 0));
         gpu_vis.SetCameraMoveScale(1.0f);
         gpu_vis.Initialize();
     }
@@ -199,6 +199,7 @@ int main(int argc, char* argv[]) {
                 break;
         }
 
+        ////std::cout << "Time = " << t << std::endl;
         gpu_sys.AdvanceSimulation(iteration_step);
     }
 

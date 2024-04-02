@@ -25,66 +25,71 @@ namespace geometry {
 /// A rounded box (sphere-swept box) geometric object for collisions and visualization.
 class ChApi ChRoundedBox : public ChVolume {
   public:
-  public:
-    ChRoundedBox() : Size(VNULL), radsphere(0) {}
-    ChRoundedBox(const ChVector<>& lengths, double radsphere) : Size(0.5 * lengths), radsphere(radsphere) {}
-    ////ChRoundedBox(const ChVector<>& mC0, const ChVector<>& mC1, const ChVector<>& mC2, const ChVector<>& mC3);
+    ChRoundedBox() : hlen(VNULL), srad(0) {}
+    ChRoundedBox(const ChVector<>& lengths, double sphere_radius);
+    ChRoundedBox(double length_x, double length_y, double length_z, double sphere_radius);
     ChRoundedBox(const ChRoundedBox& source);
     ~ChRoundedBox() {}
 
     /// "Virtual" copy constructor (covariant return type).
     virtual ChRoundedBox* Clone() const override { return new ChRoundedBox(*this); }
 
-    virtual GeometryType GetClassType() const override { return ROUNDED_BOX; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::ROUNDED_BOX; }
 
-    /// Compute bounding box along the directions defined by the given rotation matrix.
-    virtual void GetBoundingBox(ChVector<>& cmin, ChVector<>& cmax, const ChMatrix33<>& rot) const override;
+    /// Return the volume of this solid.
+    virtual double GetVolume() const override;
 
-    /// Computes the baricenter of the box
+    /// Return the gyration matrix for this solid.
+    virtual ChMatrix33<> GetGyration() const override;
+
+    /// Compute bounding box along the directions of the shape definition frame.
+    virtual ChAABB GetBoundingBox() const override;
+
+    /// Return the radius of a bounding sphere for this geometry.
+    virtual double GetBoundingSphereRadius() const override;
+
+    /// Computes the baricenter of the box.
     virtual ChVector<> Baricenter() const override { return ChVector<>(0); }
 
-    /// Evaluate position in cube volume
-    virtual void Evaluate(ChVector<>& pos, const double parU, const double parV, const double parW) const override;
+    /// Evaluate position in rounded box volume.
+    virtual ChVector<> Evaluate(double parU, double parV, double parW) const override;
 
-    /// This is a solid
-    virtual int GetManifoldDimension() const override { return 3; }
+    /// Get the box half-lengths.
+    const ChVector<>& GetHalflengths() const { return hlen; }
 
-    /// Access the size of the box: a vector with the
-    /// three hemi-lengths (lengths divided by two!)
-    ChVector<>& GetSize() { return Size; }
+    /// Get the x, y, and z lengths of this box.
+    ChVector<> GetLengths() const { return 2.0 * hlen; }
 
-    /// Get the x y z lengths of this box (that is, double
-    /// the Size values)
-    ChVector<> GetLengths() { return 2.0 * Size; }
+    /// Get the sweeping sphere radius.
+    double GetSphereRadius() const { return srad; }
 
-    /// Set the x y z lengths of this box (that is, double
-    /// the Size values)
-    void SetLengths(ChVector<>& mlen) { Size = 0.5 * mlen; }
+    /// Set the x, y, and z lengths of this box.
+    void SetLengths(const ChVector<>& mlen) { hlen = 0.5 * mlen; }
 
-    // Get the 8 corner points, translated and rotated
-    ChVector<> GetP1() const;
-    ChVector<> GetP2() const;
-    ChVector<> GetP3() const;
-    ChVector<> GetP4() const;
-    ChVector<> GetP5() const;
-    ChVector<> GetP6() const;
-    ChVector<> GetP7() const;
-    ChVector<> GetP8() const;
-
-    /// Get the n-th corner point, with ipoint = 1...8
-    ChVector<> GetPn(int ipoint) const;
-
-    /// Get the volume (assuming no scaling in Rot matrix)
-    double GetVolume() { return Size.x() * Size.y() * Size.z() * 8.0; };
+    /// Set the sweeping sphere radius.
+    void SetSphereRadius(double radius) { srad = radius; }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
-    ChVector<> Size;   /// box halflengths
-    double radsphere;  ///< radius of sweeping sphere
+    /// Return the volume of this type of solid with given dimensions.
+    static double GetVolume(const ChVector<>& lengths, double srad);
+
+    /// Return the gyration matrix of this type of solid with given dimensions.
+    static ChMatrix33<> GetGyration(const ChVector<>& lengths, double srad);
+
+    /// Return the bounding box of this type of solid with given dimensions.
+    static ChAABB GetBoundingBox(const ChVector<>& lengths, double srad);
+
+    /// Return the radius of a bounding sphere.
+    static double GetBoundingSphereRadius(const ChVector<>& lengths, double srad);
+
+    ChVector<> hlen;  ///< box halflengths
+    double srad;      ///< radius of sweeping sphere
 };
 
 }  // end namespace geometry

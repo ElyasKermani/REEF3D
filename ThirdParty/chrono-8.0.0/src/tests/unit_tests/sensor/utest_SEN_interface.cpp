@@ -35,7 +35,7 @@
 
 #include "chrono_sensor/optix/ChOptixUtils.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 using namespace chrono;
 using namespace chrono::sensor;
@@ -166,7 +166,7 @@ TEST(SensorInterface, shapes) {
 
     // remove sphere, add cylinder
     sys.RemoveBody(s);
-    auto c = chrono_types::make_shared<ChBodyEasyCylinder>(0.5, 1.0, 100, true, false);
+    auto c = chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, 0.5, 1.0, 100, true, false);
     c->SetPos({2.5, 0.0, 0.0});
     c->SetBodyFixed(true);
     sys.Add(c);
@@ -205,7 +205,7 @@ TEST(SensorInterface, mesh_channels) {
     triangle->getCoordsVertices() = vertices;
     triangle->getIndicesVertexes() = vert_ids;
 
-    auto triangle_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto triangle_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     triangle_shape->SetMesh(triangle);
     triangle_shape->SetMutable(false);
 

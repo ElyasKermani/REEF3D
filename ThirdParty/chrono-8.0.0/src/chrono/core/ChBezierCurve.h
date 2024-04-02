@@ -98,6 +98,9 @@ class ChApi ChBezierCurve {
     /// Return the knot point with specified index.
     const ChVector<>& getPoint(size_t i) const { return m_points[i]; }
 
+    /// Return all curve knots.
+    const std::vector<ChVector<>> getPoints() const { return m_points; }
+
     /// Evaluate the value of the Bezier curve.
     /// This function calculates and returns the point on the curve at the
     /// given curve parameter (assumed to be in [0,1]).  
@@ -150,10 +153,10 @@ class ChApi ChBezierCurve {
     // SERIALIZATION
 
     /// Method to allow serialization of transient data to archives.
-    void ArchiveOUT(ChArchiveOut& marchive);
+    void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient data from archives.
-    void ArchiveIN(ChArchiveIn& marchive);
+    void ArchiveIn(ChArchiveIn& marchive);
 
   private:
     /// Utility function to solve for the outCV control points.

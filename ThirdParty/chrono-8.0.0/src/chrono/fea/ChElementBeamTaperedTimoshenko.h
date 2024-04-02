@@ -163,6 +163,9 @@ class ChApi ChElementBeamTaperedTimoshenko : public ChElementBeam,
     ///  {acc_a acc_a acc_a accx_a accy_a accz_a acc_b acc_b acc_b accx_b accy_b accz_b}
     void GetField_dtdt(ChVectorDynamic<>& mD_dtdt);
 
+    /// Add contribution of element inertia to total nodal masses
+    virtual void ComputeNodalMass() override;
+
     /// Computes the local (material) stiffness matrix of the element:
     /// K = integral( [B]' * [D] * [B] ),
     /// Note: in this 'basic' implementation, constant section and
@@ -186,6 +189,10 @@ class ChApi ChElementBeamTaperedTimoshenko : public ChElementBeam,
     /// is computed only at the beginning, and later it is multiplied by P all times the real Kg is needed.
     /// If you later change some material property, call this or InitialSetup().
     void ComputeGeometricStiffnessMatrix();
+
+    /// Computes the accurate tangent stiffness matrix of the element according to the paper:
+    /// C A Felippa, B Haugen. A unified formulation of small strain corotational finite elements, I. Theory. 2005.
+    void ComputeAccurateTangentStiffnessMatrix(ChMatrixRef Kt_accurate, double Km_factor = 1.0, double Kg_factor = 1.0);
 
     /// Compute the inertia stiffness matrix [Ki^] and inertial damping matrix [Ri^]
     /// which are due to the gyroscopic effect.

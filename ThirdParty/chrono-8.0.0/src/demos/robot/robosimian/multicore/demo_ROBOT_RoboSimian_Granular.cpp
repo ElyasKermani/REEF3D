@@ -39,7 +39,6 @@
 #include "granular.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 using std::cout;
 using std::endl;
@@ -226,6 +225,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    sys->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
     sys->Set_G_acc(ChVector<double>(0, 0, -9.8));
     ////sys->Set_G_acc(ChVector<double>(0, 0, 0));
 
@@ -327,7 +327,7 @@ int main(int argc, char* argv[]) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.SetCameraPosition(ChVector<>(2, -2, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector<>(2, -2, 0), ChVector<>(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 

@@ -26,8 +26,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 
 #include "chrono_vehicle/wheeled_vehicle/suspension/ChRigidSuspension.h"
 
@@ -46,6 +46,8 @@ void ChRigidSuspension::Initialize(std::shared_ptr<ChChassis> chassis,
                                    const ChVector<>& location,
                                    double left_ang_vel,
                                    double right_ang_vel) {
+    ChSuspension::Initialize(chassis, subchassis, steering, location, left_ang_vel, right_ang_vel);
+
     m_parent = chassis;
     m_rel_loc = location;
 
@@ -79,7 +81,7 @@ void ChRigidSuspension::InitializeSide(VehicleSide side,
     ChQuaternion<> chassisRot = chassis->GetFrame_REF_to_abs().GetRot();
 
     // Create and initialize spindle body (same orientation as the chassis)
-    m_spindle[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_spindle[side] = chrono_types::make_shared<ChBody>();
     m_spindle[side]->SetNameString(m_name + "_spindle" + suffix);
     m_spindle[side]->SetPos(points[SPINDLE]);
     m_spindle[side]->SetRot(chassisRot);
@@ -140,9 +142,9 @@ double ChRigidSuspension::GetTrack() {
 // -----------------------------------------------------------------------------
 // Return current suspension forces
 // -----------------------------------------------------------------------------
-ChSuspension::Force ChRigidSuspension::ReportSuspensionForce(VehicleSide side) const {
-    ChSuspension::Force force{0, 0, 0, 0, 0, 0};
-    return force;
+std::vector<ChSuspension::ForceTSDA> ChRigidSuspension::ReportSuspensionForce(VehicleSide side) const {
+    std::vector<ChSuspension::ForceTSDA> forces;
+    return forces;
 }
 
 // -----------------------------------------------------------------------------
@@ -167,17 +169,17 @@ void ChRigidSuspension::ExportComponentList(rapidjson::Document& jsonDocument) c
     std::vector<std::shared_ptr<ChBody>> bodies;
     bodies.push_back(m_spindle[0]);
     bodies.push_back(m_spindle[1]);
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChShaft>> shafts;
     shafts.push_back(m_axle[0]);
     shafts.push_back(m_axle[1]);
-    ChPart::ExportShaftList(jsonDocument, shafts);
+    ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     joints.push_back(m_revolute[0]);
     joints.push_back(m_revolute[1]);
-    ChPart::ExportJointList(jsonDocument, joints);
+    ExportJointList(jsonDocument, joints);
 }
 
 void ChRigidSuspension::Output(ChVehicleOutput& database) const {

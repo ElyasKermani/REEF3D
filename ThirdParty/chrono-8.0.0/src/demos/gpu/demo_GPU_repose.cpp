@@ -155,12 +155,12 @@ int main(int argc, char* argv[]) {
     ChGpuVisualization gpu_vis(&gpu_sys);
     if (render) {
         gpu_vis.SetTitle("Chrono::Gpu repose demo");
-        gpu_vis.SetCameraPosition(ChVector<>(0, -30, -10), ChVector<>(0, 0, -20));
+        gpu_vis.AddCamera(ChVector<>(0, -30, -10), ChVector<>(0, 0, -20));
         gpu_vis.SetCameraMoveScale(1.0f);
         gpu_vis.Initialize();
     }
 
-    int fps = 30;
+    int fps = 1000;
     float frame_step = 1.f / fps;
     float curr_time = 0.f;
     int currframe = 0;
@@ -179,6 +179,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "frame step is " << frame_step << std::endl;
     while (curr_time < params.time_end) {
+        ////std::cout << "Time = " << curr_time << std::endl;
         gpu_sys.AdvanceSimulation(frame_step);
 
         if (render && !gpu_vis.Render())

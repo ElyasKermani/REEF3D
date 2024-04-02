@@ -18,14 +18,15 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/core/ChGlobal.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChSubsysDefs.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeBand.h"
+
 
 namespace chrono {
 namespace vehicle {
@@ -66,6 +67,8 @@ ChTrackShoeBand::ChTrackShoeBand(const std::string& name) : ChTrackShoe(name) {}
 void ChTrackShoeBand::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                                  const ChVector<>& location,
                                  const ChQuaternion<>& rotation) {
+    ChTrackShoe::Initialize(chassis, location, rotation);
+
     // Cache the postive (+x) tooth arc position and arc starting and ending angles
     ChVector2<> tooth_base_p(GetToothBaseLength() / 2, GetWebThickness() / 2);
     ChVector2<> tooth_tip_p(GetToothTipLength() / 2, GetToothHeight() + GetWebThickness() / 2);
@@ -99,7 +102,7 @@ void ChTrackShoeBand::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     ChQuaternion<> rot = chassis->GetRot() * rotation;
 
     // Create the tread body
-    m_shoe = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_shoe = chrono_types::make_shared<ChBody>();
     m_shoe->SetNameString(m_name + "_tread");
     m_shoe->SetIdentifier(BodyID::SHOE_BODY);
     m_shoe->SetPos(loc);
@@ -130,27 +133,26 @@ void ChTrackShoeBand::AddShoeContact(ChContactMethod contact_method) {
     auto body_material = m_body_matinfo.CreateMaterial(contact_method);
     auto guide_material = m_guide_matinfo.CreateMaterial(contact_method);
 
-    m_shoe->GetCollisionModel()->ClearModel();
+    // Guide pin
+    ChVector<> g_dims = GetGuideBoxDimensions();
+    ChVector<> g_loc(GetGuideBoxOffsetX(), 0, GetWebThickness() / 2 + g_dims.z() / 2);
+    auto g_shape = chrono_types::make_shared<ChCollisionShapeBox>(guide_material, g_dims.x(), g_dims.y(), g_dims.z());
+    m_shoe->AddCollisionShape(g_shape, ChFrame<>(g_loc, QUNIT));
+
+    // Main box
+    ChVector<> b_dims(GetToothBaseLength(), GetBeltWidth(), GetWebThickness());
+    ChVector<> b_loc(0, 0, 0);
+    auto b_shape = chrono_types::make_shared<ChCollisionShapeBox>(body_material, b_dims.x(), b_dims.y(), b_dims.z());
+    m_shoe->AddCollisionShape(b_shape, ChFrame<>(b_loc, QUNIT));
+
+    // Pad box
+    ChVector<> t_dims(GetTreadLength(), GetBeltWidth(), GetTreadThickness());
+    ChVector<> t_loc(0, 0, (-GetWebThickness() - GetTreadThickness()) / 2);
+    auto t_shape = chrono_types::make_shared<ChCollisionShapeBox>(pad_material, t_dims.x(), t_dims.y(), t_dims.z());
+    m_shoe->AddCollisionShape(t_shape, ChFrame<>(t_loc, QUNIT));
 
     m_shoe->GetCollisionModel()->SetFamily(TrackedCollisionFamily::SHOES);
     m_shoe->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::SHOES);
-
-    // Guide pin
-    ChVector<> g_hdims = GetGuideBoxDimensions() / 2;
-    ChVector<> g_loc(GetGuideBoxOffsetX(), 0, GetWebThickness() / 2 + g_hdims.z());
-    m_shoe->GetCollisionModel()->AddBox(guide_material, g_hdims.x(), g_hdims.y(), g_hdims.z(), g_loc);
-
-    // Main box
-    ChVector<> b_hdims(GetToothBaseLength() / 2, GetBeltWidth() / 2, GetWebThickness() / 2);
-    ChVector<> b_loc(0, 0, 0);
-    m_shoe->GetCollisionModel()->AddBox(body_material, b_hdims.x(), b_hdims.y(), b_hdims.z(), b_loc);
-
-    // Pad box
-    ChVector<> t_hdims(GetTreadLength() / 2, GetBeltWidth() / 2, GetTreadThickness() / 2);
-    ChVector<> t_loc(0, 0, (-GetWebThickness() - GetTreadThickness()) / 2);
-    m_shoe->GetCollisionModel()->AddBox(pad_material, t_hdims.x(), t_hdims.y(), t_hdims.z(), t_loc);
-
-    m_shoe->GetCollisionModel()->BuildModel();
 }
 
 // -----------------------------------------------------------------------------
@@ -165,33 +167,27 @@ ChColor ChTrackShoeBand::GetColor(size_t index) {
 
 void ChTrackShoeBand::AddShoeVisualization() {
     // Guide pin
-    ChVector<> g_hdims = GetGuideBoxDimensions() / 2;
-    ChVector<> g_loc(GetGuideBoxOffsetX(), 0, GetWebThickness() / 2 + g_hdims.z());
-    auto box_pin = chrono_types::make_shared<ChBoxShape>();
-    box_pin->GetBoxGeometry().Size = g_hdims;
+    ChVector<> g_loc(GetGuideBoxOffsetX(), 0, GetWebThickness() / 2 + GetGuideBoxDimensions().z() / 2);
+    auto box_pin = chrono_types::make_shared<ChVisualShapeBox>(GetGuideBoxDimensions());
     m_shoe->AddVisualShape(box_pin, ChFrame<>(g_loc));
 
     // Main box
-    ChVector<> b_hdims(GetToothBaseLength() / 2, GetBeltWidth() / 2, GetWebThickness() / 2);
     ChVector<> b_loc(0, 0, 0);
-    auto box_main = chrono_types::make_shared<ChBoxShape>();
-    box_main->GetBoxGeometry().Size = b_hdims;
+    auto box_main = chrono_types::make_shared<ChVisualShapeBox>(GetToothBaseLength(), GetBeltWidth(), GetWebThickness());
     m_shoe->AddVisualShape(box_main, ChFrame<>(b_loc));
 
     // Pad box
-    ChVector<> t_hdims(GetTreadLength() / 2, GetBeltWidth() / 2, GetTreadThickness() / 2);
     ChVector<> t_loc(0, 0, (-GetWebThickness() - GetTreadThickness()) / 2);
-    auto box_tread = chrono_types::make_shared<ChBoxShape>();
-    box_tread->GetBoxGeometry().Size = t_hdims;
+    auto box_tread = chrono_types::make_shared<ChVisualShapeBox>(GetTreadLength(), GetBeltWidth(), GetTreadThickness());
     m_shoe->AddVisualShape(box_tread, ChFrame<>(t_loc));
 
     // Connection to first web segment
     double radius = GetWebThickness() / 4;
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
-    cyl->GetCylinderGeometry().rad = radius;
-    cyl->GetCylinderGeometry().p1 = ChVector<>(GetToothBaseLength() / 2, -GetBeltWidth() / 2 - 2 * radius, 0);
-    cyl->GetCylinderGeometry().p2 = ChVector<>(GetToothBaseLength() / 2, +GetBeltWidth() / 2 + 2 * radius, 0);
-    m_shoe->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(
+        m_shoe,                                                                     //
+        ChVector<>(GetToothBaseLength() / 2, -GetBeltWidth() / 2 - 2 * radius, 0),  //
+        ChVector<>(GetToothBaseLength() / 2, +GetBeltWidth() / 2 + 2 * radius, 0),  //
+        radius);
 
     // Create tooth meshes
     m_shoe->AddVisualShape(ToothMesh(GetBeltWidth() / 2 - GetToothWidth() / 2));
@@ -257,7 +253,7 @@ int ChTrackShoeBand::ProfilePoints(std::vector<ChVector2<>>& points, std::vector
     return (int)points.size();
 }
 
-std::shared_ptr<ChTriangleMeshShape> ChTrackShoeBand::ToothMesh(double y) {
+std::shared_ptr<ChVisualShapeTriangleMesh> ChTrackShoeBand::ToothMesh(double y) {
     // Obtain profile points.
     std::vector<ChVector2<>> points2;
     std::vector<ChVector2<>> normals2;
@@ -337,7 +333,7 @@ std::shared_ptr<ChTriangleMeshShape> ChTrackShoeBand::ToothMesh(double y) {
         it++;
     }
 
-    auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetName(GetTreadVisualizationMeshName());
     return trimesh_shape;

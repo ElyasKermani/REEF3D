@@ -26,7 +26,6 @@
 
 #include "chrono_vehicle/wheeled_vehicle/vehicle/WheeledVehicle.h"
 
-
 #include "chrono_synchrono/SynConfig.h"
 #include "chrono_synchrono/SynChronoManager.h"
 #include "chrono_synchrono/agent/SynWheeledVehicleAgent.h"
@@ -38,13 +37,13 @@
 #include "chrono_thirdparty/cxxopts/ChCLI.h"
 
 #ifdef CHRONO_IRRLICHT
-    #include "chrono_vehicle/driver/ChIrrGuiDriver.h"
-    #include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h"
+    #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
+    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
 #endif
 
 using namespace chrono;
 #ifdef CHRONO_IRRLICHT
-    using namespace chrono::irrlicht;
+using namespace chrono::irrlicht;
 #endif
 using namespace chrono::synchrono;
 using namespace chrono::vehicle;
@@ -114,30 +113,30 @@ void GetVehicleModelFiles(VehicleType type,
 #ifdef CHRONO_IRRLICHT
 class IrrAppWrapper {
   public:
-    IrrAppWrapper(std::shared_ptr<ChWheeledVehicleIrrApp> app = nullptr) : app(app) {}
+    IrrAppWrapper(std::shared_ptr<ChWheeledVehicleVisualSystemIrrlicht> app = nullptr) : m_app(app) {}
 
-    void Synchronize(const std::string& msg, const ChDriver::Inputs& driver_inputs) {
-        if (app)
-            app->Synchronize(msg, driver_inputs);
+    void Synchronize(double time, const DriverInputs& driver_inputs) {
+        if (m_app)
+            m_app->Synchronize(time, driver_inputs);
     }
 
     void Advance(double step) {
-        if (app)
-            app->Advance(step);
+        if (m_app)
+            m_app->Advance(step);
     }
 
     void Render() {
-        if (app) {
-            app->BeginScene();
-            app->DrawAll();
-            app->EndScene();
+        if (m_app) {
+            m_app->BeginScene();
+            m_app->Render();
+            m_app->EndScene();
         }
     }
 
-    void Set(std::shared_ptr<ChWheeledVehicleIrrApp> app) { this->app = app; }
-    bool IsOk() { return app ? app->GetDevice()->run() : true; }
+    void Set(std::shared_ptr<ChWheeledVehicleVisualSystemIrrlicht> app) { m_app = app; }
+    bool IsOk() { return m_app ? m_app->GetDevice()->run() : true; }
 
-    std::shared_ptr<ChWheeledVehicleIrrApp> app;
+    std::shared_ptr<ChWheeledVehicleVisualSystemIrrlicht> m_app;
 };
 
 class DriverWrapper : public ChDriver {
@@ -160,9 +159,9 @@ class DriverWrapper : public ChDriver {
             irr_driver->Advance(step);
     }
 
-    void Set(std::shared_ptr<ChIrrGuiDriver> irr_driver) { this->irr_driver = irr_driver; }
+    void Set(std::shared_ptr<ChInteractiveDriverIRR> irr_driver) { this->irr_driver = irr_driver; }
 
-    std::shared_ptr<ChIrrGuiDriver> irr_driver;
+    std::shared_ptr<ChInteractiveDriverIRR> irr_driver;
 };
 #endif
 // =============================================================================
@@ -246,7 +245,9 @@ int main(int argc, char* argv[]) {
 
     // Get the vehicle JSON filenames
     const std::string vehicle_filename = vehicle::GetDataFile("sedan/vehicle/Sedan_Vehicle.json");
-    const std::string powertrain_filename = vehicle::GetDataFile("sedan/powertrain/Sedan_SimpleMapPowertrain.json");
+    const std::string engine_filename = vehicle::GetDataFile("sedan/powertrain/Sedan_EngineSimpleMap.json");
+    const std::string transmission_filename =
+        vehicle::GetDataFile("sedan/powertrain/Sedan_AutomaticTransmissionSimpleMap.json");
     const std::string tire_filename = vehicle::GetDataFile("sedan/tire/Sedan_TMeasyTire.json");
     const std::string zombie_filename = synchrono::GetDataFile("vehicle/Sedan.json");
 
@@ -260,7 +261,9 @@ int main(int argc, char* argv[]) {
     vehicle.SetWheelVisualizationType(wheel_vis_type);
 
     // Create and initialize the powertrain system
-    auto powertrain = ReadPowertrainJSON(powertrain_filename);
+    auto engine = ReadEngineJSON((engine_filename));
+    auto transmission = ReadTransmissionJSON((transmission_filename));
+    auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
     vehicle.InitializePowertrain(powertrain);
 
     // Create and initialize the tires
@@ -271,6 +274,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Set associated collision detection system
+    vehicle.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     // Add vehicle as an agent and initialize SynChronoManager
     auto agent = chrono_types::make_shared<SynWheeledVehicleAgent>(&vehicle, zombie_filename);
     syn_manager.AddAgent(agent);
@@ -278,20 +284,21 @@ int main(int argc, char* argv[]) {
 
     // Create the terrain
     RigidTerrain terrain(vehicle.GetSystem(), vehicle::GetDataFile("terrain/RigidPlane.json"));
+
     // Create the vehicle Irrlicht interface
 #ifdef CHRONO_IRRLICHT
     IrrAppWrapper app;
     DriverWrapper driver(vehicle);
     if (cli.HasValueInVector<int>("irr", node_id)) {
-        auto temp_app = chrono_types::make_shared<ChWheeledVehicleIrrApp>(&vehicle, L"SynChrono Wheeled Vehicle Demo");
-        temp_app->AddTypicalLights();
+        auto temp_app = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
+        temp_app->SetWindowTitle("SynChrono Wheeled Vehicle Demo");
         temp_app->SetChaseCamera(trackPoint, 6.0, 0.5);
-        temp_app->SetTimestep(step_size);
-        temp_app->AssetBindAll();
-        temp_app->AssetUpdateAll();
+        temp_app->Initialize();
+        temp_app->AddTypicalLights();
+        temp_app->AttachVehicle(&vehicle);
 
         // Create the interactive driver system
-        auto irr_driver = chrono_types::make_shared<ChIrrGuiDriver>(*temp_app);
+        auto irr_driver = chrono_types::make_shared<ChInteractiveDriverIRR>(*temp_app);
 
         // Set the time response for steering and throttle keyboard inputs.
         double steering_time = 1.0;  // time to go from 0 to +1 (or from 0 to -1)
@@ -351,22 +358,23 @@ int main(int argc, char* argv[]) {
         if (time >= end_time)
             break;
 
-        // Render scene
+            // Render scene
 #ifdef CHRONO_IRRLICHT
         if (step_number % render_steps == 0)
             app.Render();
 
 #endif
         // Get driver inputs
-        ChDriver::Inputs driver_inputs = driver.GetInputs();
+        DriverInputs driver_inputs = driver.GetInputs();
+
         // Update modules (process inputs from other modules)
-        //std::async(&syn_manager.Synchronize, time);  // Synchronize between nodes
+        // std::async(&syn_manager.Synchronize, time);  // Synchronize between nodes
         std::async(std::launch::async, &SynChronoManager::Synchronize, &syn_manager, time);
         terrain.Synchronize(time);
         vehicle.Synchronize(time, driver_inputs, terrain);
         driver.Synchronize(time);
 #ifdef CHRONO_IRRLICHT
-        app.Synchronize("", driver_inputs);
+        app.Synchronize(time, driver_inputs);
 #endif
         // Advance simulation for one timestep for all modules
         driver.Advance(step_size);
@@ -379,7 +387,7 @@ int main(int argc, char* argv[]) {
         step_number++;
 
         // Log clock time
-        if (step_number % 100 == 0 ) {
+        if (step_number % 100 == 0) {
             std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
             auto time_span = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
@@ -387,11 +395,11 @@ int main(int argc, char* argv[]) {
             std::cout << std::flush;
         }
 
-        #ifdef CHRONO_IRRLICHT
+#ifdef CHRONO_IRRLICHT
         appok = app.IsOk();
-        #else
+#else
         appok = true;
-        #endif
+#endif
     }
 
     return 0;

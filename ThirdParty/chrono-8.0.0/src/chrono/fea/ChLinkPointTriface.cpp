@@ -15,7 +15,7 @@
 #include "chrono/physics/ChIndexedNodes.h"
 #include "chrono/physics/ChSystem.h"
 #include "chrono/fea/ChLinkPointTriface.h"
-#include "chrono/collision/ChCollisionUtils.h"
+#include "chrono/utils/ChUtilsGeometry.h"
 
 namespace chrono {
 namespace fea {
@@ -54,7 +54,7 @@ int ChLinkPointTriface::Initialize(std::shared_ptr<ChNodeFEAxyz> anodeA,
 
     bool is_into;
     ChVector<> p_projected;
-    this->d = collision::utils::PointTriangleDistance(mnodeA->pos, mtriangle.mnodeB1->pos, mtriangle.mnodeB2->pos,
+    this->d = utils::PointTriangleDistance(mnodeA->pos, mtriangle.mnodeB1->pos, mtriangle.mnodeB2->pos,
                                                       mtriangle.mnodeB3->pos, s2, s3, is_into, p_projected);
 
     // double s1 = 1 - s2 - s3;
@@ -352,11 +352,11 @@ void ChLinkPointTriface::ConstraintsFetch_react(double factor) {
 
 // FILE I/O
 
-void ChLinkPointTriface::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkPointTriface::ArchiveOut(ChArchiveOut& marchive) {
     //// TODO
 }
 
-void ChLinkPointTriface::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkPointTriface::ArchiveIn(ChArchiveIn& marchive) {
     //// TODO
 }
 
@@ -400,7 +400,7 @@ int ChLinkPointTrifaceRot::Initialize(std::shared_ptr<ChNodeFEAxyz> anodeA,
     bool is_into;
     ChVector<> p_projected;
     this->d =
-        collision::utils::PointTriangleDistance(mnodeA->pos, mtriangle.mnodeB1->coord.pos, mtriangle.mnodeB2->coord.pos,
+        utils::PointTriangleDistance(mnodeA->pos, mtriangle.mnodeB1->coord.pos, mtriangle.mnodeB2->coord.pos,
                                                 mtriangle.mnodeB3->coord.pos, s2, s3, is_into, p_projected);
 
     // double s1 = 1 - s2 - s3;
@@ -694,11 +694,11 @@ void ChLinkPointTrifaceRot::ConstraintsFetch_react(double factor) {
 
 // FILE I/O
 
-void ChLinkPointTrifaceRot::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkPointTrifaceRot::ArchiveOut(ChArchiveOut& marchive) {
     //// TODO
 }
 
-void ChLinkPointTrifaceRot::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkPointTrifaceRot::ArchiveIn(ChArchiveIn& marchive) {
     //// TODO
 }
 

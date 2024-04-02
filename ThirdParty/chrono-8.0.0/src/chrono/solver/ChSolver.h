@@ -40,7 +40,7 @@ class ChApi ChSolver {
         PMINRES,          ///< Projected MINRES
         BARZILAIBORWEIN,  ///< Barzilai-Borwein
         APGD,             ///< Accelerated Projected Gradient Descent
-        ADDM,             ///< Alternating Direction Method of Multipliers
+        ADMM,             ///< Alternating Direction Method of Multipliers
         // Direct linear solvers
         SPARSE_LU,        ///< Sparse supernodal LU factorization
         SPARSE_QR,        ///< Sparse left-looking rank-revealing QR factorization
@@ -84,10 +84,10 @@ class ChApi ChSolver {
     void EnableWrite(bool val, const std::string& frame, const std::string& out_dir = ".");
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive);
+    virtual void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive);
+    virtual void ArchiveIn(ChArchiveIn& marchive);
 
   protected:
     ChSolver() : verbose(false) {}

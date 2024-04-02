@@ -347,7 +347,7 @@ public:
     /// first the all the "boundary" variables then all the "inner" variables (or modal variables if switched to modal assembly).
     /// The name of the files will be [path]_M.dat [path]_K.dat [path]_R.dat [path]_Cq.dat 
     /// Might throw ChException if file can't be saved.
-    void DumpSubassemblyMatrices(bool save_M, bool save_K, bool save_R, bool save_Cq, const char* path);
+    void DumpSubassemblyMatrices(bool save_M, bool save_K, bool save_R, bool save_Cq, const std::string& path);
 
     /// Compute the mass matrix of the subassembly. 
     /// Assumes the rows/columns of the matrix are ordered as the ChVariable objects used in this assembly, 
@@ -439,6 +439,10 @@ public:
                                     ChVectorDynamic<>& R,
                                     const ChVectorDynamic<>& w,
                                     const double c) override;
+    virtual void IntLoadLumpedMass_Md(const unsigned int off,
+                                      ChVectorDynamic<>& Md,
+                                      double& err,
+                                      const double c) override;
     virtual void IntLoadResidual_CqL(const unsigned int off_L,
                                      ChVectorDynamic<>& R,
                                      const ChVectorDynamic<>& L,
@@ -484,15 +488,26 @@ public:
     virtual void ConstraintsFetch_react(double factor = 1) override;
     */
 
+
+    /// Get cumulative time for matrix assembly.
+    double GetTimeMatrixAssembly() const { return m_timer_matrix_assembly(); }
+
+    /// Get cumulative time for setup.
+    double GetTimeSetup() const { return m_timer_setup(); }
+
+    /// Get cumulative time for modal solver.
+    double GetTimeModalSolver() const { return m_timer_modal_solver_call(); }
+
+
     //
     // SERIALIZATION
     //
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow deserialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
     // SWAP FUNCTION
 
@@ -583,9 +598,13 @@ public:
 
     bool internal_nodes_update;
 
+
+    mutable ChTimer m_timer_matrix_assembly;
+    mutable ChTimer m_timer_modal_solver_call;
+    mutable ChTimer m_timer_setup;
+
     friend class ChSystem;
     friend class ChSystemMulticore;
-    friend class ChSystemDistributed;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW

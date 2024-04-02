@@ -134,6 +134,13 @@ void ChShaftsMotorSpeed::IntLoadResidual_Mv(const unsigned int off,      // offs
     R(off) += c * 1.0 * w(off);
 }
 
+void ChShaftsMotorSpeed::IntLoadLumpedMass_Md(const unsigned int off,
+                                              ChVectorDynamic<>& Md,
+                                              double& err,
+                                              const double c 
+) {
+    Md(off) += c * 1.0;
+}
 
 void ChShaftsMotorSpeed::IntLoadResidual_CqL(const unsigned int off_L,    // offset in L multipliers
                                         ChVectorDynamic<>& R,        // result: the R residual, R += c*Cq'*L
@@ -274,12 +281,12 @@ void ChShaftsMotorSpeed::ConstraintsFetch_react(double factor) {
 
 //////// FILE I/O
 
-void ChShaftsMotorSpeed::ArchiveOUT(ChArchiveOut& marchive) {
+void ChShaftsMotorSpeed::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChShaftsMotorSpeed>();
 
     // serialize parent class
-    ChShaftsMotorBase::ArchiveOUT(marchive);
+    ChShaftsMotorBase::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(motor_torque);
@@ -290,18 +297,19 @@ void ChShaftsMotorSpeed::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 /// Method to allow de serialization of transient data from archives.
-void ChShaftsMotorSpeed::ArchiveIN(ChArchiveIn& marchive) {
+void ChShaftsMotorSpeed::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChShaftsMotorSpeed>();
 
     // deserialize parent class:
-    ChShaftsMotorBase::ArchiveIN(marchive);
+    ChShaftsMotorBase::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(motor_torque);
     marchive >> CHNVP(f_speed);
     marchive >> CHNVP(rot_offset);
     marchive >> CHNVP(avoid_angle_drift);
+    constraint.SetVariables(&shaft1->Variables(), &shaft2->Variables());
 }
 
 

@@ -20,19 +20,27 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsGeometry.h"
-#include "chrono/assets/ChBoxShape.h"
 #include "chrono/core/ChTransform.h"
 
 #include "chrono_fsi/ChSystemFsi.h"
-#include "chrono_fsi/ChVisualizationFsi.h"
+
+#include "chrono_fsi/visualization/ChFsiVisualization.h"
+#ifdef CHRONO_OPENGL
+    #include "chrono_fsi/visualization/ChFsiVisualizationGL.h"
+#endif
+#ifdef CHRONO_VSG
+    #include "chrono_fsi/visualization/ChFsiVisualizationVSG.h"
+#endif
 
 #include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::fsi;
 
 // -----------------------------------------------------------------
+
+// Run-time visualization system (OpenGL or VSG)
+ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // Output directories and settings
 const std::string out_dir = GetChronoOutputPath() + "FSI_Cylinder_Drop/";
@@ -53,18 +61,14 @@ double cyl_radius = 0.12;
 // Final simulation time
 double t_end = 2.0;
 
-// Enable/disable run-time visualization (if Chrono::OpenGL is available)
+// Enable/disable run-time visualization
 bool render = true;
 float render_fps = 1000;
 
 //------------------------------------------------------------------
 // Function to save cylinder to Paraview VTK files
 //------------------------------------------------------------------
-void WriteCylinderVTK(const std::string& filename,
-                      double radius,
-                      double length,
-                      const ChFrame<>& frame,
-                      int res) {
+void WriteCylinderVTK(const std::string& filename, double radius, double length, const ChFrame<>& frame, int res) {
     std::ofstream outf;
     outf.open(filename, std::ios::app);
     outf << "# vtk DataFile Version 1.0\nUnstructured Grid Example\nASCII\n\n" << std::endl;
@@ -146,37 +150,41 @@ void CreateSolidPhase(ChSystemSMC& sysMBS, ChSystemFsi& sysFSI) {
     sysMBS.AddBody(box);
 
     // Add collision geometry for the container walls
-    box->GetCollisionModel()->ClearModel();
-    chrono::utils::AddBoxContainer(box, cmaterial, ChFrame<>(), ChVector<>(bxDim, byDim, bzDim), 0.1,
-                                   ChVector<int>(2, 2, -1), false);
-    box->GetCollisionModel()->BuildModel();
+    chrono::utils::AddBoxContainer(box, cmaterial,                                 //
+                                   ChFrame<>(ChVector<>(0, 0, bzDim / 2), QUNIT),  //
+                                   ChVector<>(bxDim, byDim, bzDim), 0.1,           //
+                                   ChVector<int>(2, 2, -1),                        //
+                                   false);
     box->SetCollide(true);
 
     // Add BCE particles attached on the walls into FSI system
-    sysFSI.AddContainerBCE(box, ChFrame<>(), ChVector<>(bxDim, byDim, bzDim), ChVector<int>(2, 2, 2));
+    sysFSI.AddBoxContainerBCE(box,                                            //
+                              ChFrame<>(ChVector<>(0, 0, bzDim / 2), QUNIT),  //
+                              ChVector<>(bxDim, byDim, bzDim),                //
+                              ChVector<int>(2, 2, 2));
 
     // Create a falling cylinder
     auto cylinder = chrono_types::make_shared<ChBody>();
 
     // Set the general properties of the cylinder
-    double volume = chrono::utils::CalcCylinderVolume(cyl_radius, cyl_length / 2);
+    double volume = geometry::ChCylinder::GetVolume(cyl_radius, cyl_length / 2);
     double density = sysFSI.GetDensity() * 2.0;
     double mass = density * volume;
     ChVector<> cyl_pos = ChVector<>(0, 0, bzDim + cyl_radius + 2 * initSpace0);
     ChVector<> cyl_vel = ChVector<>(0.0, 0.0, 0.0);
-    ChVector<> gyration = chrono::utils::CalcCylinderGyration(cyl_radius, cyl_length / 2).diagonal();
+    ChVector<> gyration = geometry::ChCylinder::GetGyration(cyl_radius, cyl_length / 2).diagonal();
     cylinder->SetPos(cyl_pos);
     cylinder->SetPos_dt(cyl_vel);
     cylinder->SetMass(mass);
     cylinder->SetInertiaXX(mass * gyration);
 
-    // Set the collision type of the cylinder
+    // Set the collision and visualization geometry
     cylinder->SetCollide(true);
     cylinder->SetBodyFixed(false);
-    cylinder->GetCollisionModel()->ClearModel();
+    chrono::utils::AddCylinderGeometry(cylinder.get(), cmaterial, cyl_radius, cyl_length, VNULL, Q_from_AngX(CH_C_PI_2));
     cylinder->GetCollisionModel()->SetSafeMargin(initSpace0);
-    chrono::utils::AddCylinderGeometry(cylinder.get(), cmaterial, cyl_radius, cyl_length, VNULL, QUNIT);
-    cylinder->GetCollisionModel()->BuildModel();
+
+    cylinder->GetVisualShape(0)->SetColor(ChColor(0.65f, 0.20f, 0.10f));
 
     // Add this body to chrono system
     sysMBS.AddBody(cylinder);
@@ -212,6 +220,8 @@ int main(int argc, char* argv[]) {
     ChSystemSMC sysMBS;
     ChSystemFsi sysFSI(&sysMBS);
 
+    sysMBS.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     std::string inputJson = GetChronoDataFile("fsi/input_json/demo_FSI_CylinderDrop_Explicit.json");
     if (argc == 1) {
         std::cout << "Use the default JSON file" << std::endl;
@@ -245,8 +255,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < numPart; i++) {
         double pre_ini = sysFSI.GetDensity() * gz * (-points[i].z() + bzDim);
         double rho_ini = sysFSI.GetDensity() + pre_ini / (sysFSI.GetSoundSpeed() * sysFSI.GetSoundSpeed());
-        sysFSI.AddSPHParticle(points[i], rho_ini, pre_ini, sysFSI.GetViscosity(), sysFSI.GetKernelLength(),
-                              ChVector<>(0));
+        sysFSI.AddSPHParticle(points[i], rho_ini, pre_ini, sysFSI.GetViscosity(), ChVector<>(0));
     }
 
     // Create MBD and BCE particles for the solid domain
@@ -261,19 +270,49 @@ int main(int argc, char* argv[]) {
     mystepper->SetAlpha(-0.2);
     mystepper->SetMaxiters(1000);
     mystepper->SetAbsTolerances(1e-6);
-    mystepper->SetMode(ChTimestepperHHT::ACCELERATION);
-    mystepper->SetScaling(true);
 
     // Create a run-tme visualizer
-    ChVisualizationFsi fsi_vis(&sysFSI);
+#ifndef CHRONO_OPENGL
+    if (vis_type == ChVisualSystem::Type::OpenGL)
+        vis_type = ChVisualSystem::Type::VSG;
+#endif
+#ifndef CHRONO_VSG
+    if (vis_type == ChVisualSystem::Type::VSG)
+        vis_type = ChVisualSystem::Type::OpenGL;
+#endif
+#if !defined(CHRONO_OPENGL) && !defined(CHRONO_VSG)
+    render = false;
+#endif
+
+    std::shared_ptr<ChFsiVisualization> visFSI;
     if (render) {
-        fsi_vis.SetTitle("Chrono::FSI cylinder drop");
-        fsi_vis.AttachSystem(&sysMBS);
+        switch (vis_type) {
+            case ChVisualSystem::Type::OpenGL:
+#ifdef CHRONO_OPENGL
+                visFSI = chrono_types::make_shared<ChFsiVisualizationGL>(&sysFSI);
+#endif
+                break;
+            case ChVisualSystem::Type::VSG: {
+#ifdef CHRONO_VSG
+                visFSI = chrono_types::make_shared<ChFsiVisualizationVSG>(&sysFSI);
+#endif
+                break;
+            }
+        }
+
         auto origin = sysMBS.Get_bodylist()[1]->GetPos();
-        fsi_vis.SetCameraPosition(origin - ChVector<>(0, 3 * byDim, 0), origin);
-        fsi_vis.SetCameraMoveScale(1.0f);
-        fsi_vis.EnableBoundaryMarkers(false);
-        fsi_vis.Initialize();
+
+        visFSI->SetTitle("Chrono::FSI cylinder drop");
+        visFSI->SetSize(1280, 720);
+        visFSI->AddCamera(origin - ChVector<>(2 * bxDim, 2 * byDim, 0), origin);
+        visFSI->SetCameraMoveScale(0.1f);
+        visFSI->EnableBoundaryMarkers(false);
+        visFSI->EnableRigidBodyMarkers(true);
+        visFSI->SetRenderMode(ChFsiVisualization::RenderMode::SOLID);
+        visFSI->SetParticleRenderMode(ChFsiVisualization::RenderMode::SOLID);
+        visFSI->SetSPHColorCallback(chrono_types::make_shared<HeightColorCallback>(0, 1.2));
+        visFSI->AttachSystem(&sysMBS);
+        visFSI->Initialize();
     }
 
     // Start the simulation
@@ -284,12 +323,9 @@ int main(int argc, char* argv[]) {
     double time = 0.0;
     int current_step = 0;
 
-    ChTimer<> timer;
+    ChTimer timer;
     timer.start();
     while (time < t_end) {
-        std::cout << "step: " << current_step << "  time: " << time
-                  << "  cyl z: " << sysMBS.Get_bodylist()[1]->GetPos().z() << std::endl;
-
         if (output && current_step % output_steps == 0) {
             std::cout << "-------- Output" << std::endl;
             sysFSI.PrintParticleToFile(out_dir + "/particles");
@@ -301,9 +337,12 @@ int main(int argc, char* argv[]) {
 
         // Render SPH particles
         if (render && current_step % render_steps == 0) {
-            if (!fsi_vis.Render())
+            if (!visFSI->Render())
                 break;
         }
+
+        std::cout << "step: " << current_step << "\ttime: " << time << "\tRTF: " << sysFSI.GetRTF()
+                  << "\tcyl z: " << sysMBS.Get_bodylist()[1]->GetPos().z() << std::endl;
 
         // Call the FSI solver
         sysFSI.DoStepDynamics_FSI();

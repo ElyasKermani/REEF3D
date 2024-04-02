@@ -31,18 +31,17 @@
 #include "chrono_sensor/sensors/ChRadarSensor.h"
 #include "chrono_sensor/optix/ChOptixUtils.h"
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCapsuleShape.h"
-#include "chrono/assets/ChConeShape.h"
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChEllipsoidShape.h"
-#include "chrono/assets/ChLineShape.h"
-#include "chrono/assets/ChPathShape.h"
-#include "chrono/assets/ChRoundedBoxShape.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCapsule.h"
+#include "chrono/assets/ChVisualShapeCone.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapeEllipsoid.h"
+#include "chrono/assets/ChVisualShapeLine.h"
+#include "chrono/assets/ChVisualShapePath.h"
+#include "chrono/assets/ChVisualShapeRoundedBox.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
-#include "chrono/assets/ChVisualShape.h"
 #include "chrono/physics/ChSystem.h"
 
 #include <random>
@@ -73,7 +72,7 @@ ChOptixEngine::~ChOptixEngine() {
     optixDeviceContextDestroy(m_context);
 }
 
-void ChOptixEngine::Initialize() { 
+void ChOptixEngine::Initialize() {
     cudaFree(0);
     OptixDeviceContext context;
     CUcontext cuCtx = 0;  // zero means take the current context, TODO: enable multigpu
@@ -418,9 +417,9 @@ void ChOptixEngine::SceneProcess(RenderThread& tself) {
 }
 
 void ChOptixEngine::boxVisualization(std::shared_ptr<ChBody> body,
-                                     std::shared_ptr<ChBoxShape> box_shape,
+                                     std::shared_ptr<ChVisualShapeBox> box_shape,
                                      ChFrame<> asset_frame) {
-    ChVector<double> size = box_shape->GetBoxGeometry().GetLengths();
+    ChVector<double> size = box_shape->GetLengths();
 
     unsigned int mat_id;
     if (box_shape->GetNumMaterials() == 0) {
@@ -433,10 +432,9 @@ void ChOptixEngine::boxVisualization(std::shared_ptr<ChBody> body,
 }
 
 void ChOptixEngine::sphereVisualization(std::shared_ptr<ChBody> body,
-                                        std::shared_ptr<ChSphereShape> sphere_shape,
+                                        std::shared_ptr<ChVisualShapeSphere> sphere_shape,
                                         ChFrame<> asset_frame) {
-    ChVector<double> size = {sphere_shape->GetSphereGeometry().rad, sphere_shape->GetSphereGeometry().rad,
-                             sphere_shape->GetSphereGeometry().rad};
+    ChVector<double> size(sphere_shape->GetRadius());
 
     unsigned int mat_id;
     if (sphere_shape->GetNumMaterials() == 0) {
@@ -449,15 +447,12 @@ void ChOptixEngine::sphereVisualization(std::shared_ptr<ChBody> body,
 }
 
 void ChOptixEngine::cylinderVisualization(std::shared_ptr<ChBody> body,
-                                          std::shared_ptr<ChCylinderShape> cyl_shape,
+                                          std::shared_ptr<ChVisualShapeCylinder> cyl_shape,
                                           ChFrame<> asset_frame) {
-    double radius = cyl_shape->GetCylinderGeometry().rad;
-    double height = (cyl_shape->GetCylinderGeometry().p1 - cyl_shape->GetCylinderGeometry().p2).Length();
-    ChVector<double> center = (cyl_shape->GetCylinderGeometry().p1 + cyl_shape->GetCylinderGeometry().p2) / 2;
+    double radius = cyl_shape->GetRadius();
+    double height = cyl_shape->GetHeight();
 
-    ChVector<double> size = {radius, height, radius};
-
-    ChFrame<double> cyl_frame = asset_frame * ChFrame<double>(center);
+    ChVector<double> size = {radius, radius, height};
 
     unsigned int mat_id;
     if (cyl_shape->GetNumMaterials() == 0) {
@@ -465,12 +460,12 @@ void ChOptixEngine::cylinderVisualization(std::shared_ptr<ChBody> body,
     } else {
         mat_id = m_pipeline->GetCylinderMaterial(cyl_shape->GetMaterials());
     }
-    m_geometry->AddCylinder(body, cyl_frame, size, mat_id);
+    m_geometry->AddCylinder(body, asset_frame, size, mat_id);
     m_pipeline->AddBody(body);
 }
 
 void ChOptixEngine::rigidMeshVisualization(std::shared_ptr<ChBody> body,
-                                           std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                           std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                            ChFrame<> asset_frame) {
     if (mesh_shape->IsWireframe()) {
         std::cerr << "WARNING: Chrono::Sensor does not support wireframe meshes. Defaulting back to solid mesh, please "
@@ -488,7 +483,7 @@ void ChOptixEngine::rigidMeshVisualization(std::shared_ptr<ChBody> body,
 }
 
 void ChOptixEngine::deformableMeshVisualization(std::shared_ptr<ChBody> body,
-                                                std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                                std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                                 ChFrame<> asset_frame) {
     if (mesh_shape->IsWireframe()) {
         std::cerr << "WARNING: Chrono::Sensor does not support wireframe meshes. Defaulting back to solid mesh, please "
@@ -536,36 +531,30 @@ void ChOptixEngine::ConstructScene() {
 
                 if (!shape->IsVisible()) {
                     // std::cout << "Ignoring an asset that is set to invisible\n";
-                } else if (std::shared_ptr<ChBoxShape> box_shape = std::dynamic_pointer_cast<ChBoxShape>(shape)) {
+                } else if (auto box_shape = std::dynamic_pointer_cast<ChVisualShapeBox>(shape)) {
                     boxVisualization(body, box_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChSphereShape> sphere_shape =
-                               std::dynamic_pointer_cast<ChSphereShape>(shape)) {
+                } else if (auto sphere_shape = std::dynamic_pointer_cast<ChVisualShapeSphere>(shape)) {
                     sphereVisualization(body, sphere_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChCylinderShape> cylinder_shape =
-                               std::dynamic_pointer_cast<ChCylinderShape>(shape)) {
+                } else if (auto cylinder_shape = std::dynamic_pointer_cast<ChVisualShapeCylinder>(shape)) {
                     cylinderVisualization(body, cylinder_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChTriangleMeshShape> trimesh_shape =
-                               std::dynamic_pointer_cast<ChTriangleMeshShape>(shape)) {
+                } else if (auto trimesh_shape = std::dynamic_pointer_cast<ChVisualShapeTriangleMesh>(shape)) {
                     if (!trimesh_shape->IsMutable()) {
                         rigidMeshVisualization(body, trimesh_shape, shape_frame);
-                        
+
                         // added_asset_for_body = true;
                     } else {
                         deformableMeshVisualization(body, trimesh_shape, shape_frame);
                     }
 
-                } else if (std::shared_ptr<ChEllipsoidShape> ellipsoid_shape =
-                               std::dynamic_pointer_cast<ChEllipsoidShape>(shape)) {
-                } else if (std::shared_ptr<ChConeShape> cone_shape = std::dynamic_pointer_cast<ChConeShape>(shape)) {
-                } else if (std::shared_ptr<ChRoundedBoxShape> rbox_shape =
-                               std::dynamic_pointer_cast<ChRoundedBoxShape>(shape)) {
-                } else if (std::shared_ptr<ChCapsuleShape> capsule_shape =
-                               std::dynamic_pointer_cast<ChCapsuleShape>(shape)) {
-                } else if (std::shared_ptr<ChPathShape> path_shape = std::dynamic_pointer_cast<ChPathShape>(shape)) {
-                } else if (std::shared_ptr<ChLineShape> line_shape = std::dynamic_pointer_cast<ChLineShape>(shape)) {
+                } else if (auto ellipsoid_shape = std::dynamic_pointer_cast<ChVisualShapeEllipsoid>(shape)) {
+                } else if (auto cone_shape = std::dynamic_pointer_cast<ChVisualShapeCone>(shape)) {
+                } else if (auto rbox_shape = std::dynamic_pointer_cast<ChVisualShapeRoundedBox>(shape)) {
+                } else if (auto capsule_shape = std::dynamic_pointer_cast<ChVisualShapeCapsule>(shape)) {
+                } else if (auto path_shape = std::dynamic_pointer_cast<ChVisualShapePath>(shape)) {
+                } else if (auto line_shape = std::dynamic_pointer_cast<ChVisualShapeLine>(shape)) {
                 }
 
                 // }
@@ -585,36 +574,29 @@ void ChOptixEngine::ConstructScene() {
 
                 if (!shape->IsVisible()) {
                     // std::cout << "Ignoring an asset that is set to invisible\n";
-                } else if (std::shared_ptr<ChBoxShape> box_shape = std::dynamic_pointer_cast<ChBoxShape>(shape)) {
+                } else if (auto box_shape = std::dynamic_pointer_cast<ChVisualShapeBox>(shape)) {
                     boxVisualization(dummy_body, box_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChSphereShape> sphere_shape =
-                               std::dynamic_pointer_cast<ChSphereShape>(shape)) {
+                } else if (auto sphere_shape = std::dynamic_pointer_cast<ChVisualShapeSphere>(shape)) {
                     sphereVisualization(dummy_body, sphere_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChCylinderShape> cylinder_shape =
-                               std::dynamic_pointer_cast<ChCylinderShape>(shape)) {
+                } else if (auto cylinder_shape = std::dynamic_pointer_cast<ChVisualShapeCylinder>(shape)) {
                     cylinderVisualization(dummy_body, cylinder_shape, shape_frame);
 
-                } else if (std::shared_ptr<ChTriangleMeshShape> trimesh_shape =
-                               std::dynamic_pointer_cast<ChTriangleMeshShape>(shape)) {
+                } else if (auto trimesh_shape = std::dynamic_pointer_cast<ChVisualShapeTriangleMesh>(shape)) {
                     if (!trimesh_shape->IsMutable()) {
                         rigidMeshVisualization(dummy_body, trimesh_shape, shape_frame);
                     } else {
                         deformableMeshVisualization(dummy_body, trimesh_shape, shape_frame);
                     }
 
-                } else if (std::shared_ptr<ChEllipsoidShape> ellipsoid_shape =
-                               std::dynamic_pointer_cast<ChEllipsoidShape>(shape)) {
-                } else if (std::shared_ptr<ChConeShape> cone_shape = std::dynamic_pointer_cast<ChConeShape>(shape)) {
-                } else if (std::shared_ptr<ChRoundedBoxShape> rbox_shape =
-                               std::dynamic_pointer_cast<ChRoundedBoxShape>(shape)) {
-                } else if (std::shared_ptr<ChCapsuleShape> capsule_shape =
-                               std::dynamic_pointer_cast<ChCapsuleShape>(shape)) {
-                } else if (std::shared_ptr<ChPathShape> path_shape = std::dynamic_pointer_cast<ChPathShape>(shape)) {
-                } else if (std::shared_ptr<ChLineShape> line_shape = std::dynamic_pointer_cast<ChLineShape>(shape)) {
+                } else if (auto ellipsoid_shape = std::dynamic_pointer_cast<ChVisualShapeEllipsoid>(shape)) {
+                } else if (auto cone_shape = std::dynamic_pointer_cast<ChVisualShapeCone>(shape)) {
+                } else if (auto rbox_shape = std::dynamic_pointer_cast<ChVisualShapeRoundedBox>(shape)) {
+                } else if (auto capsule_shape = std::dynamic_pointer_cast<ChVisualShapeCapsule>(shape)) {
+                } else if (auto path_shape = std::dynamic_pointer_cast<ChVisualShapePath>(shape)) {
+                } else if (auto line_shape = std::dynamic_pointer_cast<ChVisualShapeLine>(shape)) {
                 }
-
             }
         }
     }
@@ -677,7 +659,6 @@ void ChOptixEngine::UpdateCameraTransforms(std::vector<int>& to_be_updated, std:
             make_float4((float)global_loc_1.GetRot().e0(), (float)global_loc_1.GetRot().e1(),
                         (float)global_loc_1.GetRot().e2(), (float)global_loc_1.GetRot().e3());
         m_assignedRenderers[id]->m_time_stamp = (float)m_system->GetChTime();
-
     }
 }
 

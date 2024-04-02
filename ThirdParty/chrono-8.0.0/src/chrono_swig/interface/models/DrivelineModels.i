@@ -27,12 +27,9 @@
 #include "chrono_vehicle/wheeled_vehicle/driveline/ShaftsDriveline4WD.h"
 #include "chrono_vehicle/wheeled_vehicle/driveline/SimpleDrivelineXWD.h"
 
-#include "chrono_models/vehicle/generic/Generic_Driveline2WD.h"
-#include "chrono_models/vehicle/generic/Generic_SimpleDriveline.h"
-
-#include "chrono_models/vehicle/hmmwv/HMMWV_Driveline2WD.h"
-#include "chrono_models/vehicle/hmmwv/HMMWV_Driveline4WD.h"
-#include "chrono_models/vehicle/hmmwv/HMMWV_SimpleDriveline.h"
+#include "chrono_models/vehicle/hmmwv/driveline/HMMWV_Driveline2WD.h"
+#include "chrono_models/vehicle/hmmwv/driveline/HMMWV_Driveline4WD.h"
+#include "chrono_models/vehicle/hmmwv/driveline/HMMWV_SimpleDriveline.h"
 
 #include "chrono_models/vehicle/sedan/Sedan_Driveline2WD.h"
 
@@ -47,17 +44,15 @@
 #include "chrono_models/vehicle/gator/Gator_SimpleDriveline.h"
 #include "chrono_models/vehicle/gator/Gator_Driveline2WD.h"
 
-#include "chrono_models/vehicle/rccar/RCCar_Driveline4WD.h"
+#include "chrono_models/vehicle/artcar/ARTcar_Driveline4WD.h"
 
 #include "chrono_models/vehicle/feda/FEDA_Driveline4WD.h"
 
-#include "chrono_models/vehicle/m113/M113_SimpleDriveline.h"
-#include "chrono_models/vehicle/m113/M113_DrivelineBDS.h"
+#include "chrono_models/vehicle/m113/driveline/M113_SimpleDriveline.h"
+#include "chrono_models/vehicle/m113/driveline/M113_DrivelineBDS.h"
 %}
 
 
-%shared_ptr(chrono::vehicle::generic::Generic_Driveline2WD)
-%shared_ptr(chrono::vehicle::generic::Generic_SimpleDriveline)
 %shared_ptr(chrono::vehicle::hmmwv::HMMWV_Driveline2WD)
 %shared_ptr(chrono::vehicle::hmmwv::HMMWV_Driveline4WD)
 %shared_ptr(chrono::vehicle::hmmwv::HMMWV_SimpleDriveline)
@@ -69,7 +64,7 @@
 %shared_ptr(chrono::vehicle::uaz::UAZBUS_Driveline4WD)
 %shared_ptr(chrono::vehicle::gator::Gator_SimpleDriveline)
 %shared_ptr(chrono::vehicle::gator::Gator_Driveline2WD)
-%shared_ptr(chrono::vehicle::rccar::RCCar_Driveline4WD)
+%shared_ptr(chrono::vehicle::artcar::ARTcar_Driveline4WD)
 %shared_ptr(chrono::vehicle::feda::FEDA_Driveline4WD)
 
 %shared_ptr(chrono::vehicle::m113::M113_SimpleDriveline)
@@ -79,12 +74,9 @@
 %import "chrono_swig/interface/vehicle/ChDriveline.i"
 
 // Model:
-%include "../../../chrono_models/vehicle/generic/Generic_Driveline2WD.h"
-%include "../../../chrono_models/vehicle/generic/Generic_SimpleDriveline.h"
-
-%include "../../../chrono_models/vehicle/hmmwv/HMMWV_Driveline2WD.h"
-%include "../../../chrono_models/vehicle/hmmwv/HMMWV_Driveline4WD.h"
-%include "../../../chrono_models/vehicle/hmmwv/HMMWV_SimpleDriveline.h"
+%include "../../../chrono_models/vehicle/hmmwv/driveline/HMMWV_Driveline2WD.h"
+%include "../../../chrono_models/vehicle/hmmwv/driveline/HMMWV_Driveline4WD.h"
+%include "../../../chrono_models/vehicle/hmmwv/driveline/HMMWV_SimpleDriveline.h"
 
 %include "../../../chrono_models/vehicle/sedan/Sedan_Driveline2WD.h"
 
@@ -99,9 +91,9 @@
 %include "../../../chrono_models/vehicle/gator/Gator_SimpleDriveline.h"
 %include "../../../chrono_models/vehicle/gator/Gator_Driveline2WD.h"
 
-%include "../../../chrono_models/vehicle/rccar/RCCar_Driveline4WD.h"
+%include "../../../chrono_models/vehicle/artcar/ARTcar_Driveline4WD.h"
 
 %include "../../../chrono_models/vehicle/feda/FEDA_Driveline4WD.h"
 
-%include "../../../chrono_models/vehicle/m113/M113_SimpleDriveline.h"
-%include "../../../chrono_models/vehicle/m113/M113_DrivelineBDS.h"
+%include "../../../chrono_models/vehicle/m113/driveline/M113_SimpleDriveline.h"
+%include "../../../chrono_models/vehicle/m113/driveline/M113_DrivelineBDS.h"

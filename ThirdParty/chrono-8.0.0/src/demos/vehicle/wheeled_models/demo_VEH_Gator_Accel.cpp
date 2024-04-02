@@ -25,10 +25,9 @@
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
-#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_models/vehicle/gator/Gator.h"
-#include "chrono_models/vehicle/gator/Gator_SimplePowertrain.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
@@ -89,6 +88,9 @@ int main(int argc, char* argv[]) {
     gator.SetSteeringVisualizationType(steering_vis_type);
     gator.SetWheelVisualizationType(wheel_vis_type);
     gator.SetTireVisualizationType(tire_vis_type);
+
+    // Associate a collision system
+    gator.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create the terrain
     RigidTerrain terrain(gator.GetSystem());
@@ -155,7 +157,7 @@ int main(int argc, char* argv[]) {
 
         // Get driver inputs
         DriverInputs driver_inputs = driver.GetInputs();
-        if (gator.GetVehicle().GetPos().x() > 4) {
+        if (time > 13) {
             driver_inputs.m_braking = 1;
             driver_inputs.m_throttle = 0;
         }
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
         driver.Synchronize(time);
         terrain.Synchronize(time);
         gator.Synchronize(time, driver_inputs, terrain);
-        vis->Synchronize("", driver_inputs);
+        vis->Synchronize(time, driver_inputs);
 
         // Advance simulation for one timestep for all modules
         driver.Advance(step_size);

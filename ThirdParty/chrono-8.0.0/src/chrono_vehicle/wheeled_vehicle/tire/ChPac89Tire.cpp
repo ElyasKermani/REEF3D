@@ -61,8 +61,7 @@ void ChPac89Tire::Initialize(std::shared_ptr<ChWheel> wheel) {
     m_states.R_eff = m_unloaded_radius;
 }
 
-void ChPac89Tire::Synchronize(double time,
-                              const ChTerrain& terrain) {
+void ChPac89Tire::Synchronize(double time, const ChTerrain& terrain) {
     WheelState wheel_state = m_wheel->GetState();
 
     // Extract the wheel normal (expressed in global frame)
@@ -113,6 +112,8 @@ void ChPac89Tire::Synchronize(double time,
         m_states.vsx = 0;
         m_states.vsy = 0;
         m_states.omega = 0;
+        m_states.brx = 0;
+        m_states.bry = 0;
         m_states.disc_normal = ChVector<>(0, 0, 0);
     }
 }
@@ -144,16 +145,20 @@ void ChPac89Tire::Advance(double step) {
 
     double mu_scale = m_mu / m_mu0;
 
+    double frblend = ChSineStep(m_data.vel.x(), m_frblend_begin, 0.0, m_frblend_end, 1.0);
+
     // Calculate the new force and moment values (normal force and moment have already been accounted for in
     // Synchronize()).
     // Express Fz in kN (note that all other forces and moments are in N and Nm).
     // See reference for details on the calculations.
-    double Fx = 0;
-    double Fy = 0;
+    double Fx = 0, Fx0 = 0;
+    double Fy = 0, Fy0 = 0;
     double Fz = m_data.normal_force / 1000;
     double Mx = 0;
     double My = 0;
     double Mz = 0;
+
+    CombinedCoulombForces(Fx0, Fy0, m_data.normal_force, mu_scale);
 
     // Express alpha and gamma in degrees. Express kappa as percentage.
     // Flip sign of alpha to convert to PAC89 modified SAE coordinates.
@@ -195,6 +200,10 @@ void ChPac89Tire::Advance(double step) {
 
         Fy = mu_scale * (D * std::sin(C * std::atan(B * X1 - E * (B * X1 - std::atan(B * X1))))) + Sv;
     }
+
+    // blend forces
+    Fx = (1.0 - frblend) * Fx0 + frblend * Fx;
+    Fy = (1.0 - frblend) * Fy0 + frblend * Fy;
 
     // Self-Aligning Torque
     {
@@ -255,25 +264,49 @@ void ChPac89Tire::Advance(double step) {
     m_tireforce.moment = ChVector<>(Mx, -My, -Mz);
 }
 
-// -----------------------------------------------------------------------------
+void ChPac89Tire::CombinedCoulombForces(double& fx, double& fy, double fz, double muscale) {
+    ChVector2<> F;
+    /*
+     The Dahl Friction Model elastic tread blocks representated by a single bristle. At tire stand still it acts
+     like a spring which enables holding of a vehicle on a slope without creeping (hopefully). Damping terms
+     have been added to calm down the oscillations of the pure spring.
 
-void ChPac89Tire::AddVisualizationAssets(VisualizationType vis) {
-    if (vis == VisualizationType::NONE)
-        return;
+     The time step h must be actually the same as for the vehicle system!
 
-    m_cyl_shape = chrono_types::make_shared<ChCylinderShape>();
-    m_cyl_shape->GetCylinderGeometry().rad = m_unloaded_radius;
-    m_cyl_shape->GetCylinderGeometry().p1 = ChVector<>(0, GetOffset() + GetVisualizationWidth() / 2, 0);
-    m_cyl_shape->GetCylinderGeometry().p2 = ChVector<>(0, GetOffset() - GetVisualizationWidth() / 2, 0);
-    m_cyl_shape->SetTexture(GetChronoDataFile("textures/greenwhite.png"));
-    m_wheel->GetSpindle()->AddVisualShape(m_cyl_shape);
-}
+     This model is experimental and needs some testing.
 
-void ChPac89Tire::RemoveVisualizationAssets() {
-    // Make sure we only remove the assets added by ChPac89Tire::AddVisualizationAssets.
-    // This is important for the ChTire object because a wheel may add its own assets to the same body (the
-    // spindle/wheel).
-    ChPart::RemoveVisualizationAsset(m_wheel->GetSpindle(), m_cyl_shape);
+     With bristle deformation z, Coulomb force fc, sliding velocity v and stiffness sigma we have this
+     differential equation:
+         dz/dt = v - sigma0*z*abs(v)/fc
+
+     When z is known, the friction force F can be calulated to:
+        F = sigma0 * z
+
+     For practical use some damping is needed, that leads to:
+        F = sigma0 * z + sigma1 * dz/dt
+
+     Longitudinal and lateral forces are calculated separately and then combined. For stand still a friction
+     circle is used.
+     */
+    double fc = fz * muscale;
+    double h = this->m_stepsize;
+    // Longitudinal Friction Force
+    double brx_dot = m_states.vsx - m_PacCoeff.sigma0 * m_states.brx * fabs(m_states.vsx) / fc;  // dz/dt
+    F.x() = -(m_PacCoeff.sigma0 * m_states.brx + m_PacCoeff.sigma1 * brx_dot);
+    // Lateral Friction Force
+    double bry_dot = m_states.vsy - m_PacCoeff.sigma0 * m_states.bry * fabs(m_states.vsy) / fc;  // dz/dt
+    F.y() = -(m_PacCoeff.sigma0 * m_states.bry + m_PacCoeff.sigma1 * bry_dot);
+    // Calculate the new ODE states (implicit Euler)
+    m_states.brx = (fc * m_states.brx + fc * h * m_states.vsx) / (fc + h * m_PacCoeff.sigma0 * fabs(m_states.vsx));
+    m_states.bry = (fc * m_states.bry + fc * h * m_states.vsy) / (fc + h * m_PacCoeff.sigma0 * fabs(m_states.vsy));
+
+    // combine forces (friction circle)
+    if (F.Length() > fz * muscale) {
+        F.Normalize();
+        F *= fz * muscale;
+    }
+    fx = F.x();
+    fy = F.y();
 }
 
 }  // end namespace vehicle

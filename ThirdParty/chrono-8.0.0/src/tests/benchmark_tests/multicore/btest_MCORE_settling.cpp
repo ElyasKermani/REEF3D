@@ -70,7 +70,7 @@ SettlingSMC::SettlingSMC() : m_system(new ChSystemMulticoreSMC), m_step(1e-3) {
     m_system->GetSettings()->solver.max_iteration_bilateral = max_iteration;
     m_system->GetSettings()->solver.tolerance = tolerance;
 
-    m_system->GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::HYBRID;
+    m_system->GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
     m_system->GetSettings()->collision.bins_per_axis = vec3(10, 10, 1);
 
     // The following two lines are optional, since they are the default options.
@@ -90,26 +90,18 @@ SettlingSMC::SettlingSMC() : m_system(new ChSystemMulticoreSMC), m_step(1e-3) {
 
     // Container half-dimensions
     ChVector<> hdim(2, 2, 0.5);
-    double hthick = 0.1;
 
     // Create a bin consisting of five boxes attached to the ground.
-    auto bin = std::shared_ptr<ChBody>(m_system->NewBody());
+    auto bin = chrono_types::make_shared<ChBody>();
     bin->SetMass(1);
     bin->SetPos(ChVector<>(0, 0, 0));
     bin->SetCollide(true);
     bin->SetBodyFixed(true);
 
-    bin->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hdim.y(), hthick), ChVector<>(0, 0, -hthick));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hthick, hdim.y(), hdim.z()),
-                          ChVector<>(-hdim.x() - hthick, 0, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hthick, hdim.y(), hdim.z()),
-                          ChVector<>(hdim.x() + hthick, 0, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hthick, hdim.z()),
-                          ChVector<>(0, -hdim.y() - hthick, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hthick, hdim.z()),
-                          ChVector<>(0, hdim.y() + hthick, hdim.z()));
-    bin->GetCollisionModel()->BuildModel();
+    utils::AddBoxContainer(bin, mat,                                      //
+                           ChFrame<>(ChVector<>(0, 0, hdim.z()), QUNIT),  //
+                           hdim * 2, 0.2,                                 //
+                           ChVector<int>(2, 2, -1));
 
     m_system->AddBody(bin);
 
@@ -147,7 +139,7 @@ void SettlingSMC::SimulateVis() {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.SetCameraPosition(ChVector<>(0, -6, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector<>(0, -6, 0), ChVector<>(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     while (vis.Run()) {

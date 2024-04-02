@@ -30,8 +30,6 @@ using namespace chrono;
 using namespace chrono::fea;
 using namespace chrono::irrlicht;
 
-using namespace irr;
-
 int main(int argc, char* argv[]) {
     GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
@@ -163,13 +161,14 @@ int main(int argc, char* argv[]) {
 
     // Create the Irrlicht visualization system
     auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
+    vis->SetCameraVertical(CameraVerticalDir::Z);
     vis->SetWindowSize(800, 600);
     vis->SetWindowTitle("ANCF Shells");
     vis->Initialize();
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(-0.4, -0.3, 0.0), ChVector<>(0.0, 0.5, -0.1));
+    vis->AddCamera(ChVector<>(0.4, 0.3, 0.1), ChVector<>(0.0, 0.0, -0.1));
     vis->AttachSystem(&sys);
 
     // ----------------------------------
@@ -192,9 +191,7 @@ int main(int argc, char* argv[]) {
 
     stepper->SetAlpha(-0.2);
     stepper->SetMaxiters(5);
-    stepper->SetAbsTolerances(1e-5);
-    stepper->SetMode(ChTimestepperHHT::POSITION);
-    stepper->SetScaling(true);
+    stepper->SetAbsTolerances(1e-2);
     stepper->SetStepControl(true);
     stepper->SetMinStepSize(1e-4);
     ////stepper->SetVerbose(true);

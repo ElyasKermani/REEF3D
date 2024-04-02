@@ -27,6 +27,7 @@
 
 #include "chrono/ChConfig.h"
 #include "chrono/utils/ChUtilsCreators.h"
+#include "chrono/physics/ChLoadContainer.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 
@@ -51,14 +52,8 @@ ChVehicleCosimRigNode::~ChVehicleCosimRigNode() {}
 
 // -----------------------------------------------------------------------------
 
-void ChVehicleCosimRigNode::InitializeMBS(const std::vector<ChVector<>>& tire_info,
-                                          const ChVector2<>& terrain_size,
-                                          double terrain_height) {
+void ChVehicleCosimRigNode::InitializeMBS(const ChVector2<>& terrain_size, double terrain_height) {
     assert(m_num_tire_nodes == 1);
-    assert(tire_info.size() == 1);
-    double tire_mass = tire_info[0].x();
-    double tire_radius = tire_info[0].y();
-    ////double tire_width = tire_info[0].z();
 
     // A single-wheel test rig needs a DBP rig
     if (!m_DBP_rig) {
@@ -67,18 +62,11 @@ void ChVehicleCosimRigNode::InitializeMBS(const std::vector<ChVector<>>& tire_in
     }
 
     // Calculate initial rig location and set linear velocity of all rig bodies
-    ChVector<> origin(-terrain_size.x() / 2 + 1.5 * tire_radius, 0, terrain_height + tire_radius);
+    ChVector<> origin = m_init_loc + ChVector<>(0, 0, terrain_height);
 
-    // Distribute remaining mass (after subtracting tire mass) equally between chassis and spindle.
-    if (m_total_mass - tire_mass < 2)
-        m_total_mass = tire_mass + 2;
-    double body_mass = (m_total_mass - tire_mass) / 2;
-
-    if (m_verbose) {
-        cout << "[Rig node    ] total mass = " << m_total_mass << endl;
-        cout << "[Rig node    ] tire mass = " << tire_mass << endl;
-        cout << "[Rig node    ] body mass = " << body_mass << endl;
-    }
+    // Distribute total mass equally between chassis and spindle.
+    m_total_mass = ChMax(m_total_mass, 2.0);
+    double body_mass = m_total_mass / 2;
 
     // Construct the mechanical system
     ChVector<> chassis_inertia(0.1, 0.1, 0.1);
@@ -111,6 +99,15 @@ void ChVehicleCosimRigNode::InitializeMBS(const std::vector<ChVector<>>& tire_in
     m_rev_motor->Initialize(m_chassis, m_spindle, ChFrame<>(origin, Q_from_AngZ(m_toe_angle) * Q_from_AngX(CH_C_PI_2)));
     m_system->AddLink(m_rev_motor);
 
+    // Create ChLoad objects to apply terrain forces on spindle
+    auto load_container = chrono_types::make_shared<ChLoadContainer>();
+    m_system->Add(load_container);
+
+    m_spindle_terrain_force = chrono_types::make_shared<ChLoadBodyForce>(m_spindle, VNULL, false, VNULL, false);
+    load_container->Add(m_spindle_terrain_force);
+    m_spindle_terrain_torque = chrono_types::make_shared<ChLoadBodyTorque>(m_spindle, VNULL, false);
+    load_container->Add(m_spindle_terrain_torque);
+
     // Write file with rig node settings
     std::ofstream outf;
     outf.open(m_node_out_dir + "/settings.info", std::ios::out);
@@ -123,14 +120,24 @@ void ChVehicleCosimRigNode::InitializeMBS(const std::vector<ChVector<>>& tire_in
     outf << endl;
 }
 
+void ChVehicleCosimRigNode::ApplyTireInfo(const std::vector<ChVector<>>& tire_info) {
+    assert(tire_info.size() == 1);
+    double tire_mass = tire_info[0].x();
+    ////double tire_radius = tire_info[0].y();
+    ////double tire_width = tire_info[0].z();
+
+    // Add tire mass to spindle mass
+    m_spindle->SetMass(m_spindle->GetMass() + tire_mass);
+}
+
 // -----------------------------------------------------------------------------
 
 void ChVehicleCosimRigNode::ApplySpindleForce(unsigned int i, const TerrainForce& spindle_force) {
     assert(i == 0);
 
-    m_spindle->Empty_forces_accumulators();
-    m_spindle->Accumulate_force(spindle_force.force, spindle_force.point, false);
-    m_spindle->Accumulate_torque(spindle_force.moment, false);
+    m_spindle_terrain_force->SetForce(spindle_force.force, false);
+    m_spindle_terrain_force->SetApplicationPoint(spindle_force.point, false);
+    m_spindle_terrain_torque->SetTorque(spindle_force.moment, false);
 }
 
 BodyState ChVehicleCosimRigNode::GetSpindleState(unsigned int i) const {

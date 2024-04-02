@@ -42,8 +42,10 @@ def main() :
         tireR = veh.TMeasyTire(vehicle_tire_file)
         vehicle.InitializeTire(tireR, axle.m_wheels[1], veh.VisualizationType_MESH)
 
-    # Create and initialize the powertrain system
-    powertrain = veh.SimpleMapPowertrain(vehicle_powertrain_file)
+    # Create and initialize the powertrain systems
+    engine = veh.ReadEngineJSON(vehicle_engine_file)
+    transmission = veh.ReadTransmissionJSON(vehicle_transmission_file)
+    powertrain = veh.ChPowertrainAssembly(engine, transmission)
     vehicle.InitializePowertrain(powertrain)
 
     # Create and initialize the trailer
@@ -60,6 +62,8 @@ def main() :
         tireR = veh.TMeasyTire(trailer_tire_file)
         trailer.InitializeTire(tireR, axle.m_wheels[1], veh.VisualizationType_PRIMITIVES)
 
+    vehicle.GetSystem().SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
+
     # Create the ground
     terrain = veh.RigidTerrain(vehicle.GetSystem(), rigidterrain_file)
     terrain.Initialize()
@@ -75,7 +79,7 @@ def main() :
     vis.AddSkyBox()
     vis.AttachVehicle(vehicle)
 
-    driver = veh.ChIrrGuiDriver(vis)
+    driver = veh.ChInteractiveDriverIRR(vis)
 
     # Set the time response for steering and throttle keyboard inputs.
     # NOTE: this is not exact, since we do not render quite at the specified FPS.
@@ -105,12 +109,12 @@ def main() :
         driver_inputs = driver.GetInputs()
 
         # Update modules (process inputs from other modules)
-        time = vehicle.GetSystem().GetChTime()
+        time = vehicle.GetChTime()
         driver.Synchronize(time)
         vehicle.Synchronize(time, driver_inputs, terrain)
         trailer.Synchronize(time, driver_inputs, terrain)
         terrain.Synchronize(time)
-        vis.Synchronize(driver.GetInputModeAsString(), driver_inputs)
+        vis.Synchronize(time, driver_inputs)
 
         # Advance simulation for one timestep for all modules
         driver.Advance(step_size)
@@ -131,7 +135,8 @@ veh.SetDataPath(chrono.GetChronoDataPath() + 'vehicle/')
 # JSON files for vehicle model
 vehicle_file = veh.GetDataFile('sedan/vehicle/Sedan_Vehicle.json')
 vehicle_tire_file = veh.GetDataFile('sedan/tire/Sedan_TMeasyTire.json')
-vehicle_powertrain_file = veh.GetDataFile('sedan/powertrain/Sedan_SimpleMapPowertrain.json')
+vehicle_engine_file = veh.GetDataFile('sedan/powertrain/Sedan_EngineSimpleMap.json')
+vehicle_transmission_file = veh.GetDataFile('sedan/powertrain/Sedan_AutomaticTransmissionSimpleMap.json')
 
 # JSON files for trailer model
 trailer_file = veh.GetDataFile('ultra_tow/UT_Trailer.json')

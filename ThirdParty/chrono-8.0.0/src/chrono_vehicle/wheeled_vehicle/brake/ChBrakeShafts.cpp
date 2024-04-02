@@ -34,6 +34,8 @@ ChBrakeShafts::~ChBrakeShafts() {
 void ChBrakeShafts::Initialize(std::shared_ptr<ChChassis> chassis,
                                std::shared_ptr<ChSuspension> suspension,
                                VehicleSide side) {
+    ChBrake::Initialize(chassis, suspension, side);
+
     // Create and initialize the brake shaft
     m_shaft = chrono_types::make_shared<ChShaft>();
     m_shaft->SetNameString(m_name + "_shaft");
@@ -45,7 +47,7 @@ void ChBrakeShafts::Initialize(std::shared_ptr<ChChassis> chassis,
     if (!body)
         body = chassis->GetBody();
     auto connection = chrono_types::make_shared<ChShaftsBody>();
-    connection->Initialize(m_shaft, body, ChVector<>(0, 1, 0));
+    connection->Initialize(m_shaft, body, ChVector<>(0, -1, 0));
     chassis->GetSystem()->Add(connection);
 
     // Create and initialize the brake clutch (set as unlocked)

@@ -38,7 +38,8 @@ def main():
     m113.SetContactMethod(chrono.ChContactMethod_SMC)
     m113.SetTrackShoeType(veh.TrackShoeType_SINGLE_PIN)
     m113.SetDrivelineType(veh.DrivelineTypeTV_BDS)
-    m113.SetPowertrainType(veh.PowertrainModelType_SHAFTS)
+    m113.SetEngineType(veh.EngineModelType_SHAFTS)
+    m113.SetTransmissionType(veh.TransmissionModelType_AUTOMATIC_SHAFTS)
     m113.SetBrakeType(veh.BrakeType_SIMPLE)
 
     m113.SetInitPosition(chrono.ChCoordsysD(initLoc, initRot))
@@ -51,6 +52,8 @@ def main():
     m113.SetSuspensionVisualizationType(veh.VisualizationType_MESH);
     m113.SetRoadWheelVisualizationType(veh.VisualizationType_MESH);
     m113.SetTrackShoeVisualizationType(veh.VisualizationType_MESH);
+
+    m113.GetSystem().SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
 
     # Create the terrain
     # ------------------
@@ -88,7 +91,7 @@ def main():
     # Create the interactive driver system
     # ------------------------------------
 
-    driver = veh.ChIrrGuiDriver(vis)
+    driver = veh.ChInteractiveDriverIRR(vis)
 
     # Set the time response for steering and throttle keyboard inputs.
     steering_time = 0.5  # time to go from 0 to +1 (or from 0 to -1)
@@ -100,12 +103,13 @@ def main():
 
     driver.Initialize()
 
+    # Solver and integrator settings
+    # ------------------------------
+
+    m113.GetSystem().SetSolverType(chrono.ChSolver.Type_BARZILAIBORWEIN)
+
     # Simulation loop
     # ---------------
-
-    # Inter-module communication data
-    shoe_forces_left = veh.TerrainForces(m113.GetVehicle().GetNumTrackShoes(veh.LEFT))
-    shoe_forces_right = veh.TerrainForces(m113.GetVehicle().GetNumTrackShoes(veh.RIGHT))
 
     # Number of simulation steps between miscellaneous events
     render_steps = m.ceil(render_step_size / step_size)
@@ -128,8 +132,8 @@ def main():
         # Update modules (process inputs from other modules)
         driver.Synchronize(time)
         terrain.Synchronize(time)
-        m113.Synchronize(time, driver_inputs, shoe_forces_left, shoe_forces_right)
-        vis.Synchronize("", driver_inputs)
+        m113.Synchronize(time, driver_inputs)
+        vis.Synchronize(time, driver_inputs)
 
         # Advance simulation for one timestep for all modules
         driver.Advance(step_size)

@@ -437,9 +437,9 @@ void ChOptixPipeline::SpawnPipeline(PipelineType type) {
         case PipelineType::SEGMENTATION: {
             program_groups.push_back(m_segmentation_raygen_group);
             OPTIX_ERROR_CHECK(optixSbtRecordPackHeader(m_segmentation_raygen_group, raygen_record.get()));
-            raygen_record->data.specific.segmentation.hFOV = 3.14f / 4;   // default value
-            raygen_record->data.specific.segmentation.frame_buffer = {};  // default value
-            raygen_record->data.specific.segmentation.lens_model = PINHOLE;     // default value
+            raygen_record->data.specific.segmentation.hFOV = 3.14f / 4;      // default value
+            raygen_record->data.specific.segmentation.frame_buffer = {};     // default value
+            raygen_record->data.specific.segmentation.lens_model = PINHOLE;  // default value
             raygen_record->data.specific.segmentation.lens_parameters = {};
             break;
         }
@@ -504,7 +504,7 @@ void ChOptixPipeline::SpawnPipeline(PipelineType type) {
     program_groups.push_back(m_hit_mesh_group);
     program_groups.push_back(m_miss_group);
 
-    OptixPipelineLinkOptions pipeline_link_options = {m_trace_depth, OPTIX_COMPILE_DEBUG_LEVEL_FULL};
+    OptixPipelineLinkOptions pipeline_link_options = {m_trace_depth};
 
     char log[2048];
     size_t sizeof_log = sizeof(log);
@@ -516,7 +516,7 @@ void ChOptixPipeline::SpawnPipeline(PipelineType type) {
                                           &sizeof_log, &m_pipelines[id]));
     OptixStackSizes stack_sizes = {};
     for (auto& prog_group : program_groups) {
-        OPTIX_ERROR_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes));
+        OPTIX_ERROR_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes, m_pipelines[id]));
     }
     uint32_t direct_callable_stack_size_from_traversal;
     uint32_t direct_callable_stack_size_from_state;
@@ -650,7 +650,7 @@ unsigned int ChOptixPipeline::GetMaterial(std::shared_ptr<ChVisualMaterial> mat)
         material.class_id = mat->GetClassID();
         material.instance_id = mat->GetInstanceID();
 
-        material.tex_scale = {mat->GetKdTextureScale().x(), mat->GetKdTextureScale().y()};
+        material.tex_scale = {mat->GetTextureScale().x(), mat->GetTextureScale().y()};
 
         // normal texture
         if (mat->GetNormalMapTexture() != "") {
@@ -803,7 +803,7 @@ unsigned int ChOptixPipeline::GetCylinderMaterial(std::vector<std::shared_ptr<Ch
 // this will actually make a new material (new mesh info), but will apply a default coloring/texture
 unsigned int ChOptixPipeline::GetRigidMeshMaterial(CUdeviceptr& d_vertices,
                                                    CUdeviceptr& d_indices,
-                                                   std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                                   std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                                    std::vector<std::shared_ptr<ChVisualMaterial>> mat_list) {
     auto mesh = mesh_shape->GetMesh();
 
@@ -982,7 +982,7 @@ unsigned int ChOptixPipeline::GetRigidMeshMaterial(CUdeviceptr& d_vertices,
 
 unsigned int ChOptixPipeline::GetDeformableMeshMaterial(CUdeviceptr& d_vertices,
                                                         CUdeviceptr& d_indices,
-                                                        std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                                        std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                                         std::vector<std::shared_ptr<ChVisualMaterial>> mat_list) {
     unsigned int mat_id = GetRigidMeshMaterial(d_vertices, d_indices, mesh_shape, mat_list);
 
@@ -996,7 +996,7 @@ unsigned int ChOptixPipeline::GetDeformableMeshMaterial(CUdeviceptr& d_vertices,
 
 void ChOptixPipeline::UpdateDeformableMeshes() {
     for (int i = 0; i < m_deformable_meshes.size(); i++) {
-        std::shared_ptr<ChTriangleMeshShape> mesh_shape = std::get<0>(m_deformable_meshes[i]);
+        std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape = std::get<0>(m_deformable_meshes[i]);
         CUdeviceptr d_vertices = std::get<1>(m_deformable_meshes[i]);
         CUdeviceptr d_normals = std::get<2>(m_deformable_meshes[i]);
         unsigned int num_prev_triangles = std::get<3>(m_deformable_meshes[i]);

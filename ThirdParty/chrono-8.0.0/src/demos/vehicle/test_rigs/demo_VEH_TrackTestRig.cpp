@@ -18,18 +18,18 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/tracked_vehicle/test_rig/ChIrrGuiDriverTTR.h"
-#include "chrono_vehicle/tracked_vehicle/test_rig/ChDataDriverTTR.h"
-#include "chrono_vehicle/tracked_vehicle/test_rig/ChRoadDriverTTR.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverIRR.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigDataDriver.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigRoadDriver.h"
 #include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRig.h"
-#include "chrono_vehicle/tracked_vehicle/utils/ChTrackTestRigVisualSystemIrrlicht.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIrrlicht.h"
 
-#include "chrono_models/vehicle/m113/M113_TrackAssemblyDoublePin.h"
-#include "chrono_models/vehicle/m113/M113_TrackAssemblySinglePin.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblyDoublePin.h"
+#include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblySinglePin.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "demos/vehicle/SetChronoSolver.h"
+#include "demos/SetChronoSolver.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -143,6 +143,12 @@ int main(int argc, char* argv[]) {
         std::cout << "Rig uses M113 track assembly:  type " << (int)shoe_type << " side " << side << std::endl;
     }
 
+    // ----------------------------
+    // Associate a collision system
+    // ----------------------------
+
+    rig->GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     // ---------------------------------------
     // Create the vehicle Irrlicht application
     // ---------------------------------------
@@ -157,22 +163,22 @@ int main(int argc, char* argv[]) {
     // Create and attach the driver system
     // -----------------------------------
 
-    std::shared_ptr<ChDriverTTR> driver;
+    std::shared_ptr<ChTrackTestRigDriver> driver;
     switch (driver_mode) {
         case DriverMode::KEYBOARD: {
-            auto irr_driver = chrono_types::make_shared<ChIrrGuiDriverTTR>(*vis);
+            auto irr_driver = chrono_types::make_shared<ChTrackTestRigInteractiveDriverIRR>(*vis);
             irr_driver->SetThrottleDelta(1.0 / 50);
             irr_driver->SetDisplacementDelta(1.0 / 250);
             driver = irr_driver;
             break;
         }
         case DriverMode::DATAFILE: {
-            auto data_driver = chrono_types::make_shared<ChDataDriverTTR>(vehicle::GetDataFile(driver_file));
+            auto data_driver = chrono_types::make_shared<ChTrackTestRigDataDriver>(vehicle::GetDataFile(driver_file));
             driver = data_driver;
             break;
         }
         case DriverMode::ROADPROFILE: {
-            auto road_driver = chrono_types::make_shared<ChRoadDriverTTR>(vehicle::GetDataFile(road_file), road_speed);
+            auto road_driver = chrono_types::make_shared<ChTrackTestRigRoadDriver>(vehicle::GetDataFile(road_file), road_speed);
             driver = road_driver;
             break;
         }
@@ -266,18 +272,19 @@ int main(int argc, char* argv[]) {
     // Simulation loop
     // ---------------
 
-    // Grab pointer to first track shoe
-    auto shoe_body = rig->GetTrackAssembly()->GetTrackShoe(0)->GetShoeBody();
+    // Add load on first track shoe to simulate detracking
+    if (apply_detracking_force) {
+        ChVector<> force(0, 20000, 0);
+        auto shoe_body = rig->GetTrackAssembly()->GetTrackShoe(0)->GetShoeBody();
+        auto load_container = chrono_types::make_shared<ChLoadContainer>();
+        load_container->Add(chrono_types::make_shared<ChLoadBodyForce>(shoe_body, force, true, VNULL, true));
+        rig->GetSystem()->Add(load_container);
+    }
 
     // Initialize simulation frame counter
     int step_number = 0;
 
     while (vis->Run()) {
-        if (apply_detracking_force) {
-            shoe_body->Empty_forces_accumulators();
-            shoe_body->Accumulate_force(ChVector<>(0, 20000, 0), ChVector<>(0, 0, 0), true);
-        }
-
         // Render scene
         vis->BeginScene();
         vis->Render();
@@ -290,7 +297,7 @@ int main(int argc, char* argv[]) {
         rig->Advance(step_size);
 
         // Update visualization app
-        vis->Synchronize(rig->GetDriverMessage(), {0, rig->GetThrottleInput(), 0});
+        vis->Synchronize(rig->GetChTime(), {0, rig->GetThrottleInput(), 0});
         vis->Advance(step_size);
 
         ////if (driver->Ended())

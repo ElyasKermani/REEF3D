@@ -17,7 +17,7 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/assets/ChVisualMaterial.h"
 #include "chrono/assets/ChVisualShape.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     auto mmesh =
         ChTriangleMeshConnected::CreateFromWavefrontFile(GetChronoDataFile("sensor/geometries/box.obj"), true, true);
 
-    auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(mmesh);
     trimesh_shape->SetName("Box");
     trimesh_shape->SetMutable(false);
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 
     // auto box_body = chrono_types::make_shared<ChBodyEasyBox>(1, 1, 1, 1000, true, false);
     // // auto box_body = chrono_types::make_shared<ChBodyEasySphere>(.5, 1000, true, false);
-    // // auto box_body = chrono_types::make_shared<ChBodyEasyCylinder>(.25, 1, 1000, true, false);
+    // // auto box_body = chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, .25, 1, 1000, true, false);
     // box_body->SetPos({0, 0, 2});
     // box_body->SetBodyFixed(true);
     // sys.Add(box_body);

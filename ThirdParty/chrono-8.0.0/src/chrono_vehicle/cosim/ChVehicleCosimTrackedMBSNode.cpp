@@ -53,6 +53,7 @@ ChVehicleCosimTrackedMBSNode::ChVehicleCosimTrackedMBSNode() : ChVehicleCosimBas
 
     // Create the (sequential) SMC system
     m_system = new ChSystemSMC;
+    m_system->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
     m_system->Set_G_acc(ChVector<>(0, 0, m_gacc));
 
     // Set default number of threads
@@ -223,9 +224,7 @@ void ChVehicleCosimTrackedMBSNode::InitializeSystem() {
             m_integrator = std::static_pointer_cast<ChTimestepperHHT>(m_system->GetTimestepper());
             m_integrator->SetAlpha(-0.2);
             m_integrator->SetMaxiters(50);
-            m_integrator->SetAbsTolerances(5e-05, 1.8e00);
-            m_integrator->SetMode(ChTimestepperHHT::POSITION);
-            m_integrator->SetScaling(true);
+            m_integrator->SetAbsTolerances(1e-1, 10);
             m_integrator->SetVerbose(false);
             m_integrator->SetMaxItersSuccess(5);
             break;
@@ -298,16 +297,19 @@ void ChVehicleCosimTrackedMBSNode::Advance(double step_size) {
     double t = 0;
     while (t < step_size) {
         double h = std::min<>(m_step_size, step_size - t);
-        PreAdvance();
+        PreAdvance(h);
         m_system->DoStepDynamics(h);
         if (m_DBP_rig) {
             m_DBP_rig->OnAdvance(step_size);
         }
-        PostAdvance();
+        PostAdvance(h);
         t += h;
     }
     m_timer.stop();
     m_cum_sim_time += m_timer();
+
+    // Possible rendering
+    Render(step_size);
 }
 
 void ChVehicleCosimTrackedMBSNode::OutputData(int frame) {

@@ -38,10 +38,10 @@ class MySpringTorque(chrono.TorqueFunctor):
     
     def evaluate(self,    #
                  time,    # current time
+                 rangle,  # rest angle
                  angle,   # relative angle of rotation
                  vel,     # relative angular speed
-                 link):   # associated link
-                              
+                 link):   # associated link                       
         torque = -spring_coef * (angle - rest_angle) - damping_coef * vel
         return torque
 
@@ -65,11 +65,9 @@ ground.SetBodyFixed(True)
 ground.SetCollide(False)
 
 # Visualization for revolute joint
-cyl_rev = chrono.ChCylinderShape()
-cyl_rev.GetCylinderGeometry().p1 = rev_pos + rev_dir * 0.2
-cyl_rev.GetCylinderGeometry().p2 = rev_pos - rev_dir * 0.2
-cyl_rev.GetCylinderGeometry().rad = 0.1
-ground.AddVisualShape(cyl_rev)
+seg = chrono.ChLineSegment(rev_pos + rev_dir * 0.2, rev_pos - rev_dir * 0.2)
+cyl_rev = chrono.ChVisualShapeCylinder(0.1, seg.GetLength())
+ground.AddVisualShape(cyl_rev, seg.GetFrame())
 
 # Offset from joint to body COM
 offset = chrono.ChVectorD(1.5, 0, 0)
@@ -92,15 +90,11 @@ body.SetMass(1)
 body.SetInertiaXX(chrono.ChVectorD(1, 1, 1))
 
 # Attach visualization assets
-sph = chrono.ChSphereShape()
-sph.GetSphereGeometry().rad = 0.3
+sph = chrono.ChVisualShapeSphere(0.3)
 body.AddVisualShape(sph)
-cyl = chrono.ChCylinderShape()
-cyl.GetCylinderGeometry().p1 = chrono.ChVectorD(-1.5, 0, 0)
-cyl.GetCylinderGeometry().p2 = chrono.ChVectorD(0, 0, 0)
-cyl.GetCylinderGeometry().rad = 0.1
+cyl = chrono.ChVisualShapeCylinder(0.1, 1.5)
 cyl.SetColor(chrono.ChColor(0.7, 0.8, 0.8))
-body.AddVisualShape(cyl)
+body.AddVisualShape(cyl, chrono.ChFrameD(chrono.ChVectorD(-0.75,0,0), chrono.Q_from_AngY(chrono.CH_C_PI_2)))
 
 # Create revolute joint between body and ground
 rev = chrono.ChLinkLockRevolute()
@@ -112,7 +106,7 @@ torque = MySpringTorque()
 spring = chrono.ChLinkRSDA()
 spring.Initialize(body, ground, chrono.ChCoordsysD(rev_pos, rev_rot))
 spring.RegisterTorqueFunctor(torque)
-rsda = chrono.ChRotSpringShape(0.5, 40)
+rsda = chrono.ChVisualShapeRotSpring(0.5, 40)
 rsda.SetColor(chrono.ChColor(0, 0, 0))
 spring.AddVisualShape(rsda)
 sys.AddLink(spring)

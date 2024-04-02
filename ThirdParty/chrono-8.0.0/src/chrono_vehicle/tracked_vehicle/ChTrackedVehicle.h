@@ -44,17 +44,11 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
     /// Get the name of the vehicle system template.
     virtual std::string GetTemplateName() const override { return "TrackedVehicle"; }
 
-    /// Get the powertrain attached to this vehicle.
-    virtual std::shared_ptr<ChPowertrain> GetPowertrain() const override { return m_powertrain; }
-
     /// Get the specified suspension subsystem.
     std::shared_ptr<ChTrackAssembly> GetTrackAssembly(VehicleSide side) const { return m_tracks[side]; }
 
     /// Get a handle to the vehicle's driveline subsystem.
     std::shared_ptr<ChDrivelineTV> GetDriveline() const { return m_driveline; }
-
-    /// Get a handle to the vehicle's driveshaft body.
-    virtual std::shared_ptr<ChShaft> GetDriveshaft() const override { return m_driveline->GetDriveshaft(); }
 
     /// Get the number of suspensions in the specified track assembly.
     size_t GetNumTrackSuspensions(VehicleSide side) const { return m_tracks[side]->GetNumTrackSuspensions(); }
@@ -175,19 +169,22 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
                             double chassisFwdVel = 0         ///< [in] initial chassis forward velocity
                             ) override;
 
-    /// Initialize the given powertrain system and associate it to this vehicle.
-    /// The powertrain is initialized by connecting it to this vehicle's chassis and driveline shaft.
-    void InitializePowertrain(std::shared_ptr<ChPowertrain> powertrain);
-
     /// Calculate total vehicle mass.
     /// This function is called at the end of the vehicle initialization, but can also be called explicitly.
     virtual void InitializeInertiaProperties() override final;
 
     /// Update the state of this vehicle at the current time.
     /// The vehicle system is provided the current driver inputs (throttle between 0 and 1, steering between -1 and +1,
-    /// braking between 0 and 1) and terrain forces on the track shoes (expressed in the global reference frame).
+    /// braking between 0 and 1).
+    void Synchronize(double time,                       ///< [in] current time
+                     const DriverInputs& driver_inputs  ///< [in] current driver inputs
+    );
+
+    /// Update the state of this vehicle at the current time.
+    /// This version can be used in a co-simulation framework and it provides the terrain forces on the track shoes
+    /// (assumed to be expressed in the global reference frame).
     void Synchronize(double time,                            ///< [in] current time
-                     const DriverInputs& driver_inputs,  ///< [in] current driver inputs
+                     const DriverInputs& driver_inputs,      ///< [in] current driver inputs
                      const TerrainForces& shoe_forces_left,  ///< [in] vector of track shoe forces (left side)
                      const TerrainForces& shoe_forces_right  ///< [in] vector of track shoe forces (left side)
     );
@@ -196,6 +193,9 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
     /// In addition to advancing the state of the multibody system (if the vehicle owns the underlying system), this
     /// function also advances the state of the associated powertrain.
     virtual void Advance(double step) override final;
+
+    /// Lock/unlock the differential (if available).
+    void LockDifferential(bool lock);
 
     /// Disconnect driveline.
     /// This function has no effect if called before vehicle initialization.
@@ -232,7 +232,6 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
 
     std::shared_ptr<ChTrackAssembly> m_tracks[2];  ///< track assemblies (left/right)
     std::shared_ptr<ChDrivelineTV> m_driveline;    ///< driveline subsystem
-    std::shared_ptr<ChPowertrain> m_powertrain;    ///< associated powertrain system
 
     std::shared_ptr<ChTrackCollisionManager> m_collision_manager;  ///< manager for internal collisions
     std::shared_ptr<ChTrackContactManager> m_contact_manager;      ///< manager for internal contacts

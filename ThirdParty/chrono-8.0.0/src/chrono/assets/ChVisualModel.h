@@ -24,6 +24,9 @@
 
 namespace chrono {
 
+/// @addtogroup chrono_assets
+/// @{
+
 // Forward declaration
 class ChPhysicsItem;
 
@@ -72,6 +75,12 @@ class ChApi ChVisualModel {
     /// Erase the specified visual shape from this model.
     void Erase(std::shared_ptr<ChVisualShape> shape);
 
+    /// Method to allow serialization of transient data to archives.
+    virtual void ArchiveOut(ChArchiveOut& marchive);
+
+    /// Method to allow deserialization of transient data from archives.
+    virtual void ArchiveIn(ChArchiveIn& marchive);
+
   private:
     /// Update this visual model with information for the owning physical object.
     /// Since a visual model can be shared in multiple instances, this function may be called with different owners.
@@ -104,6 +113,8 @@ class ChApi ChVisualModelInstance {
 
     friend class ChPhysicsItem;
 };
+
+/// @} chrono_assets
 
 }  // namespace chrono
 

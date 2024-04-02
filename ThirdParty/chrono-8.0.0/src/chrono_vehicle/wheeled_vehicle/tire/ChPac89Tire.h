@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "chrono/physics/ChBody.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 
 #include "chrono_vehicle/wheeled_vehicle/tire/ChForceElementTire.h"
 #include "chrono_vehicle/ChTerrain.h"
@@ -49,12 +49,6 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "Pac89Tire"; }
 
-    /// Add visualization assets for the rigid tire subsystem.
-    virtual void AddVisualizationAssets(VisualizationType vis) override;
-
-    /// Remove visualization assets for the rigid tire subsystem.
-    virtual void RemoveVisualizationAssets() override;
-
     /// Get the tire radius.
     virtual double GetRadius() const override { return m_states.R_eff; }
 
@@ -68,7 +62,7 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
     virtual double GetDeflection() const override { return m_data.depth; }
 
     /// Get visualization width.
-    virtual double GetVisualizationWidth() const { return m_width; }
+    virtual double GetVisualizationWidth() const override { return m_width; }
 
     /// Get the slip angle used in Pac89 (expressed in radians).
     /// The reported value will have opposite sign to that reported by ChTire::GetSlipAngle
@@ -97,6 +91,9 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
     double m_mu;
     /// Tire reference friction
     double m_mu0;
+
+    double m_frblend_begin{1};
+    double m_frblend_end{3};
 
     /// Pac89 tire model parameters
     double m_unloaded_radius;
@@ -151,6 +148,9 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
         double C15;
         double C16;
         double C17;
+        // extra parameters for stand-still/low speed case
+        double sigma0{100000.0};  ///< bristle stiffness for Dahl friction model
+        double sigma1{5000.0};    ///< bristle damping for Dahl friction model
     };
 
     PacCoeff m_PacCoeff;
@@ -166,13 +166,7 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
     /// Advance the state of this tire by the specified time step.
     virtual void Advance(double step) override;
 
-    struct ContactData {
-        bool in_contact;      // true if disc in contact with terrain
-        ChCoordsys<> frame;   // contact frame (x: long, y: lat, z: normal)
-        ChVector<> vel;       // relative velocity expressed in contact frame
-        double normal_force;  // magnitude of normal contact force
-        double depth;         // penetration depth
-    };
+    void CombinedCoulombForces(double& fx, double& fy, double fz, double muscale);
 
     struct TireStates {
         double cp_long_slip;     // Contact Path - Longitudinal Slip State (Kappa)
@@ -182,11 +176,12 @@ class CH_VEHICLE_API ChPac89Tire : public ChForceElementTire {
         double vsy;              // Lateral slip velocity = Lateral velocity
         double omega;            // Wheel angular velocity about its spin axis
         double R_eff;            // Effective Radius
+        double brx{0};           // bristle deformation x
+        double bry{0};           // bristle deformation y
         ChVector<> disc_normal;  //(temporary for debug)
     };
 
     TireStates m_states;
-    std::shared_ptr<ChCylinderShape> m_cyl_shape;  ///< visualization cylinder asset
 };
 
 /// @} vehicle_wheeled_tire

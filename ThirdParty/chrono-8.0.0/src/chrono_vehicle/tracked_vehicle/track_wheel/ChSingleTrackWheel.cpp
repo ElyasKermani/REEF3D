@@ -18,12 +18,13 @@
 // =============================================================================
 
 #include "chrono/core/ChGlobal.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 
 #include "chrono_vehicle/ChSubsysDefs.h"
 #include "chrono_vehicle/tracked_vehicle/track_wheel/ChSingleTrackWheel.h"
 #include "chrono_vehicle/tracked_vehicle/ChTrackAssembly.h"
+
 
 namespace chrono {
 namespace vehicle {
@@ -46,15 +47,13 @@ void ChSingleTrackWheel::Initialize(std::shared_ptr<ChChassis> chassis,
 
     m_wheel->SetCollide(true);
 
-    m_wheel->GetCollisionModel()->ClearModel();
-
     if (track->IsRoadwheelCylinder()) {
-        m_wheel->GetCollisionModel()->AddCylinder(m_material, radius, radius, width / 2);
+        auto ct_shape = chrono_types::make_shared<ChCollisionShapeCylinder>(m_material, radius, width);
+        m_wheel->AddCollisionShape(ct_shape, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
     } else {
-        m_wheel->GetCollisionModel()->AddCylindricalShell(m_material, radius, width / 2);
+        auto ct_shape = chrono_types::make_shared<ChCollisionShapeCylindricalShell>(m_material, radius, width);
+        m_wheel->AddCollisionShape(ct_shape, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
     }
-
-    m_wheel->GetCollisionModel()->BuildModel();
 }
 
 void ChSingleTrackWheel::AddVisualizationAssets(VisualizationType vis) {
@@ -64,11 +63,10 @@ void ChSingleTrackWheel::AddVisualizationAssets(VisualizationType vis) {
     double radius = GetRadius();
     double width = GetWidth();
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
-    cyl->GetCylinderGeometry().p1 = ChVector<>(0, width / 2, 0);
-    cyl->GetCylinderGeometry().p2 = ChVector<>(0, -width / 2, 0);
-    cyl->GetCylinderGeometry().rad = radius;
-    m_wheel->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(m_wheel,                       //
+                                                ChVector<>(0, width / 2, 0),   //
+                                                ChVector<>(0, -width / 2, 0),  //
+                                                radius);
 }
 
 void ChSingleTrackWheel::RemoveVisualizationAssets() {

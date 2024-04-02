@@ -42,7 +42,6 @@
 #endif
 
 using namespace chrono;
-using namespace chrono::collision;
 
 #define USE_RIGID 1
 
@@ -55,7 +54,7 @@ void AddBody(ChSystemMulticoreNSC* sys) {
     auto mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
     mat->SetFriction(0.4f);
 
-    auto bin = std::shared_ptr<ChBody>(sys->NewBody());
+    auto bin = chrono_types::make_shared<ChBody>();
     bin->SetIdentifier(binId);
     bin->SetMass(1);
     bin->SetPos(ChVector<>(0, 0, 0));
@@ -63,13 +62,9 @@ void AddBody(ChSystemMulticoreNSC* sys) {
     bin->SetCollide(true);
     bin->SetBodyFixed(true);
 
-    ChVector<> hdim(.1, .1, .1);
-
-    bin->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hdim.y(), hdim.z()), ChVector<>(0, 0, 0));
+    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(0.2, 0.2, 0.2), ChVector<>(0, 0, 0));
     bin->GetCollisionModel()->SetFamily(1);
     bin->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(2);
-    bin->GetCollisionModel()->BuildModel();
 
     sys->AddBody(bin);
 }
@@ -167,6 +162,9 @@ int main(int argc, char* argv[]) {
     // Create system
     ChSystemMulticoreNSC sys;
 
+    // Set associated collision detection system
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
+
     // Set number of threads
     sys.SetNumThreads(8);
 
@@ -207,7 +205,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.SetCameraPosition(ChVector<>(0, -.4, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector<>(0, -.4, 0), ChVector<>(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Uncomment the following two lines for the OpenGL manager to automatically

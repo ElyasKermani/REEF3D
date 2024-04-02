@@ -21,14 +21,15 @@
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/ChVehicleGeometry.h"
 
-#include "chrono/assets/ChTriangleMeshShape.h"
-#include "chrono/assets/ChObjFileShape.h"
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
+#include "chrono/assets/ChVisualShapeModelFile.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/utils/ChUtilsCreators.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
+
 
 namespace chrono {
 namespace vehicle {
@@ -51,6 +52,17 @@ ChVehicleGeometry::CylinderShape::CylinderShape(const ChVector<>& pos,
                                                 double length,
                                                 int matID)
     : m_pos(pos), m_rot(rot), m_radius(radius), m_length(length), m_matID(matID) {}
+
+ChVehicleGeometry::CylinderShape::CylinderShape(const ChVector<>& pos,
+                                                const ChVector<>& axis,
+                                                double radius,
+                                                double length,
+                                                int matID)
+    : m_pos(pos), m_radius(radius), m_length(length), m_matID(matID) {
+    ChMatrix33<> rot;
+    rot.Set_A_Xdir(axis);
+    m_rot = rot.Get_A_quaternion() * Q_from_AngY(-CH_C_PI_2);
+}
 
 ChVehicleGeometry::LineShape::LineShape(const ChVector<>& pos,
                                         const ChQuaternion<>& rot,
@@ -76,7 +88,22 @@ ChVehicleGeometry::TrimeshShape::TrimeshShape(const ChVector<>& pos,
                                               int matID)
     : m_trimesh(trimesh), m_radius(radius), m_pos(pos), m_matID(matID) {}
 
-void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, VisualizationType vis, bool visualize_collision) {
+std::shared_ptr<ChVisualShape> ChVehicleGeometry::AddVisualizationCylinder(std::shared_ptr<ChBody> body,
+                                                                           const ChVector<>& p1,
+                                                                           const ChVector<>& p2,
+                                                                           double radius,
+                                                                           ChVisualMaterialSharedPtr mat) {
+    geometry::ChLineSegment seg(p1, p2);
+    auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(radius, seg.GetLength());
+    if (mat)
+        cyl->AddMaterial(mat);
+    body->AddVisualShape(cyl, seg.GetFrame());
+    return cyl;
+}
+
+void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body,
+                                                  VisualizationType vis,
+                                                  bool visualize_collision) {
     if (vis == VisualizationType::NONE)
         return;
 
@@ -87,28 +114,24 @@ void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, 
 
     if (visualize_collision) {
         for (auto& sphere : m_coll_spheres) {
-            auto sphere_shape = chrono_types::make_shared<ChSphereShape>();
-            sphere_shape->GetSphereGeometry().rad = sphere.m_radius;
+            auto sphere_shape = chrono_types::make_shared<ChVisualShapeSphere>(sphere.m_radius);
             body->AddVisualShape(sphere_shape, ChFrame<>(sphere.m_pos));
         }
 
         for (auto& box : m_coll_boxes) {
-            auto box_shape = chrono_types::make_shared<ChBoxShape>();
-            box_shape->GetBoxGeometry().SetLengths(box.m_dims);
+            auto box_shape = chrono_types::make_shared<ChVisualShapeBox>(box.m_dims);
             body->AddVisualShape(box_shape, ChFrame<>(box.m_pos, box.m_rot));
         }
 
         for (auto& cyl : m_coll_cylinders) {
-            auto cyl_shape = chrono_types::make_shared<ChCylinderShape>();
-            cyl_shape->GetCylinderGeometry().rad = cyl.m_radius;
-            cyl_shape->GetCylinderGeometry().p1 = ChVector<>(0, cyl.m_length / 2, 0);
-            cyl_shape->GetCylinderGeometry().p2 = ChVector<>(0, -cyl.m_length / 2, 0);
+            auto cyl_shape = chrono_types::make_shared<ChVisualShapeCylinder>(cyl.m_radius, cyl.m_length);
             body->AddVisualShape(cyl_shape, ChFrame<>(cyl.m_pos, cyl.m_rot));
         }
 
         for (auto& mesh : m_coll_meshes) {
-            auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+            auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             trimesh_shape->SetMesh(mesh.m_trimesh);
+            trimesh_shape->SetMutable(false);
             body->AddVisualShape(trimesh_shape, ChFrame<>());
         }
 
@@ -116,7 +139,7 @@ void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, 
     }
 
     if (vis == VisualizationType::MESH && m_has_obj) {
-        auto obj_shape = chrono_types::make_shared<ChObjFileShape>();
+        auto obj_shape = chrono_types::make_shared<ChVisualShapeModelFile>();
         obj_shape->SetFilename(vehicle::GetDataFile(m_vis_mesh_file));
         body->AddVisualShape(obj_shape, ChFrame<>());
         return;
@@ -125,7 +148,7 @@ void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, 
     if (vis == VisualizationType::MESH && m_has_mesh) {
         auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vehicle::GetDataFile(m_vis_mesh_file),
                                                                                   true, true);
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetName(filesystem::path(m_vis_mesh_file).stem());
         trimesh_shape->SetMutable(false);
@@ -133,7 +156,8 @@ void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, 
         return;
     }
 
-    if (vis == VisualizationType::PRIMITIVES && m_has_primitives) {
+    // If no mesh specified, default to primitives
+    if (m_has_primitives) {
         if (!m_has_colors) {
             m_color_boxes = ChColor(0.5f, 0.5f, 0.5f);
             m_color_spheres = ChColor(0.5f, 0.5f, 0.5f);
@@ -149,30 +173,25 @@ void ChVehicleGeometry::CreateVisualizationAssets(std::shared_ptr<ChBody> body, 
         cyl_mat->SetDiffuseColor({m_color_cylinders.R, m_color_cylinders.G, m_color_cylinders.B});
 
         for (auto& sphere : m_vis_spheres) {
-            auto sphere_shape = chrono_types::make_shared<ChSphereShape>();
-            sphere_shape->GetSphereGeometry().rad = sphere.m_radius;
+            auto sphere_shape = chrono_types::make_shared<ChVisualShapeSphere>(sphere.m_radius);
             sphere_shape->AddMaterial(sph_mat);
             body->AddVisualShape(sphere_shape, ChFrame<>(sphere.m_pos));
         }
 
         for (auto& box : m_vis_boxes) {
-            auto box_shape = chrono_types::make_shared<ChBoxShape>();
-            box_shape->GetBoxGeometry().SetLengths(box.m_dims);
+            auto box_shape = chrono_types::make_shared<ChVisualShapeBox>(box.m_dims);
             box_shape->AddMaterial(box_mat);
             body->AddVisualShape(box_shape, ChFrame<>(box.m_pos, box.m_rot));
         }
 
         for (auto& cyl : m_vis_cylinders) {
-            auto cyl_shape = chrono_types::make_shared<ChCylinderShape>();
-            cyl_shape->GetCylinderGeometry().rad = cyl.m_radius;
-            cyl_shape->GetCylinderGeometry().p1 = ChVector<>(0, cyl.m_length / 2, 0);
-            cyl_shape->GetCylinderGeometry().p2 = ChVector<>(0, -cyl.m_length / 2, 0);
+            auto cyl_shape = chrono_types::make_shared<ChVisualShapeCylinder>(cyl.m_radius, cyl.m_length);
             cyl_shape->AddMaterial(cyl_mat);
             body->AddVisualShape(cyl_shape, ChFrame<>(cyl.m_pos, cyl.m_rot));
         }
 
         for (auto& line : m_vis_lines) {
-            auto line_shape = chrono_types::make_shared<ChLineShape>();
+            auto line_shape = chrono_types::make_shared<ChVisualShapeLine>();
             line_shape->SetLineGeometry(line.m_line);
             body->AddVisualShape(line_shape, ChFrame<>(line.m_pos, line.m_rot));
         }
@@ -191,43 +210,44 @@ void ChVehicleGeometry::CreateCollisionShapes(std::shared_ptr<ChBody> body,
 
     body->SetCollide(true);
 
-    body->GetCollisionModel()->ClearModel();
-
-    body->GetCollisionModel()->SetFamily(collision_family);
-
     for (auto& sphere : m_coll_spheres) {
         assert(materials[sphere.m_matID]);
-        body->GetCollisionModel()->AddSphere(materials[sphere.m_matID], sphere.m_radius, sphere.m_pos);
+        auto shape = chrono_types::make_shared<ChCollisionShapeSphere>(materials[sphere.m_matID], sphere.m_radius);
+        body->AddCollisionShape(shape, ChFrame<>(sphere.m_pos, QUNIT));
     }
     for (auto& box : m_coll_boxes) {
         assert(materials[box.m_matID]);
-        ChVector<> hdims = box.m_dims / 2;
-        body->GetCollisionModel()->AddBox(materials[box.m_matID], hdims.x(), hdims.y(), hdims.z(), box.m_pos,
-                                          box.m_rot);
+        auto shape = chrono_types::make_shared<ChCollisionShapeBox>(materials[box.m_matID], box.m_dims.x(),
+                                                                    box.m_dims.y(), box.m_dims.z());
+        body->AddCollisionShape(shape, ChFrame<>(box.m_pos, box.m_rot));
     }
     for (auto& cyl : m_coll_cylinders) {
         assert(materials[cyl.m_matID]);
-        body->GetCollisionModel()->AddCylinder(materials[cyl.m_matID], cyl.m_radius, cyl.m_radius, cyl.m_length / 2,
-                                               cyl.m_pos, cyl.m_rot);
+        auto shape =
+            chrono_types::make_shared<ChCollisionShapeCylinder>(materials[cyl.m_matID], cyl.m_radius, cyl.m_length);
+        body->AddCollisionShape(shape, ChFrame<>(cyl.m_pos, cyl.m_rot));
     }
     for (auto& hulls_group : m_coll_hulls) {
         assert(materials[hulls_group.m_matID]);
-        for (const auto& hull : hulls_group.m_hulls)
-            body->GetCollisionModel()->AddConvexHull(materials[hulls_group.m_matID], hull);
+        for (const auto& hull : hulls_group.m_hulls) {
+            auto shape = chrono_types::make_shared<ChCollisionShapeConvexHull>(materials[hulls_group.m_matID], hull);
+            body->AddCollisionShape(shape);
+        }
     }
     for (auto& mesh : m_coll_meshes) {
         assert(materials[mesh.m_matID]);
         // Hack: explicitly offset vertices
         for (auto& v : mesh.m_trimesh->m_vertices)
             v += mesh.m_pos;
-        body->GetCollisionModel()->AddTriangleMesh(materials[mesh.m_matID], mesh.m_trimesh, false, false, ChVector<>(0),
-                                                   ChMatrix33<>(1), mesh.m_radius);
+        auto shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(materials[mesh.m_matID], mesh.m_trimesh,
+                                                                             false, false, mesh.m_radius);
+        body->AddCollisionShape(shape);
     }
 
-    body->GetCollisionModel()->BuildModel();
+    body->GetCollisionModel()->SetFamily(collision_family);
 }
 
-ChVehicleGeometry::AABB ChVehicleGeometry::CalculateAABB() {
+geometry::ChAABB ChVehicleGeometry::CalculateAABB() {
     ChVector<> amin(+std::numeric_limits<double>::max());
     ChVector<> amax(-std::numeric_limits<double>::max());
 
@@ -261,20 +281,53 @@ ChVehicleGeometry::AABB ChVehicleGeometry::CalculateAABB() {
             for (const auto& v : hull) {
                 amin = Vmin(amin, v);
                 amax = Vmax(amax, v);
-            }        
+            }
         }
     }
 
     for (const auto& mesh : m_coll_meshes) {
-        ChVector<> mmin;
-        ChVector<> mmax;
-        mesh.m_trimesh->GetBoundingBox(mmin, mmax, ChMatrix33<>(1));
-
-        amin = Vmin(amin, mmin);
-        amax = Vmax(amax, mmax);
+        auto bbox = mesh.m_trimesh->GetBoundingBox();
+        amin = Vmin(amin, bbox.min);
+        amax = Vmax(amax, bbox.max);
     }
 
-    return AABB((amin + amax) / 2, amax - amin);
+    return geometry::ChAABB(amin, amax);
+}
+
+// -----------------------------------------------------------------------------
+
+ChTSDAGeometry::ChTSDAGeometry() : m_has_color(false), m_vis_segment(nullptr), m_vis_spring(nullptr) {}
+
+ChTSDAGeometry::SpringShape::SpringShape(double radius, int resolution, double turns)
+    : m_radius(radius), m_turns(turns), m_resolution(resolution) {}
+
+void ChTSDAGeometry::CreateVisualizationAssets(std::shared_ptr<ChLinkTSDA> tsda, VisualizationType vis) {
+    if (vis == VisualizationType::NONE)
+        return;
+
+    if (!tsda->GetVisualModel()) {
+        auto model = chrono_types::make_shared<ChVisualModel>();
+        tsda->AddVisualModel(model);
+    }
+
+    if (!m_has_color) {
+        m_color = ChColor(1.0f, 1.0f, 1.0f);
+    }
+    auto mat = chrono_types::make_shared<ChVisualMaterial>();
+    mat->SetDiffuseColor(m_color);
+
+    if (m_vis_spring) {
+        auto spring_shape = chrono_types::make_shared<ChVisualShapeSpring>(
+            m_vis_spring->m_radius, m_vis_spring->m_resolution, m_vis_spring->m_turns);
+        spring_shape->AddMaterial(mat);
+        tsda->AddVisualShape(spring_shape);
+    }
+
+    if (m_vis_segment) {
+        auto segment_shape = chrono_types::make_shared<ChVisualShapeSegment>();
+        segment_shape->AddMaterial(mat);
+        tsda->AddVisualShape(segment_shape);
+    }
 }
 
 }  // end namespace vehicle

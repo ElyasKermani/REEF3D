@@ -22,7 +22,7 @@ endif()
 
 # Return now if CUDA is not available
 if(NOT CUDA_FOUND)
-    message(WARNING "Chrono::FSI requires CUDA, but CUDA was not found; disabling Chrono::FSI")
+    message("Chrono::FSI requires CUDA, but CUDA was not found; disabling Chrono::FSI")
     set(ENABLE_MODULE_FSI OFF CACHE BOOL "Enable the Chrono FSI module" FORCE)
     return()
 endif()
@@ -48,13 +48,27 @@ if(MSVC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4251")
 endif()
 
+# ------------------------------------------------------------------------------
+# Hack to deal with MSVC runtime libraries
+# ------------------------------------------------------------------------------
+
+if(MSVC)
+  if(USE_MSVC_STATIC_RUNTIME)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+  else()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+  endif()
+endif()
+
 # ----------------------------------------------------------------------------
 # Collect additional include directories necessary for the FSI module.
 # Make some variables visible from parent directory
 # ----------------------------------------------------------------------------
 
 set(CH_FSI_INCLUDES "${CUDA_TOOLKIT_ROOT_DIR}/include")
-set(CH_FSI_LINKER_FLAGS "${CH_LINKERFLAG_SHARED}")
+set(CH_FSI_LINKER_FLAGS "${CH_LINKERFLAG_LIB}")
 set(CH_FSI_LINKED_LIBRARIES ${CUDA_FRAMEWORK})
 
 list(APPEND CH_FSI_LINKED_LIBRARIES ${CUDA_cudadevrt_LIBRARY})
@@ -77,6 +91,11 @@ if(ENABLE_MODULE_OPENGL)
      set(CH_FSI_LINKER_FLAGS  "${CH_FSI_LINKER_FLAGS} -framework IOKit -framework Cocoa -framework OpenGL")
   endif()
   list(APPEND CH_FSI_LINKED_LIBRARIES ChronoEngine_opengl)
+endif()
+
+if(ENABLE_MODULE_VSG)
+  include_directories(${CH_VSG_INCLUDES})
+  list(APPEND CH_FSI_LINKED_LIBRARIES ChronoEngine_vsg)
 endif()
 
 # ------------------------------------------------------------------------------
@@ -105,9 +124,7 @@ set(ChronoEngine_FSI_FILES
     ChApiFsi.h
     ChSystemFsi.h
     ChDefinitionsFsi.h
-    ChVisualizationFsi.h
     ChSystemFsi.cpp
-    ChVisualizationFsi.cpp
 )
 
 source_group("" FILES ${ChronoEngine_FSI_FILES})
@@ -169,17 +186,37 @@ set(ChronoEngine_FSI_UTILS_FILES
 
 source_group(utils FILES ${ChronoEngine_FSI_UTILS_FILES})
 
+set(ChronoEngine_FSI_VIS_FILES
+    visualization/ChFsiVisualization.h
+    visualization/ChFsiVisualization.cpp
+)
+
+if(ENABLE_MODULE_OPENGL)
+    set(ChronoEngine_FSI_VIS_FILES ${ChronoEngine_FSI_VIS_FILES}
+        visualization/ChFsiVisualizationGL.h
+        visualization/ChFsiVisualizationGL.cpp
+    )
+endif()
+
+if(ENABLE_MODULE_VSG)
+    set(ChronoEngine_FSI_VIS_FILES ${ChronoEngine_FSI_VIS_FILES}
+        visualization/ChFsiVisualizationVSG.h
+        visualization/ChFsiVisualizationVSG.cpp
+    )
+endif()
+
+source_group(visualization FILES ${ChronoEngine_FSI_VIS_FILES})
+
 #-----------------------------------------------------------------------------
 # Create the ChronoEngine_fsi library
 #-----------------------------------------------------------------------------
 
-set(CXX_FLAGS ${CH_CXX_FLAGS})
-
-cuda_add_library(ChronoEngine_fsi SHARED
+cuda_add_library(ChronoEngine_fsi
     ${ChronoEngine_FSI_FILES}
     ${ChronoEngine_FSI_PHYSICS_FILES}
     ${ChronoEngine_FSI_MATH_FILES}
     ${ChronoEngine_FSI_UTILS_FILES}
+    ${ChronoEngine_FSI_VIS_FILES}
 )
 
 set_target_properties(ChronoEngine_fsi PROPERTIES

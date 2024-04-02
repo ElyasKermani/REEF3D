@@ -33,7 +33,7 @@ using namespace chrono;
 
 void ChIterativeSolverMulticoreNSC::RunTimeStep() {
     // Compute the offsets and number of constrains depending on the solver mode
-    const auto num_rigid_contacts = data_manager->cd_data->num_rigid_contacts;
+    const auto num_rigid_contacts = data_manager->cd_data ? data_manager->cd_data->num_rigid_contacts : 0;
 
     if (data_manager->settings.solver.solver_mode == SolverMode::NORMAL) {
         data_manager->rigid_rigid->offset = 1;
@@ -154,7 +154,7 @@ void ChIterativeSolverMulticoreNSC::RunTimeStep() {
     //    /////
     //    double t1 = 0;
     //    {
-    //        ChTimer<> timer;
+    //        ChTimer timer;
     //        timer.start();
     //        rigid_rigid.Dx(data_manager->host_data.gamma, temp);
     //        rigid_rigid.D_Tx(temp, output);
@@ -163,7 +163,7 @@ void ChIterativeSolverMulticoreNSC::RunTimeStep() {
     //        timer.stop();
     //        t1 = timer();
     //    }
-    //    ChTimer<> timer;
+    //    ChTimer timer;
     //    timer.start();
     //    DynamicVector<real> compare =
     //        data_manager->host_data.D_T * data_manager->host_data.D * data_manager->host_data.gamma;
@@ -192,7 +192,7 @@ void ChIterativeSolverMulticoreNSC::ComputeD() {
     }
 
     uint num_dof = data_manager->num_dof;
-    uint num_rigid_contacts = data_manager->cd_data->num_rigid_contacts;
+    uint num_rigid_contacts = data_manager->cd_data ? data_manager->cd_data->num_rigid_contacts : 0;
     uint num_bilaterals = data_manager->num_bilaterals;
     uint nnz_bilaterals = data_manager->nnz_bilaterals;
 
@@ -318,10 +318,14 @@ void ChIterativeSolverMulticoreNSC::SetR() {
     DynamicVector<real>& R = data_manager->host_data.R;
     const DynamicVector<real>& R_full = data_manager->host_data.R_full;
 
-    uint num_rigid_contacts = data_manager->cd_data->num_rigid_contacts;
+    uint num_rigid_contacts = 0;
+    uint num_rigid_fluid = 0;
+    if (data_manager->cd_data) {
+        num_rigid_contacts = data_manager->cd_data->num_rigid_contacts;
+        num_rigid_fluid = data_manager->cd_data->num_rigid_fluid_contacts * 3;
+    }
     uint num_unilaterals = data_manager->num_unilaterals;
     uint num_bilaterals = data_manager->num_bilaterals;
-    uint num_rigid_fluid = data_manager->cd_data->num_rigid_fluid_contacts * 3;
     uint num_fluid_bodies = data_manager->num_fluid_bodies;
     R.resize(data_manager->num_constraints);
     reset(R);

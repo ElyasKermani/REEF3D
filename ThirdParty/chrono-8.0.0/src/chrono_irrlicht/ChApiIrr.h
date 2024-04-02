@@ -22,17 +22,16 @@
 // link the library to your code, and the symbols will be imported.
 
 #if defined(CH_API_COMPILE_IRRLICHT)
-#define ChApiIrr ChApiEXPORT
+    #define ChApiIrr ChApiEXPORT
 #else
-#define ChApiIrr ChApiIMPORT
+    #define ChApiIrr ChApiIMPORT
 #endif
 
 /**
     @defgroup irrlicht_module IRRLICHT module
     @brief Runtime visualization with Irrlicht
 
-    This module can be used to provide 3D realtime rendering
-    in Chrono::Engine.
+    This module can be used to provide 3D realtime rendering in Chrono::Engine.
 
     For additional information, see:
     - the [installation guide](@ref module_irrlicht_installation)
@@ -54,6 +53,6 @@ namespace tools {}
 
 /// @}
 
-}
+}  // namespace chrono
 
 #endif

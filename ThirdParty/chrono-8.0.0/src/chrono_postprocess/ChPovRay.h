@@ -154,7 +154,7 @@ class ChApiPostProcess ChPovRay : public ChPostProcessBase {
                          double colormap_end);
 
     /// Set thickness for wireframe mode of meshes.
-    /// If a ChTriangleMeshShape asset was set as SetWireframe(true), it will be rendered in POVray as a cage of thin
+    /// If a ChVisualShapeTriangleMesh asset was set as SetWireframe(true), it will be rendered in POVray as a cage of thin
     /// cylinders. This setting sets how thick the tubes.
     void SetWireframeThickness(const double wft) { wireframe_thickness = wft; }
     double GetWireframeThickness() const { return wireframe_thickness; }
@@ -173,7 +173,7 @@ class ChApiPostProcess ChPovRay : public ChPostProcessBase {
     void SetCustomPOVcommandsData(const std::string& text) { custom_data = text; }
     const std::string& GetCustomPOVcommandsData() const { return custom_data; }
 
-    /// When ExportData() is called, it saves .dat files in incremental way, starting from zero: 
+    /// When ExportData() is called, it saves .dat files in incremental way, starting from zero:
     ///    data0000.dat, data0001.dat etc.,
     /// but you can override the formatted number by first calling SetFramenumber().
     void SetFramenumber(unsigned int fn) { framenumber = fn; }

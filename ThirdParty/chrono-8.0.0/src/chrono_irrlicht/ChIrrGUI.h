@@ -20,6 +20,10 @@
 #include "chrono_irrlicht/ChApiIrr.h"
 #include "chrono_irrlicht/ChIrrTools.h"
 
+#ifdef CHRONO_POSTPROCESS
+#include "chrono_postprocess/ChBlender.h"
+#endif
+
 namespace chrono {
 
 // Forward references
@@ -30,6 +34,9 @@ namespace irrlicht {
 // Forward references
 class ChIrrEventReceiver;
 class ChVisualSystemIrrlicht;
+
+/// @addtogroup irrlicht_module
+/// @{
 
 /// Irrlicht GUI attached to a ChVisualSystemIrrlicht.
 class ChApiIrr ChIrrGUI {
@@ -45,6 +52,24 @@ class ChApiIrr ChIrrGUI {
 
     /// Perform operations before closing the Irrlicht scene for the current frame.
     void EndScene();
+
+ #ifdef CHRONO_POSTPROCESS
+
+    /// If set to true, each frame of the animation will be saved on the disk
+    /// as a sequence of scripts to be rendered via Blender. Only if solution build with ENABLE_MODULE_POSTPROCESS.
+    void SetBlenderSave(bool val);
+    bool GetBlenderSave() { return blender_save; }
+
+    /// Set to 1 if you need to save on disk all simulation steps, set to 2 for
+    /// saving each 2 steps, etc.
+    void SetBlenderSaveInterval(int val) { blender_each = val; }
+    int GetBlenderSaveInterval() { return blender_each; }
+
+    /// Access the internal ChBlender exporter, for advanced tweaking.
+    /// Returns 0 if not yet started (use SetBlenderSave(true) to start it)
+    postprocess::ChBlender* GetBlenderExporter() { return blender_exporter.get(); }
+
+#endif
 
   private:
     void Initialize(ChVisualSystemIrrlicht* vis);
@@ -71,6 +96,9 @@ class ChApiIrr ChIrrGUI {
     /// Set the speed of the shown mode (only if some ChModalAssembly is found).
     void SetModalSpeed(double val);
 
+    /// Set the total number of modes available from the scrollbar
+    void SetModalModesMax(int maxModes);
+
     /// Set the label mode for contacts
     void SetContactsLabelMode(ContactsLabelMode mm) { g_labelcontacts->setSelected((int)mm); }
     /// Set the draw mode for contacts
@@ -79,6 +107,8 @@ class ChApiIrr ChIrrGUI {
     void SetLinksLabelMode(LinkLabelMode mm) { g_labellinks->setSelected((int)mm); }
     /// Set the draw mode for links
     void SetLinksDrawMode(LinkDrawMode mm) { g_drawlinks->setSelected((int)mm); }
+    /// Set if the absolute coordinate system will be plotted
+    void SetPlotAbsCoordsys(bool val) { g_plot_abscoord->setChecked(val); }
     /// Set if the AABB collision shapes will be plotted
     void SetPlotAABB(bool val) { g_plot_aabb->setChecked(val); }
     /// Set if the COG frames will be plotted
@@ -119,7 +149,7 @@ class ChApiIrr ChIrrGUI {
     ChIrrEventReceiver* m_receiver;                      ///< default event receiver
     std::vector<irr::IEventReceiver*> m_user_receivers;  ///< optional user-defined receivers
 
-    std::shared_ptr<collision::ChCollisionSystem::VisualizationCallback> m_drawer;  ///< collision callback
+    std::shared_ptr<ChCollisionSystem::VisualizationCallback> m_drawer;  ///< collision callback
 
     irr::gui::IGUITabControl* g_tabbed;
 
@@ -128,6 +158,7 @@ class ChApiIrr ChIrrGUI {
     irr::gui::IGUIComboBox* g_labelcontacts;
     irr::gui::IGUIComboBox* g_drawlinks;
     irr::gui::IGUIComboBox* g_labellinks;
+    irr::gui::IGUICheckBox* g_plot_abscoord;
     irr::gui::IGUICheckBox* g_plot_aabb;
     irr::gui::IGUICheckBox* g_plot_cogs;
     irr::gui::IGUICheckBox* g_plot_collisionshapes;
@@ -144,9 +175,18 @@ class ChApiIrr ChIrrGUI {
 
     irr::gui::IGUITreeView* g_treeview;
 
+#ifdef CHRONO_POSTPROCESS
+    bool blender_save;
+    std::unique_ptr<postprocess::ChBlender> blender_exporter;
+    int blender_num;
+    int blender_each;
+#endif
+
     friend class ChIrrEventReceiver;
     friend class ChVisualSystemIrrlicht;
 };
+
+/// @} irrlicht_module
 
 }  // namespace irrlicht
 }  // namespace chrono

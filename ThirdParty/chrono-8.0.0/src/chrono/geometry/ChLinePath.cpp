@@ -34,9 +34,9 @@ double ChLinePath::Length(int sampling) const {
     return tot;
 }
 
-void ChLinePath::Evaluate(ChVector<>& pos, const double parU) const {
+ChVector<> ChLinePath::Evaluate(double parU) const {
     if (lines.size() == 0)
-        return;
+        return VNULL;
 
     double u = parU;
 
@@ -58,7 +58,8 @@ void ChLinePath::Evaluate(ChVector<>& pos, const double parU) const {
         uA = end_times[i - 1];
 
     double local_U = (u - uA) / durations[i];
-    lines[i]->Evaluate(pos, local_U);
+    
+    return lines[i]->Evaluate(local_U);
 }
 
 void ChLinePath::SetSubLineDurationN(size_t n, double mduration) {
@@ -140,22 +141,22 @@ double ChLinePath::GetContinuityMaxError() const {
     return maxerr;
 }
 
-void ChLinePath::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinePath::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinePath>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(lines);
     marchive << CHNVP(end_times);
     marchive << CHNVP(durations);
 }
 
-void ChLinePath::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinePath::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinePath>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(lines);
     marchive >> CHNVP(end_times);

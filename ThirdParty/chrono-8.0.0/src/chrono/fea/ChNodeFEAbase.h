@@ -51,16 +51,13 @@ class ChApi ChNodeFEAbase : public virtual ChNodeBase {
     /// Gets the global index of the node
     virtual unsigned int GetIndex() { return g_index; }
 
-    double m_TotalMass;  ///< Nodal mass obtained from element masss matrix
-
-  protected:
-    unsigned int g_index;  ///< global node index
-
-  private:
     /// Initial setup.
     virtual void SetupInitial(ChSystem* system) {}
 
-    friend class ChMesh;
+    double m_TotalMass;  ///< Nodal mass obtained from element mass matrix
+
+  protected:
+    unsigned int g_index;  ///< global node index
 };
 
 /// @} fea_nodes

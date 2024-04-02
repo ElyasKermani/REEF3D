@@ -22,127 +22,102 @@ namespace geometry {
 // Register into the object factory, to enable run-time dynamic creation and persistence
 CH_FACTORY_REGISTER(ChBox)
 
-ChBox::ChBox(const ChVector<>& lengths) : Size(0.5 * lengths) {}
-ChBox::ChBox(double len_x, double len_y, double len_z) : Size(0.5 * ChVector<>(len_z, len_y, len_z)) {}
-
-/*
-ChBox::ChBox(const ChVector<>& mC0, const ChVector<>& mC1, const ChVector<>& mC2, const ChVector<>& mC3) {
-    ChVector<> D1 = Vsub(mC1, mC0);
-    ChVector<> D2 = Vsub(mC2, mC0);
-    ChVector<> D3 = Vsub(mC3, mC0);
-    ChVector<> C0 = mC0;
-
-    ChVector<> zax;
-    zax.Cross(D1, D2);
-    if (Vdot(D3, zax) < 0) {
-        C0 += D3;
-        D3 = -D3;
-    }
-
-    this->Size.x() = 0.5 * Vlength(D1);
-    this->Size.y() = 0.5 * Vlength(D2);
-    this->Size.z() = 0.5 * Vlength(D3);
-    this->Pos = Vadd(Vadd(Vadd(C0, Vmul(D1, 0.5)), Vmul(D2, 0.5)), Vmul(D3, 0.5));
-    this->Rot.Set_A_axis(Vnorm(D1), Vnorm(D2), Vnorm(D3));
-}
-*/
-
+ChBox::ChBox(const ChVector<>& lengths) : hlen(0.5 * lengths) {}
+ChBox::ChBox(double length_x, double length_y, double length_z)
+    : hlen(0.5 * ChVector<>(length_z, length_y, length_z)) {}
 ChBox::ChBox(const ChBox& source) {
-    Size = source.Size;
+    hlen = source.hlen;
 }
 
-void ChBox::Evaluate(ChVector<>& pos, const double parU, const double parV, const double parW) const {
-    pos.x() = Size.x() * (parU - 0.5);
-    pos.y() = Size.y() * (parV - 0.5);
-    pos.z() = Size.z() * (parW - 0.5);
+ChVector<> ChBox::Evaluate(double parU, double parV, double parW) const {
+    return ChVector<>(hlen.x() * (parU - 0.5), hlen.y() * (parV - 0.5), hlen.z() * (parW - 0.5));
 }
 
-ChVector<> ChBox::GetP1() const {
-    return ChVector<>(+Size.x(), +Size.y(), +Size.z());
-}
-ChVector<> ChBox::GetP2() const {
-    return ChVector<>(-Size.x(), +Size.y(), +Size.z());
-}
-ChVector<> ChBox::GetP3() const {
-    return ChVector<>(-Size.x(), -Size.y(), +Size.z());
-}
-ChVector<> ChBox::GetP4() const {
-    return ChVector<>(+Size.x(), -Size.y(), +Size.z());
-}
-ChVector<> ChBox::GetP5() const {
-    return ChVector<>(+Size.x(), +Size.y(), -Size.z());
-}
-ChVector<> ChBox::GetP6() const {
-    return ChVector<>(-Size.x(), +Size.y(), -Size.z());
-}
-ChVector<> ChBox::GetP7() const {
-    return ChVector<>(-Size.x(), -Size.y(), -Size.z());
-}
-ChVector<> ChBox::GetP8() const {
-    return ChVector<>(+Size.x(), -Size.y(), -Size.z());
+// -----------------------------------------------------------------------------
+
+double ChBox::GetVolume(const ChVector<>& lengths) {
+    return lengths.x() * lengths.y() * lengths.z();
 }
 
-ChVector<> ChBox::GetPn(int ipoint) const {
-    switch (ipoint) {
-        case 1:
-            return GetP1();
-        case 2:
-            return GetP2();
-        case 3:
-            return GetP3();
-        case 4:
-            return GetP4();
-        case 5:
-            return GetP5();
-        case 6:
-            return GetP6();
-        case 7:
-            return GetP7();
-        case 8:
-            return GetP8();
-        default:
-            return GetP1();
-    }
+double ChBox::GetVolume() const {
+    return GetVolume(2.0 * hlen);
 }
 
-void ChBox::GetBoundingBox(ChVector<>& cmin, ChVector<>& cmax, const ChMatrix33<>& rot) const {
-    std::vector<ChVector<>> vertices{GetP1(), GetP2(), GetP3(), GetP4(), GetP5(), GetP6(), GetP7(), GetP8()};
+ChMatrix33<> ChBox::GetGyration(const ChVector<>& lengths) {
+    ChMatrix33<> J;
+    J.setZero();
+    J(0, 0) = (1.0 / 12.0) * (lengths.y() * lengths.y() + lengths.z() * lengths.z());
+    J(1, 1) = (1.0 / 12.0) * (lengths.z() * lengths.z() + lengths.x() * lengths.x());
+    J(2, 2) = (1.0 / 12.0) * (lengths.x() * lengths.x() + lengths.y() * lengths.y());
 
-    cmin = ChVector<>(+std::numeric_limits<double>::max());
-    cmax = ChVector<>(-std::numeric_limits<double>::max());
+    return J;
+}
 
+ChMatrix33<> ChBox::GetGyration() const {
+    return GetGyration(hlen);
+}
+
+ChAABB ChBox::GetBoundingBox(const ChVector<>& lengths) {
+    auto hlen = lengths / 2;
+
+    std::vector<ChVector<>> vertices{
+        ChVector<>(+hlen.x(), +hlen.y(), +hlen.z()),  //
+        ChVector<>(-hlen.x(), +hlen.y(), +hlen.z()),  //
+        ChVector<>(-hlen.x(), -hlen.y(), +hlen.z()),  //
+        ChVector<>(+hlen.x(), -hlen.y(), +hlen.z()),  //
+        ChVector<>(+hlen.x(), +hlen.y(), -hlen.z()),  //
+        ChVector<>(-hlen.x(), +hlen.y(), -hlen.z()),  //
+        ChVector<>(-hlen.x(), -hlen.y(), -hlen.z()),  //
+        ChVector<>(+hlen.x(), -hlen.y(), -hlen.z())   //
+    };
+
+    ChAABB bbox;
     for (const auto& v : vertices) {
-        auto p = rot.transpose() * v;
+        bbox.min.x() = ChMin(bbox.min.x(), v.x());
+        bbox.min.y() = ChMin(bbox.min.y(), v.y());
+        bbox.min.z() = ChMin(bbox.min.z(), v.z());
 
-        cmin.x() = ChMin(cmin.x(), p.x());
-        cmin.y() = ChMin(cmin.y(), p.y());
-        cmin.z() = ChMin(cmin.z(), p.z());
-
-        cmax.x() = ChMax(cmax.x(), p.x());
-        cmax.y() = ChMax(cmax.y(), p.y());
-        cmax.z() = ChMax(cmax.z(), p.z());
+        bbox.max.x() = ChMax(bbox.max.x(), v.x());
+        bbox.max.y() = ChMax(bbox.max.y(), v.y());
+        bbox.max.z() = ChMax(bbox.max.z(), v.z());
     }
+
+    return bbox;
 }
 
-void ChBox::ArchiveOUT(ChArchiveOut& marchive) {
+ChAABB ChBox::GetBoundingBox() const {
+    return GetBoundingBox(2.0 * hlen);
+}
+
+double ChBox::GetBoundingSphereRadius(const ChVector<>& lengths) {
+    return lengths.Length() / 2;
+}
+
+double ChBox::GetBoundingSphereRadius() const {
+    return GetBoundingSphereRadius(2.0 * hlen);
+}
+
+// -----------------------------------------------------------------------------
+
+void ChBox::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChBox>();
     // serialize parent class
-    ChVolume::ArchiveOUT(marchive);
+    ChVolume::ArchiveOut(marchive);
     // serialize all member data:
-    ChVector<> Lengths = GetLengths();
-    marchive << CHNVP(Lengths);  // avoid storing 'Size', i.e. half lengths, because less intuitive
+    ChVector<> lengths = GetLengths();
+    marchive << CHNVP(lengths);
 }
 
-void ChBox::ArchiveIN(ChArchiveIn& marchive) {
+void ChBox::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/marchive.VersionRead<ChBox>();
     // deserialize parent class
-    ChVolume::ArchiveIN(marchive);
+    ChVolume::ArchiveIn(marchive);
     // stream in all member data:
-    ChVector<> Lengths;
-    marchive >> CHNVP(Lengths);  // avoid storing 'Size', i.e. half lengths, because less intuitive
-    SetLengths(Lengths);
+    ChVector<> lengths;
+    marchive >> CHNVP(lengths);
+    SetLengths(lengths);
 }
 
 }  // end namespace geometry

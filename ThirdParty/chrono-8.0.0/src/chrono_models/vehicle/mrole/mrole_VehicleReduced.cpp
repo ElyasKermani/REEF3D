@@ -16,8 +16,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -27,9 +27,9 @@
 #include "chrono_models/vehicle/mrole/mrole_BrakeSimple.h"
 #include "chrono_models/vehicle/mrole/mrole_BrakeShafts.h"
 #include "chrono_models/vehicle/mrole/mrole_DoubleWishboneReduced.h"
-#include "chrono_models/vehicle/mrole/mrole_Driveline2WD.h"
-#include "chrono_models/vehicle/mrole/mrole_Driveline4WD.h"
-#include "chrono_models/vehicle/mrole/mrole_SimpleDriveline.h"
+#include "chrono_models/vehicle/mrole/driveline/mrole_Driveline2WD.h"
+#include "chrono_models/vehicle/mrole/driveline/mrole_Driveline4WD.h"
+#include "chrono_models/vehicle/mrole/driveline/mrole_SimpleDriveline.h"
 #include "chrono_models/vehicle/mrole/mrole_RackPinion.h"
 #include "chrono_models/vehicle/mrole/mrole_Wheel.h"
 

@@ -179,6 +179,15 @@ void ChNodeFEAcurv::NodeIntLoadResidual_Mv(const unsigned int off,
     }
 }
 
+void ChNodeFEAcurv::NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                             ChVectorDynamic<>& Md,
+                                             double& error,
+                                             const double c) {
+    for (int i = 0; i < 9; i++) {
+        Md(off + i) += c * GetMassDiagonal()(i);
+    }
+}
+
 void ChNodeFEAcurv::NodeIntToDescriptor(const unsigned int off_v, const ChStateDelta& v, const ChVectorDynamic<>& R) {
     m_variables->Get_qb().segment(0, 9) = v.segment(off_v, 9);
     m_variables->Get_fb().segment(0, 9) = R.segment(off_v, 9);
@@ -239,11 +248,11 @@ void ChNodeFEAcurv::VariablesQbIncrementPosition(double step) {
 
 // -----------------------------------------------------------------------------
 
-void ChNodeFEAcurv::ArchiveOUT(ChArchiveOut& marchive) {
+void ChNodeFEAcurv::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChNodeFEAcurv>();
     // serialize parent class
-    ChNodeFEAbase::ArchiveOUT(marchive);
+    ChNodeFEAbase::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(m_rxx);
@@ -257,11 +266,11 @@ void ChNodeFEAcurv::ArchiveOUT(ChArchiveOut& marchive) {
     marchive << CHNVP(m_rzz_dtdt);
 }
 
-void ChNodeFEAcurv::ArchiveIN(ChArchiveIn& marchive) {
+void ChNodeFEAcurv::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChNodeFEAcurv>();
     // deserialize parent class
-    ChNodeFEAbase::ArchiveIN(marchive);
+    ChNodeFEAbase::ArchiveIn(marchive);
 
     // stream in all member data:
     marchive >> CHNVP(m_rxx);

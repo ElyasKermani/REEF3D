@@ -22,13 +22,12 @@
     #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
 
+#include "chrono/physics/ChBodyEasy.h"
+#include "chrono/physics/ChLinkMotorRotationAngle.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsGeometry.h"
-
-#include "chrono_fsi/ChSystemFsi.h"
-#include "chrono_fsi/ChVisualizationFsi.h"
 
 #include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLinkDirFrame.h"
@@ -37,16 +36,17 @@
 #include "chrono/fea/ChMeshExporter.h"
 #include "chrono/fea/ChBuilderBeam.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-#include "chrono/physics/ChBodyEasy.h"
-#include "chrono/physics/ChLinkMotorRotationAngle.h"
-#include "chrono/utils/ChUtilsGeometry.h"
+#include "chrono_fsi/ChSystemFsi.h"
+
+#ifdef CHRONO_OPENGL
+    #include "chrono_fsi/visualization/ChFsiVisualizationGL.h"
+#endif
+
 #include "chrono_thirdparty/filesystem/path.h"
 
 // Chrono namespaces
 using namespace chrono;
 using namespace chrono::fea;
-using namespace chrono::collision;
 using namespace chrono::fsi;
 
 // Set the output directory
@@ -123,6 +123,8 @@ int main(int argc, char* argv[]) {
     ChSystemSMC sysMBS;
     ChSystemFsi sysFSI(&sysMBS);
 
+    sysMBS.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     // Use the default input file or you may enter your input parameters as a command line argument
     std::string inputJson = GetChronoDataFile("fsi/input_json/demo_FSI_Flexible_Toroidal_Tire_Granular.json");
     if (argc == 1) {
@@ -171,15 +173,17 @@ int main(int argc, char* argv[]) {
     sysFSI.Initialize();
     auto my_mesh = sysFSI.GetFsiMesh();
 
+#ifdef CHRONO_OPENGL
     // Create a run-tme visualizer
-    ChVisualizationFsi fsi_vis(&sysFSI);
+    ChFsiVisualizationGL fsi_vis(&sysFSI);
     if (render) {
         fsi_vis.SetTitle("Chrono::FSI Flexible Toroidal Tire Demo");
-        fsi_vis.SetCameraPosition(ChVector<>(bxDim / 8, -3, 0.25), ChVector<>(bxDim / 8, 0.0, 0.25));
+        fsi_vis.AddCamera(ChVector<>(bxDim / 8, -3, 0.25), ChVector<>(bxDim / 8, 0.0, 0.25));
         fsi_vis.SetCameraMoveScale(1.0f);
         fsi_vis.EnableBoundaryMarkers(false);
         fsi_vis.Initialize();
     }
+#endif
 
     // Set MBS solver
 #ifdef CHRONO_PARDISO_MKL
@@ -205,7 +209,7 @@ int main(int argc, char* argv[]) {
     double time = 0.0;
     int current_step = 0;
 
-    ChTimer<> timer;
+    ChTimer timer;
     timer.start();
     while (time < t_end) {
         std::cout << current_step << " time: " << time << std::endl;
@@ -219,11 +223,13 @@ int main(int argc, char* argv[]) {
             fea::ChMeshExporter::WriteFrame(my_mesh, MESH_CONNECTIVITY, filename);
         }
 
+#ifdef CHRONO_OPENGL
         // Render SPH particles
         if (render && current_step % render_steps == 0) {
             if (!fsi_vis.Render())
                 break;
         }
+#endif
 
         sysFSI.DoStepDynamics_FSI();
 
@@ -254,14 +260,18 @@ void Create_MB_FE(ChSystemSMC& sysMBS, ChSystemFsi& sysFSI) {
     cmaterial->SetFriction(0.3f);
     cmaterial->SetRestitution(0.2f);
     cmaterial->SetAdhesion(0);
-    ground->GetCollisionModel()->ClearModel();
-    chrono::utils::AddBoxContainer(ground, cmaterial, ChFrame<>(), ChVector<>(bxDim, byDim, bzDim), 0.1,
-                                   ChVector<int>(0, 0, -1), false);
-    ground->GetCollisionModel()->BuildModel();
+    chrono::utils::AddBoxContainer(ground, cmaterial,                              //
+                                   ChFrame<>(ChVector<>(0, 0, bzDim / 2), QUNIT),  //
+                                   ChVector<>(bxDim, byDim, bzDim), 0.1,           //
+                                   ChVector<int>(0, 0, -1),                        //
+                                   false);
     ground->SetCollide(true);
 
     // Fluid representation of walls
-    sysFSI.AddContainerBCE(ground, ChFrame<>(), ChVector<>(bxDim, byDim, bzDim), ChVector<int>(2, 0, -1));
+    sysFSI.AddBoxContainerBCE(ground,                                         //
+                              ChFrame<>(ChVector<>(0, 0, bzDim / 2), QUNIT),  //
+                              ChVector<>(bxDim, byDim, bzDim),                //
+                              ChVector<int>(2, 0, -1));
 
     // ******************************* Rigid bodies ***********************************
     // set the abs orientation, position and velocity

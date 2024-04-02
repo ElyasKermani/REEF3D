@@ -16,6 +16,7 @@
 #define CHNODEBASE_H
 
 #include "chrono/physics/ChPhysicsItem.h"
+#include "chrono/physics/ChContactable.h"
 #include "chrono/solver/ChVariablesBodyOwnMass.h"
 
 namespace chrono {
@@ -91,6 +92,10 @@ class ChApi ChNodeBase {
                                         ChVectorDynamic<>& R,
                                         const ChVectorDynamic<>& w,
                                         const double c) {}
+    virtual void NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                          ChVectorDynamic<>& Md,
+                                          double& error,
+                                          const double c){};
     virtual void NodeIntToDescriptor(const unsigned int off_v, const ChStateDelta& v, const ChVectorDynamic<>& R) {}
     virtual void NodeIntFromDescriptor(const unsigned int off_v, ChStateDelta& v) {}
 
@@ -130,10 +135,10 @@ class ChApi ChNodeBase {
     virtual void VariablesQbIncrementPosition(double step) {}
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive);
+    virtual void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive);
+    virtual void ArchiveIn(ChArchiveIn& marchive);
 
   protected:
     unsigned int offset_x;  ///< offset in vector of state (position part)

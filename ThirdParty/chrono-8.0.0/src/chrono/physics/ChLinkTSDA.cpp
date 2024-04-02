@@ -386,6 +386,19 @@ void ChLinkTSDA::IntLoadResidual_Mv(const unsigned int off,      // offset in R 
     }
 }
 
+void ChLinkTSDA::IntLoadLumpedMass_Md(const unsigned int off,
+                                      ChVectorDynamic<>& Md,
+                                      double& err,
+                                      const double c
+) {
+    if (!IsActive())
+        return;
+
+    if (m_variables) {
+        Md.segment(off, m_nstates).array() += 1.0;
+    }
+}
+
 void ChLinkTSDA::IntToDescriptor(const unsigned int off_v,  // offset in v, R
                                  const ChStateDelta& v,
                                  const ChVectorDynamic<>& R,
@@ -473,23 +486,23 @@ void ChLinkTSDA::ConstraintsFbLoadForces(double factor) {
 
 // -----------------------------------------------------------------------------
 
-void ChLinkTSDA::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkTSDA::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinkTSDA>();
 
     // serialize parent class
-    ChLink::ArchiveOUT(marchive);
+    ChLink::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(m_rest_length);
 }
 
-void ChLinkTSDA::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkTSDA::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinkTSDA>();
 
     // deserialize parent class
-    ChLink::ArchiveIN(marchive);
+    ChLink::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(m_rest_length);

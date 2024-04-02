@@ -15,40 +15,65 @@
 #ifndef CHC_SPHERE_H
 #define CHC_SPHERE_H
 
-#include "chrono/geometry/ChGeometry.h"
+#include "chrono/geometry/ChVolume.h"
 
 namespace chrono {
 namespace geometry {
 
 /// A spherical geometric object for collisions and visualization.
-class ChApi ChSphere : public ChGeometry {
+class ChApi ChSphere : public ChVolume {
   public:
     ChSphere() : rad(0) {}
-    ChSphere(const ChVector<>& mc, double mrad) : rad(mrad) {}
+    ChSphere(double radius) : rad(radius) {}
     ChSphere(const ChSphere& source);
     ~ChSphere() {}
 
     /// "Virtual" copy constructor (covariant return type).
     virtual ChSphere* Clone() const override { return new ChSphere(*this); }
 
-    virtual GeometryType GetClassType() const override { return SPHERE; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::SPHERE; }
 
-    /// Compute bounding box along the directions defined by the given rotation matrix.
-    virtual void GetBoundingBox(ChVector<>& cmin, ChVector<>& cmax, const ChMatrix33<>& rot) const override;
+    /// Get the sphere radius.
+    double GetRadius() const { return rad; }
 
-    /// Returns the radius of a bounding sphere for this geometry.
+    /// Return the volume of this solid.
+    virtual double GetVolume() const override;
+
+    /// Return the gyration matrix for this solid.
+    virtual ChMatrix33<> GetGyration() const override;
+
+    /// Compute bounding box along the directions of the shape definition frame.
+    virtual ChAABB GetBoundingBox() const override;
+
+    /// Return the radius of a bounding sphere for this geometry.
     virtual double GetBoundingSphereRadius() const override;
 
     virtual ChVector<> Baricenter() const override { return ChVector<>(0); }
 
-    /// This is a solid
-    virtual int GetManifoldDimension() const override { return 3; }
+    /// Evaluate position in box volume.
+    virtual ChVector<> Evaluate(double parU, double parV, double parW) const override {
+        //// TODO
+        return VNULL;
+    }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
+
+    /// Return the volume of this type of solid with given dimensions.
+    static double GetVolume(double radius);
+
+    /// Return the gyration matrix of this type of solid with given dimensions.
+    static ChMatrix33<> GetGyration(double radius);
+
+    /// Return the bounding box of this type of solid with given dimensions.
+    static ChAABB GetBoundingBox(double radius);
+
+    /// Return the radius of a bounding sphere.
+    static double GetBoundingSphereRadius(double radius);
 
     double rad;  ///< sphere radius
 };

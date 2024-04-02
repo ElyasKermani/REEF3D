@@ -27,8 +27,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 
 #include "chrono_vehicle/wheeled_vehicle/suspension/ChHendricksonPRIMAXX.h"
 
@@ -72,7 +72,7 @@ ChHendricksonPRIMAXX::~ChHendricksonPRIMAXX() {
             if (m_distTierod[i]) {
                 sys->Remove(m_distTierod[i]);
             }
-            
+
             sys->Remove(m_shockLB[i]);
             sys->Remove(m_shockAH[i]);
         }
@@ -87,6 +87,8 @@ void ChHendricksonPRIMAXX::Initialize(std::shared_ptr<ChChassis> chassis,
                                       const ChVector<>& location,
                                       double left_ang_vel,
                                       double right_ang_vel) {
+    ChSuspension::Initialize(chassis, subchassis, steering, location, left_ang_vel, right_ang_vel);
+
     m_parent = chassis;
     m_rel_loc = location;
 
@@ -107,7 +109,7 @@ void ChHendricksonPRIMAXX::Initialize(std::shared_ptr<ChChassis> chassis,
     m_outerR = suspension_to_abs.TransformPointLocalToParent(outer_local);
 
     // Create and initialize the axle housing body.
-    m_axlehousing = std::shared_ptr<ChBody>(chassis->GetBody()->GetSystem()->NewBody());
+    m_axlehousing = chrono_types::make_shared<ChBody>();
     m_axlehousing->SetNameString(m_name + "_axlehousing");
     m_axlehousing->SetPos(axleCOM);
     m_axlehousing->SetRot(chassis->GetBody()->GetFrame_REF_to_abs().GetRot());
@@ -140,7 +142,7 @@ void ChHendricksonPRIMAXX::Initialize(std::shared_ptr<ChChassis> chassis,
     ChVector<> tbCOM_local = getTransversebeamCOM();
     ChVector<> tbCOM = suspension_to_abs.TransformLocalToParent(tbCOM_local);
 
-    m_transversebeam = std::shared_ptr<ChBody>(chassis->GetBody()->GetSystem()->NewBody());
+    m_transversebeam = chrono_types::make_shared<ChBody>();
     m_transversebeam->SetNameString(m_name + "_transversebeam");
     m_transversebeam->SetPos(tbCOM);
     m_transversebeam->SetRot(chassis->GetBody()->GetFrame_REF_to_abs().GetRot());
@@ -173,7 +175,7 @@ void ChHendricksonPRIMAXX::InitializeSide(VehicleSide side,
     ChMatrix33<> rot;
 
     // Create and initialize knuckle body (same orientation as the chassis)
-    m_knuckle[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_knuckle[side] = chrono_types::make_shared<ChBody>();
     m_knuckle[side]->SetNameString(m_name + "_knuckle" + suffix);
     m_knuckle[side]->SetPos(points[KNUCKLE_CM]);
     m_knuckle[side]->SetRot(chassisRot);
@@ -182,7 +184,7 @@ void ChHendricksonPRIMAXX::InitializeSide(VehicleSide side,
     chassis->GetSystem()->AddBody(m_knuckle[side]);
 
     // Create and initialize spindle body (same orientation as the chassis)
-    m_spindle[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_spindle[side] = chrono_types::make_shared<ChBody>();
     m_spindle[side]->SetNameString(m_name + "_spindle" + suffix);
     m_spindle[side]->SetPos(points[SPINDLE]);
     m_spindle[side]->SetRot(chassisRot);
@@ -201,7 +203,7 @@ void ChHendricksonPRIMAXX::InitializeSide(VehicleSide side,
     u = Vcross(v, w);
     rot.Set_A_axis(u, v, w);
 
-    m_torquerod[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_torquerod[side] = chrono_types::make_shared<ChBody>();
     m_torquerod[side]->SetNameString(m_name + "_torquerod" + suffix);
     m_torquerod[side]->SetPos(points[TORQUEROD_CM]);
     m_torquerod[side]->SetRot(rot);
@@ -219,7 +221,7 @@ void ChHendricksonPRIMAXX::InitializeSide(VehicleSide side,
     u = Vcross(v, w);
     rot.Set_A_axis(u, v, w);
 
-    m_lowerbeam[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_lowerbeam[side] = chrono_types::make_shared<ChBody>();
     m_lowerbeam[side]->SetNameString(m_name + "_lowerLink" + suffix);
     m_lowerbeam[side]->SetPos(points[LOWERBEAM_CM]);
     m_lowerbeam[side]->SetRot(rot);
@@ -301,7 +303,7 @@ void ChHendricksonPRIMAXX::InitializeSide(VehicleSide side,
         rot.Set_A_axis(u, v, w);
 
         // Create the tierod body
-        m_tierod[side] = std::shared_ptr<ChBody>(chassis->GetBody()->GetSystem()->NewBody());
+        m_tierod[side] = chrono_types::make_shared<ChBody>();
         m_tierod[side]->SetNameString(m_name + "_tierodBody" + suffix);
         m_tierod[side]->SetPos((points[TIEROD_K] + points[TIEROD_C]) / 2);
         m_tierod[side]->SetRot(rot.Get_A_quaternion());
@@ -370,7 +372,8 @@ void ChHendricksonPRIMAXX::UpdateInertiaProperties() {
     composite.AddComponent(m_lowerbeam[LEFT]->GetFrame_COG_to_abs(), getLowerbeamMass(), inertiaLowerbeam);
     composite.AddComponent(m_lowerbeam[RIGHT]->GetFrame_COG_to_abs(), getLowerbeamMass(), inertiaLowerbeam);
 
-    composite.AddComponent(m_axlehousing->GetFrame_COG_to_abs(), getAxlehousingMass(), ChMatrix33<>(getAxlehousingInertia()));
+    composite.AddComponent(m_axlehousing->GetFrame_COG_to_abs(), getAxlehousingMass(),
+                           ChMatrix33<>(getAxlehousingInertia()));
     composite.AddComponent(m_transversebeam->GetFrame_COG_to_abs(), getTransversebeamMass(),
                            ChMatrix33<>(getTransversebeamInertia()));
 
@@ -397,18 +400,15 @@ double ChHendricksonPRIMAXX::GetTrack() {
 // -----------------------------------------------------------------------------
 // Return current suspension forces
 // -----------------------------------------------------------------------------
-ChSuspension::Force ChHendricksonPRIMAXX::ReportSuspensionForce(VehicleSide side) const {
-    ChSuspension::Force force;
+std::vector<ChSuspension::ForceTSDA> ChHendricksonPRIMAXX::ReportSuspensionForce(VehicleSide side) const {
+    std::vector<ChSuspension::ForceTSDA> forces(2);
 
-    force.spring_force = m_shockLB[side]->GetForce();
-    force.spring_length = m_shockLB[side]->GetLength();
-    force.spring_velocity = m_shockLB[side]->GetVelocity();
+    forces[0] = ChSuspension::ForceTSDA("ShockLB", m_shockLB[side]->GetForce(), m_shockLB[side]->GetLength(),
+                                        m_shockLB[side]->GetVelocity());
+    forces[1] = ChSuspension::ForceTSDA("ShockAH", m_shockAH[side]->GetForce(), m_shockAH[side]->GetLength(),
+                                        m_shockAH[side]->GetVelocity());
 
-    force.shock_force = m_shockAH[side]->GetForce();
-    force.shock_length = m_shockAH[side]->GetLength();
-    force.shock_velocity = m_shockAH[side]->GetVelocity();
-
-    return force;
+    return forces;
 }
 
 // -----------------------------------------------------------------------------
@@ -537,26 +537,25 @@ void ChHendricksonPRIMAXX::AddVisualizationAssets(VisualizationType vis) {
                               m_pointsR[LOWERBEAM_TB], getLowerbeamRadius(), ChColor(0.2f, 0.6f, 0.2f));
 
     // Add visualization for the springs and shocks
-    m_shockLB[LEFT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
-    m_shockLB[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_shockLB[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
+    m_shockLB[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_shockLB[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
-    m_shockLB[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_shockLB[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
+    m_shockLB[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_shockAH[LEFT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
-    m_shockAH[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_shockAH[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
+    m_shockAH[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
-    m_shockAH[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(0.06, 150, 15));
-    m_shockAH[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-
+    m_shockAH[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(0.06, 150, 15));
+    m_shockAH[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
     // Add visualization for the tie-rods
     if (UseTierodBodies()) {
         AddVisualizationTierod(m_tierod[LEFT], m_pointsL[TIEROD_C], m_pointsL[TIEROD_K], getTierodRadius());
         AddVisualizationTierod(m_tierod[RIGHT], m_pointsR[TIEROD_C], m_pointsR[TIEROD_K], getTierodRadius());
     } else {
-        m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-        m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+        m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+        m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
     }
 }
 
@@ -602,11 +601,7 @@ void ChHendricksonPRIMAXX::AddVisualizationLink(std::shared_ptr<ChBody> body,
     ChVector<> p_1 = body->TransformPointParentToLocal(pt_1);
     ChVector<> p_2 = body->TransformPointParentToLocal(pt_2);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
-    cyl->GetCylinderGeometry().p1 = p_1;
-    cyl->GetCylinderGeometry().p2 = p_2;
-    cyl->GetCylinderGeometry().rad = radius;
-    body->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(body, p_1, p_2, radius);
 }
 
 void ChHendricksonPRIMAXX::AddVisualizationLowerBeam(std::shared_ptr<ChBody> body,
@@ -620,17 +615,8 @@ void ChHendricksonPRIMAXX::AddVisualizationLowerBeam(std::shared_ptr<ChBody> bod
     ChVector<> p_AH = body->TransformPointParentToLocal(pt_AH);
     ChVector<> p_TB = body->TransformPointParentToLocal(pt_TB);
 
-    auto cyl_1 = chrono_types::make_shared<ChCylinderShape>();
-    cyl_1->GetCylinderGeometry().p1 = p_C;
-    cyl_1->GetCylinderGeometry().p2 = p_AH;
-    cyl_1->GetCylinderGeometry().rad = radius;
-    body->AddVisualShape(cyl_1);
-
-    auto cyl_2 = chrono_types::make_shared<ChCylinderShape>();
-    cyl_2->GetCylinderGeometry().p1 = p_AH;
-    cyl_2->GetCylinderGeometry().p2 = p_TB;
-    cyl_2->GetCylinderGeometry().rad = radius;
-    body->AddVisualShape(cyl_2);
+    ChVehicleGeometry::AddVisualizationCylinder(body, p_C, p_AH, radius);
+    ChVehicleGeometry::AddVisualizationCylinder(body, p_AH, p_TB, radius);
 }
 
 void ChHendricksonPRIMAXX::AddVisualizationKnuckle(std::shared_ptr<ChBody> knuckle,
@@ -648,27 +634,15 @@ void ChHendricksonPRIMAXX::AddVisualizationKnuckle(std::shared_ptr<ChBody> knuck
     ChVector<> p_T = knuckle->TransformPointParentToLocal(pt_T);
 
     if (p_L.Length2() > threshold2) {
-        auto cyl_L = chrono_types::make_shared<ChCylinderShape>();
-        cyl_L->GetCylinderGeometry().p1 = p_L;
-        cyl_L->GetCylinderGeometry().p2 = ChVector<>(0, 0, 0);
-        cyl_L->GetCylinderGeometry().rad = radius;
-        knuckle->AddVisualShape(cyl_L);
+        ChVehicleGeometry::AddVisualizationCylinder(knuckle, p_L, VNULL, radius);
     }
 
     if (p_U.Length2() > threshold2) {
-        auto cyl_U = chrono_types::make_shared<ChCylinderShape>();
-        cyl_U->GetCylinderGeometry().p1 = p_U;
-        cyl_U->GetCylinderGeometry().p2 = ChVector<>(0, 0, 0);
-        cyl_U->GetCylinderGeometry().rad = radius;
-        knuckle->AddVisualShape(cyl_U);
+        ChVehicleGeometry::AddVisualizationCylinder(knuckle, p_U, VNULL, radius);
     }
 
     if (p_T.Length2() > threshold2) {
-        auto cyl_T = chrono_types::make_shared<ChCylinderShape>();
-        cyl_T->GetCylinderGeometry().p1 = p_T;
-        cyl_T->GetCylinderGeometry().p2 = ChVector<>(0, 0, 0);
-        cyl_T->GetCylinderGeometry().rad = radius;
-        knuckle->AddVisualShape(cyl_T);
+        ChVehicleGeometry::AddVisualizationCylinder(knuckle, p_T, VNULL, radius);
     }
 }
 
@@ -680,11 +654,7 @@ void ChHendricksonPRIMAXX::AddVisualizationTierod(std::shared_ptr<ChBody> tierod
     ChVector<> p_C = tierod->TransformPointParentToLocal(pt_C);
     ChVector<> p_U = tierod->TransformPointParentToLocal(pt_U);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
-    cyl->GetCylinderGeometry().p1 = p_C;
-    cyl->GetCylinderGeometry().p2 = p_U;
-    cyl->GetCylinderGeometry().rad = radius;
-    tierod->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(tierod, p_C, p_U, radius);
 }
 
 // -----------------------------------------------------------------------------
@@ -707,12 +677,12 @@ void ChHendricksonPRIMAXX::ExportComponentList(rapidjson::Document& jsonDocument
         bodies.push_back(m_tierod[0]);
         bodies.push_back(m_tierod[1]);
     }
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChShaft>> shafts;
     shafts.push_back(m_axle[0]);
     shafts.push_back(m_axle[1]);
-    ChPart::ExportShaftList(jsonDocument, shafts);
+    ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     std::vector<std::shared_ptr<ChLoadBodyBody>> bushings;
@@ -743,15 +713,15 @@ void ChHendricksonPRIMAXX::ExportComponentList(rapidjson::Document& jsonDocument
         joints.push_back(m_distTierod[0]);
         joints.push_back(m_distTierod[1]);
     }
-    ChPart::ExportJointList(jsonDocument, joints);
-    ChPart::ExportBodyLoadList(jsonDocument, bushings);
+    ExportJointList(jsonDocument, joints);
+    ExportBodyLoadList(jsonDocument, bushings);
 
     std::vector<std::shared_ptr<ChLinkTSDA>> springs;
     springs.push_back(m_shockLB[0]);
     springs.push_back(m_shockLB[1]);
     springs.push_back(m_shockAH[0]);
     springs.push_back(m_shockAH[1]);
-    ChPart::ExportLinSpringList(jsonDocument, springs);
+    ExportLinSpringList(jsonDocument, springs);
 }
 
 void ChHendricksonPRIMAXX::Output(ChVehicleOutput& database) const {

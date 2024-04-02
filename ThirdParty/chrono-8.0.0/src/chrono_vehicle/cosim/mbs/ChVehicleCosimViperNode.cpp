@@ -26,8 +26,16 @@
 
 #include "chrono/ChConfig.h"
 
+#include "chrono/physics/ChLoadContainer.h"
+
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
+#ifdef CHRONO_IRRLICHT
+    #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
+#endif
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+#endif
 
 #include "chrono_vehicle/cosim/mbs/ChVehicleCosimViperNode.h"
 
@@ -65,7 +73,7 @@ class ViperDBPDriver : public ViperDriver {
 
     virtual DriveMotorType GetDriveMotorType() const override { return DriveMotorType::SPEED; }
 
-    virtual void Update(double time) {
+    virtual void Update(double time) override {
         double driving = m_func->Get_y(time);
         double steering = 0;
         double lifting = 0;
@@ -81,15 +89,13 @@ class ViperDBPDriver : public ViperDriver {
 
 // -----------------------------------------------------------------------------
 
-ChVehicleCosimViperNode::ChVehicleCosimViperNode() : ChVehicleCosimWheeledMBSNode(), m_num_spindles(0) {
+ChVehicleCosimViperNode::ChVehicleCosimViperNode() : ChVehicleCosimWheeledMBSNode() {
     m_viper = chrono_types::make_shared<Viper>(m_system);
 }
 
 ChVehicleCosimViperNode::~ChVehicleCosimViperNode() {}
 
-void ChVehicleCosimViperNode::InitializeMBS(const std::vector<ChVector<>>& tire_info,
-                                            const ChVector2<>& terrain_size,
-                                            double terrain_height) {
+void ChVehicleCosimViperNode::InitializeMBS(const ChVector2<>& terrain_size, double terrain_height) {
     // Initialize vehicle
     ChFrame<> init_pos(m_init_loc + ChVector<>(0, 0, terrain_height), Q_from_AngZ(m_init_yaw));
 
@@ -97,27 +103,72 @@ void ChVehicleCosimViperNode::InitializeMBS(const std::vector<ChVector<>>& tire_
     m_viper->SetWheelVisualization(false);
     m_viper->Initialize(init_pos);
 
-    // Extract and cache spindle bodies
-    m_num_spindles = 4;
-    assert(m_num_spindles == (int)m_num_tire_nodes);
+    // Calculate load on each spindle (excluding the wheels)
+    assert(4 == (int)m_num_tire_nodes);
 
-    auto total_mass = m_viper->GetRoverMass();
-    for (int is = 0; is < m_num_spindles; is++) {
-        m_spindle_loads.push_back(total_mass / m_num_spindles);
+    auto total_mass = m_viper->GetRoverMass() - 4 * m_viper->GetWheelMass();
+    for (int is = 0; is < 4; is++) {
+        m_spindle_vertical_loads.push_back(total_mass / 4);
+    }
+
+    // Create ChLoad objects to apply terrain forces on spindles
+    auto load_container = chrono_types::make_shared<ChLoadContainer>();
+    m_system->Add(load_container);
+
+    for (int is = 0; is < 4; is++) {
+        auto spindle = m_viper->GetWheel(wheel_id(is))->GetBody();
+        auto force = chrono_types::make_shared<ChLoadBodyForce>(spindle, VNULL, false, VNULL, false);
+        m_spindle_terrain_forces.push_back(force);
+        load_container->Add(force);
+        auto torque = chrono_types::make_shared<ChLoadBodyTorque>(spindle, VNULL, false);
+        m_spindle_terrain_torques.push_back(torque);
+        load_container->Add(torque);
+    }
+
+    // Initialize run-time visualization
+    if (m_renderRT) {
+#if defined(CHRONO_VSG)
+        auto vsys_vsg = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
+        vsys_vsg->AttachSystem(m_system);
+        vsys_vsg->SetWindowTitle("Viper Rover Node");
+        vsys_vsg->SetWindowSize(ChVector2<int>(1280, 720));
+        vsys_vsg->SetWindowPosition(ChVector2<int>(100, 300));
+        vsys_vsg->AddCamera(m_cam_pos, m_cam_target);
+        vsys_vsg->AddGrid(1.0, 1.0, (int)(terrain_size.x() / 1.0), (int)(terrain_size.y() / 1.0), CSYSNORM,
+                          ChColor(0.1f, 0.3f, 0.1f));
+        vsys_vsg->Initialize();
+
+        m_vsys = vsys_vsg;
+#elif defined(CHRONO_IRRLICHT)
+        auto vsys_irr = chrono_types::make_shared<irrlicht::ChVisualSystemIrrlicht>();
+        vsys_irr->AttachSystem(m_system);
+        vsys_irr->SetWindowTitle("Viper Rover Node");
+        vsys_irr->SetCameraVertical(CameraVerticalDir::Z);
+        vsys_irr->SetWindowSize(1280, 720);
+        vsys_irr->Initialize();
+        vsys_irr->AddLogo();
+        vsys_irr->AddSkyBox();
+        vsys_irr->AddCamera(m_cam_pos, m_cam_target);
+        vsys_irr->AddTypicalLights();
+
+        m_vsys = vsys_irr;
+
+#endif
     }
 }
 
-// -----------------------------------------------------------------------------
-int ChVehicleCosimViperNode::GetNumSpindles() const {
-    return m_num_spindles;
+void ChVehicleCosimViperNode::ApplyTireInfo(const std::vector<ChVector<>>& tire_info) {
+    //// TODO
 }
+
+// -----------------------------------------------------------------------------
 
 std::shared_ptr<ChBody> ChVehicleCosimViperNode::GetSpindleBody(unsigned int i) const {
     return m_viper->GetWheel(wheel_id(i))->GetBody();
 }
 
 double ChVehicleCosimViperNode::GetSpindleLoad(unsigned int i) const {
-    return m_spindle_loads[i];
+    return m_spindle_vertical_loads[i];
 }
 
 BodyState ChVehicleCosimViperNode::GetSpindleState(unsigned int i) const {
@@ -143,18 +194,32 @@ void ChVehicleCosimViperNode::OnInitializeDBPRig(std::shared_ptr<ChFunction> fun
 
 // -----------------------------------------------------------------------------
 
-void ChVehicleCosimViperNode::PreAdvance() {
+void ChVehicleCosimViperNode::PreAdvance(double step_size) {
     m_viper->Update();
 }
 
 void ChVehicleCosimViperNode::ApplySpindleForce(unsigned int i, const TerrainForce& spindle_force) {
-    auto spindle_body = m_viper->GetWheel(wheel_id(i))->GetBody();
-    spindle_body->Empty_forces_accumulators();
-    spindle_body->Accumulate_force(spindle_force.force, spindle_force.point, false);
-    spindle_body->Accumulate_torque(spindle_force.moment, false);
+    m_spindle_terrain_forces[i]->SetForce(spindle_force.force, false);
+    m_spindle_terrain_forces[i]->SetApplicationPoint(spindle_force.point, false);
+    m_spindle_terrain_torques[i]->SetTorque(spindle_force.moment, false);
 }
 
 // -----------------------------------------------------------------------------
+
+void ChVehicleCosimViperNode::OnRender() {
+    if (!m_vsys)
+        return;
+    if (!m_vsys->Run())
+        MPI_Abort(MPI_COMM_WORLD, 1);
+
+    if (m_track) {
+        m_vsys->UpdateCamera(m_cam_pos, m_viper->GetChassisPos());
+    }
+
+    m_vsys->BeginScene();
+    m_vsys->Render();
+    m_vsys->EndScene();
+}
 
 void ChVehicleCosimViperNode::OnOutputData(int frame) {
     // Append to results output file

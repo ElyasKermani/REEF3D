@@ -74,7 +74,7 @@ void ChLineCam::Set_flat_oscillate(double me, double md, double mb0) {
     Rb = e + d * sin(b0);
 }
 
-void ChLineCam::EvaluateCamPoint(double par, ChVector<>& res, double& g, double& q) const {
+ChVector<> ChLineCam::EvaluateCamPoint(double par, double& g, double& q) const {
     double a = par * 2 * CH_C_PI;  // range : par 0..1 -> angle 0...2PI
     double r, f, b, B, fshift, y, ydx, ydxdx, sa, fxalpha, u, uh = 0;
     double sign, signdx, signdxdx;
@@ -82,7 +82,7 @@ void ChLineCam::EvaluateCamPoint(double par, ChVector<>& res, double& g, double&
     // defaults
     g = 0;
     q = 0;
-    res = VNULL;
+    ChVector<> res = VNULL;
 
     double radius = internal ? -Rr : +Rr;
     double ecc = negative ? -e : +e;
@@ -170,18 +170,20 @@ void ChLineCam::EvaluateCamPoint(double par, ChVector<>& res, double& g, double&
     res.z() = 0;
     res.x() = this->center.x() + r * cos(f + phase);
     res.y() = this->center.y() + r * sin(f + phase);
+
+    return res;
 }
 
-void ChLineCam::Evaluate(ChVector<>& pos, const double parU) const {
+ChVector<> ChLineCam::Evaluate(double parU) const {
     double qtmp, gtmp;
-    EvaluateCamPoint(parU, pos, gtmp, qtmp);
+    return EvaluateCamPoint(parU, gtmp, qtmp);
 }
 
-void ChLineCam::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLineCam::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLineCam>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
 
     eChCamType_mapper mmapper;
@@ -200,11 +202,11 @@ void ChLineCam::ArchiveOUT(ChArchiveOut& marchive) {
     marchive << CHNVP(center);
 }
 
-void ChLineCam::ArchiveIN(ChArchiveIn& marchive) {
+void ChLineCam::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLineCam>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     eChCamType_mapper mmapper;
     marchive >> CHNVP(mmapper(type), "type");

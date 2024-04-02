@@ -20,11 +20,11 @@ namespace geometry {
 // Register into the object factory, to enable run-time dynamic creation and persistence
 CH_FACTORY_REGISTER(ChLineArc)
 
-ChLineArc::ChLineArc(const ChCoordsys<> morigin,
-                     const double mradius,
-                     const double mangle1,
-                     const double mangle2,
-                     const bool mcounterclockwise)
+ChLineArc::ChLineArc(const ChCoordsys<>& morigin,
+                     double mradius,
+                     double mangle1,
+                     double mangle2,
+                     bool mcounterclockwise)
     : origin(morigin), radius(mradius), angle1(mangle1), angle2(mangle2), counterclockwise(mcounterclockwise) {}
 
 ChLineArc::ChLineArc(const ChLineArc& source) : ChLine(source) {
@@ -35,7 +35,7 @@ ChLineArc::ChLineArc(const ChLineArc& source) : ChLine(source) {
     counterclockwise = source.counterclockwise;
 }
 
-void ChLineArc::Evaluate(ChVector<>& pos, const double parU) const {
+ChVector<> ChLineArc::Evaluate(double parU) const {
     double ang1 = this->angle1;
     double ang2 = this->angle2;
     if (this->counterclockwise) {
@@ -47,14 +47,14 @@ void ChLineArc::Evaluate(ChVector<>& pos, const double parU) const {
     }
     double mangle = ang1 * (1 - parU) + ang2 * (parU);
     ChVector<> localP(radius * cos(mangle), radius * sin(mangle), 0);
-    pos = localP >> origin;  // transform to absolute coordinates
+    return localP >> origin;  // transform to absolute coordinates
 }
 
-void ChLineArc::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLineArc::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLineArc>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(origin);
     marchive << CHNVP(radius);
@@ -63,11 +63,11 @@ void ChLineArc::ArchiveOUT(ChArchiveOut& marchive) {
     marchive << CHNVP(counterclockwise);
 }
 
-void ChLineArc::ArchiveIN(ChArchiveIn& marchive) {
+void ChLineArc::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLineArc>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(origin);
     marchive >> CHNVP(radius);

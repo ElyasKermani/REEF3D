@@ -122,6 +122,15 @@ void ChNodeFEAxyz::NodeIntLoadResidual_Mv(const unsigned int off,
     R(off + 2) += c * GetMass() * w(off + 2);
 }
 
+void ChNodeFEAxyz::NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                            ChVectorDynamic<>& Md,
+                                            double& error,
+                                            const double c) {
+    Md(off + 0) += c * GetMass();
+    Md(off + 1) += c * GetMass();
+    Md(off + 2) += c * GetMass();
+}
+
 void ChNodeFEAxyz::NodeIntToDescriptor(const unsigned int off_v, const ChStateDelta& v, const ChVectorDynamic<>& R) {
     variables.Get_qb() = v.segment(off_v, 3);
     variables.Get_fb() = R.segment(off_v, 3);
@@ -170,25 +179,25 @@ void ChNodeFEAxyz::VariablesQbIncrementPosition(double step) {
 
 // -----------------------------------------------------------------------------
 
-void ChNodeFEAxyz::ArchiveOUT(ChArchiveOut& archive) {
+void ChNodeFEAxyz::ArchiveOut(ChArchiveOut& archive) {
     // version number
     archive.VersionWrite<ChNodeFEAxyz>();
     // serialize parent class
-    ChNodeFEAbase::ArchiveOUT(archive);
+    ChNodeFEAbase::ArchiveOut(archive);
     // serialize parent class
-    ChNodeXYZ::ArchiveOUT(archive);
+    ChNodeXYZ::ArchiveOut(archive);
     // serialize all member data:
     archive << CHNVP(X0);
     archive << CHNVP(Force);
 }
 
-void ChNodeFEAxyz::ArchiveIN(ChArchiveIn& archive) {
+void ChNodeFEAxyz::ArchiveIn(ChArchiveIn& archive) {
     // version number
     /*int version = */ archive.VersionRead<ChNodeFEAxyz>();
     // deserialize parent class
-    ChNodeFEAbase::ArchiveIN(archive);
+    ChNodeFEAbase::ArchiveIn(archive);
     // serialize parent class
-    ChNodeXYZ::ArchiveIN(archive);
+    ChNodeXYZ::ArchiveIn(archive);
     // stream in all member data:
     archive >> CHNVP(X0);
     archive >> CHNVP(Force);

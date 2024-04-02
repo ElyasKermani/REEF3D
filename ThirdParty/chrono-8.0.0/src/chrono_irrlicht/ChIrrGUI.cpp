@@ -56,6 +56,9 @@ bool ChIrrEventReceiver::OnEvent(const irr::SEvent& event) {
             case irr::KEY_KEY_U:
                 m_gui->show_explorer = !m_gui->show_explorer;
                 return true;
+            case irr::KEY_SPACE:
+                m_gui->m_vis->SetUtilityFlag(!m_gui->m_vis->GetUtilityFlag());
+                return true;
             case irr::KEY_F8: {
                 GetLog() << "Saving system in JSON format to dump.json file \n";
                 ChStreamOutAsciiFile mfileo("dump.json");
@@ -68,6 +71,8 @@ bool ChIrrEventReceiver::OnEvent(const irr::SEvent& event) {
                 ChArchiveAsciiDump marchiveout2(mfileo2);
                 marchiveout2.SetUseVersions(false);
                 marchiveout2 << CHNVP(m_gui->m_system, "System");
+
+                return true;
             }
             case irr::KEY_F6:
                 GetLog() << "Saving system vector and matrices to dump_xxyy.dat files.\n";
@@ -99,6 +104,21 @@ bool ChIrrEventReceiver::OnEvent(const irr::SEvent& event) {
                 return true;
             case irr::KEY_ESCAPE:
                 m_gui->GetDevice()->closeDevice();
+                return true;
+            case irr::KEY_F12:
+#ifdef CHRONO_POSTPROCESS
+                if (m_gui->blender_save == false) {
+                    GetLog() << "Start saving Blender postprocessing scripts...\n";
+                    m_gui->SetBlenderSave(true);
+                } else {
+                    m_gui->SetBlenderSave(false);
+                    GetLog() << "Stop saving Blender postprocessing scripts.\n";
+                }
+#else
+                GetLog()
+                    << "Saving Blender3D files not supported. Rebuild the solution with ENABLE_MODULE_POSTPROCESSING "
+                       "in CMake. \n";
+#endif
                 return true;
             default:
                 break;
@@ -150,7 +170,7 @@ bool ChIrrEventReceiver::OnEvent(const irr::SEvent& event) {
 
 // -----------------------------------------------------------------------------
 
-class DebugDrawer : public collision::ChCollisionSystem::VisualizationCallback {
+class DebugDrawer : public ChCollisionSystem::VisualizationCallback {
   public:
     explicit DebugDrawer(irr::video::IVideoDriver* driver)
         : m_driver(driver), m_debugMode(0), m_linecolor(255, 255, 0, 0) {}
@@ -176,6 +196,7 @@ ChIrrGUI::ChIrrGUI()
     : m_vis(nullptr),
       m_device(nullptr),
       m_system(nullptr),
+      m_receiver(nullptr),
       initialized(false),
       show_explorer(false),
       show_infos(false),
@@ -189,7 +210,17 @@ ChIrrGUI::ChIrrGUI()
       modal_current_freq(0),
       modal_current_dampingfactor(0),
       symbolscale(1),
-      camera_auto_rotate_speed(0) {}
+      camera_auto_rotate_speed(0) {
+#ifdef CHRONO_POSTPROCESS
+    blender_save = false;
+    blender_each = 1;
+    blender_num = 0;
+#endif
+}
+
+ChIrrGUI::~ChIrrGUI() {
+    delete m_receiver;
+}
 
 void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     m_vis = vis;
@@ -224,9 +255,9 @@ void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     auto g_tab2 = g_tabbed->addTab(L"Modal");
     auto g_tab3 = g_tabbed->addTab(L"Help");
 
-    g_textFPS = guienv->addStaticText(L"FPS", irr::core::rect<irr::s32>(10, 10, 200, 200), true, true, g_tab1);
+    g_textFPS = guienv->addStaticText(L"FPS", irr::core::rect<irr::s32>(10, 10, 200, 230), true, true, g_tab1);
 
-    g_labelcontacts = guienv->addComboBox(irr::core::rect<irr::s32>(10, 210, 200, 210 + 20), g_tab1, 9901);
+    g_labelcontacts = guienv->addComboBox(irr::core::rect<irr::s32>(10, 240, 200, 240 + 20), g_tab1, 9901);
     g_labelcontacts->addItem(L"Contact distances");
     g_labelcontacts->addItem(L"Contact force modulus");
     g_labelcontacts->addItem(L"Contact force (normal)");
@@ -237,7 +268,7 @@ void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     g_labelcontacts->addItem(L"Do not print contact values");
     g_labelcontacts->setSelected(7);
 
-    g_drawcontacts = guienv->addComboBox(irr::core::rect<irr::s32>(10, 230, 200, 230 + 20), g_tab1, 9901);
+    g_drawcontacts = guienv->addComboBox(irr::core::rect<irr::s32>(10, 260, 200, 260 + 20), g_tab1, 9901);
     g_drawcontacts->addItem(L"Contact normals");
     g_drawcontacts->addItem(L"Contact distances");
     g_drawcontacts->addItem(L"Contact N forces");
@@ -245,7 +276,7 @@ void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     g_drawcontacts->addItem(L"Do not draw contacts");
     g_drawcontacts->setSelected(4);
 
-    g_labellinks = guienv->addComboBox(irr::core::rect<irr::s32>(10, 250, 200, 250 + 20), g_tab1, 9923);
+    g_labellinks = guienv->addComboBox(irr::core::rect<irr::s32>(10, 280, 200, 280 + 20), g_tab1, 9923);
     g_labellinks->addItem(L"Link react.force modulus");
     g_labellinks->addItem(L"Link react.force X");
     g_labellinks->addItem(L"Link react.force Y");
@@ -257,29 +288,32 @@ void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     g_labellinks->addItem(L"Do not print link values");
     g_labellinks->setSelected(8);
 
-    g_drawlinks = guienv->addComboBox(irr::core::rect<irr::s32>(10, 270, 200, 270 + 20), g_tab1, 9924);
+    g_drawlinks = guienv->addComboBox(irr::core::rect<irr::s32>(10, 300, 200, 300 + 20), g_tab1, 9924);
     g_drawlinks->addItem(L"Link reaction forces");
     g_drawlinks->addItem(L"Link reaction torques");
     g_drawlinks->addItem(L"Do not draw link vectors");
     g_drawlinks->setSelected(2);
 
     g_plot_aabb =
-        guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 300, 200, 300 + 15), g_tab1, 9914, L"Draw AABB");
+        guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 330, 200, 330 + 15), g_tab1, 9914, L"Draw AABB");
 
     g_plot_cogs =
-        guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 315, 200, 315 + 15), g_tab1, 9915, L"Draw COGs");
+        guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 345, 200, 345 + 15), g_tab1, 9915, L"Draw COGs");
 
-    g_plot_linkframes = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 330, 200, 330 + 15), g_tab1, 9920,
+    g_plot_linkframes = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 360, 200, 360 + 15), g_tab1, 9920,
                                             L"Draw link frames");
 
-    g_plot_collisionshapes = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 345, 200, 345 + 15), g_tab1, 9902,
+    g_plot_collisionshapes = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 375, 200, 375 + 15), g_tab1, 9902,
                                                  L"Draw collision shapes");
 
-    g_plot_convergence = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 360, 200, 360 + 15), g_tab1, 9902,
+    g_plot_abscoord = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 390, 200, 390 + 15), g_tab1, 9904,
+                                          L"Draw abs coordsys");
+
+    g_plot_convergence = guienv->addCheckBox(false, irr::core::rect<irr::s32>(10, 405, 200, 405 + 15), g_tab1, 9903,
                                              L"Plot convergence");
 
-    guienv->addStaticText(L"Symbols scale", irr::core::rect<irr::s32>(130, 300, 200, 300 + 15), false, false, g_tab1);
-    g_symbolscale = guienv->addEditBox(L"", irr::core::rect<irr::s32>(170, 315, 200, 315 + 15), true, g_tab1, 9921);
+    guienv->addStaticText(L"Symbols scale", irr::core::rect<irr::s32>(130, 330, 200, 330 + 15), false, false, g_tab1);
+    g_symbolscale = guienv->addEditBox(L"", irr::core::rect<irr::s32>(170, 345, 200, 345 + 15), true, g_tab1, 9921);
     SetSymbolscale(symbolscale);
 
     // -- g_tab2
@@ -331,10 +365,6 @@ void ChIrrGUI::Initialize(ChVisualSystemIrrlicht* vis) {
     child->setExpanded(true);
 }
 
-ChIrrGUI::~ChIrrGUI() {
-    delete m_receiver;
-}
-
 void ChIrrGUI::AddUserEventReceiver(irr::IEventReceiver* receiver) {
     m_user_receivers.push_back(receiver);
 }
@@ -342,22 +372,29 @@ void ChIrrGUI::AddUserEventReceiver(irr::IEventReceiver* receiver) {
 void ChIrrGUI::SetSymbolscale(double val) {
     symbolscale = ChMax(10e-12, val);
     char message[50];
-    sprintf(message, "%g", symbolscale);
+    snprintf(message, sizeof(message), "%g", symbolscale);
     g_symbolscale->setText(irr::core::stringw(message).c_str());
 }
 
 void ChIrrGUI::SetModalAmplitude(double val) {
     modal_amplitude = ChMax(0.0, val);
     char message[50];
-    sprintf(message, "%g", modal_amplitude);
+    snprintf(message, sizeof(message), "%g", modal_amplitude);
     g_modal_amplitude->setText(irr::core::stringw(message).c_str());
 }
 
 void ChIrrGUI::SetModalSpeed(double val) {
     modal_speed = ChMax(0.0, val);
     char message[50];
-    sprintf(message, "%g", modal_speed);
+    snprintf(message, sizeof(message), "%g", modal_speed);
     g_modal_speed->setText(irr::core::stringw(message).c_str());
+}
+
+void ChIrrGUI::SetModalModesMax(int maxModes) {
+    int newMaxModes = std::max(maxModes, 1);
+    g_modal_mode_n->setMax(newMaxModes);
+    modal_mode_n = std::min(modal_mode_n, newMaxModes);
+    modal_phi = 0.0;
 }
 
 // -----------------------------------------------------------------------------
@@ -384,6 +421,8 @@ static void recurse_update_tree_node(ChValue* value, irr::gui::IGUITreeViewNode*
     int ni = 0;
     auto subnode = mnode->getFirstChild();
     for (auto j : mexplorer2.GetFetchResults()) {
+        if (!j->GetRawPtr())
+            continue;
         ++ni;
         if (!subnode) {
             subnode = mnode->addChildBack(L"_to_set_");
@@ -401,24 +440,24 @@ static void recurse_update_tree_node(ChValue* value, irr::gui::IGUITreeViewNode*
             jstr += irr::core::stringw(j->GetClassRegisteredName().c_str());
             jstr += L"] ";
         }
-        if (auto mydouble = j->PointerUpCast<double>()) {
+        if (j->GetTypeid() == std::type_index(typeid(double))) {
             jstr += " =";
-            auto stringval = std::to_string(*mydouble);
+            auto stringval = std::to_string(*static_cast<double*>(j->GetRawPtr()));
             jstr += irr::core::stringw(stringval.c_str());
         }
-        if (auto myfloat = j->PointerUpCast<float>()) {
+        if (j->GetTypeid() == std::type_index(typeid(float))) {
             jstr += " =";
-            auto stringval = std::to_string(*myfloat);
+            auto stringval = std::to_string(*static_cast<float*>(j->GetRawPtr()));
             jstr += irr::core::stringw(stringval.c_str());
         }
-        if (auto myint = j->PointerUpCast<int>()) {
+        if (j->GetTypeid() == std::type_index(typeid(int))) {
             jstr += " =";
-            auto stringval = std::to_string(*myint);
+            auto stringval = std::to_string(*static_cast<int*>(j->GetRawPtr()));
             jstr += irr::core::stringw(stringval.c_str());
         }
-        if (auto mybool = j->PointerUpCast<bool>()) {
+        if (j->GetTypeid() == std::type_index(typeid(bool))) {
             jstr += " =";
-            auto stringval = std::to_string(*mybool);
+            auto stringval = std::to_string(*static_cast<bool*>(j->GetRawPtr()));
             jstr += irr::core::stringw(stringval.c_str());
         }
         subnode->setText(jstr.c_str());
@@ -463,6 +502,8 @@ void ChIrrGUI::Render() {
     str += "\n  CPU Update time:  ";
     str += (int)(1000 * m_system->GetTimerUpdate());
     str += " ms";
+    str += "\n\nReal Time Factor: ";
+    str += m_system->GetRTF();
     str += "\n\nNum. active bodies:  ";
     str += m_system->GetNbodies();
     str += "\nNum. sleeping bodies:  ";
@@ -495,6 +536,9 @@ void ChIrrGUI::Render() {
     if (g_plot_cogs->isChecked())
         tools::drawAllCOGs(m_vis, symbolscale);
 
+    if (g_plot_abscoord->isChecked())
+        tools::drawCoordsys(m_vis, CSYSNORM, symbolscale);
+
     if (g_plot_linkframes->isChecked())
         tools::drawAllLinkframes(m_vis, symbolscale);
 
@@ -518,10 +562,10 @@ void ChIrrGUI::Render() {
     if (modal_show) {
         char message[50];
         if (modal_current_dampingfactor)
-            sprintf(message, "n = %i\nf = %.3g Hz\nz = %.2g", modal_mode_n, modal_current_freq,
-                    modal_current_dampingfactor);
+            snprintf(message, sizeof(message), "n = %i\nf = %.3g Hz\nz = %.2g", modal_mode_n, modal_current_freq,
+                     modal_current_dampingfactor);
         else
-            sprintf(message, "n = %i\nf = %.3g Hz", modal_mode_n, modal_current_freq);
+            snprintf(message, sizeof(message), "n = %i\nf = %.3g Hz", modal_mode_n, modal_current_freq);
         g_modal_mode_n_info->setText(irr::core::stringw(message).c_str());
 
         g_modal_mode_n->setPos(modal_mode_n);
@@ -531,7 +575,7 @@ void ChIrrGUI::Render() {
 }
 
 void ChIrrGUI::DrawCollisionShapes(irr::video::SColor color) {
-    if (!m_drawer)
+    if (!m_drawer || !m_system->GetCollisionSystem())
         return;
 
     std::static_pointer_cast<DebugDrawer>(m_drawer)->SetLineColor(color);
@@ -542,7 +586,7 @@ void ChIrrGUI::DrawCollisionShapes(irr::video::SColor color) {
     mattransp.Lighting = false;
     GetVideoDriver()->setMaterial(mattransp);
 
-    m_system->GetCollisionSystem()->Visualize(collision::ChCollisionSystem::VIS_Shapes);
+    m_system->GetCollisionSystem()->Visualize(ChCollisionSystem::VIS_Shapes);
 }
 
 void ChIrrGUI::BeginScene() {
@@ -558,7 +602,54 @@ void ChIrrGUI::BeginScene() {
 void ChIrrGUI::EndScene() {
     if (show_profiler)
         tools::drawProfiler(m_vis);
+
+#ifdef CHRONO_POSTPROCESS
+    if (blender_save && blender_exporter) {
+        if (blender_num % blender_each == 0) {
+            blender_exporter->ExportData();
+        }
+        blender_num++;
+    }
+#endif
 }
+
+#ifdef CHRONO_POSTPROCESS
+
+/// If set to true, each frame of the animation will be saved on the disk
+/// as a sequence of scripts to be rendered via POVray. Only if solution build with ENABLE_MODULE_POSTPROCESS.
+void ChIrrGUI::SetBlenderSave(bool val) {
+    blender_save = val;
+
+    if (!blender_save) {
+        return;
+    }
+
+    if (blender_save && !blender_exporter) {
+        blender_exporter = std::unique_ptr<postprocess::ChBlender>(new postprocess::ChBlender(m_system));
+
+        // Set the path where it will save all .pov, .ini, .asset and .dat files,
+        // a directory will be created if not existing
+        blender_exporter->SetBasePath("blender_project");
+
+        // Add all items (already in scene) to the Blender exporter
+        blender_exporter->AddAll();
+
+        if (m_vis->GetCameraVertical() == CameraVerticalDir::Z)
+            blender_exporter->SetBlenderUp_is_ChronoZ();
+        if (m_vis->GetCameraVertical() == CameraVerticalDir::Y)
+            blender_exporter->SetBlenderUp_is_ChronoY();
+
+        // Static default camera in Blender matches the one in Irrlicht at the moment of starting saving
+        // blender_exporter->SetCamera(ChVectorIrr(GetActiveCamera()->getAbsolutePosition()),
+        // ChVectorIrr(GetActiveCamera()->getTarget()),
+        //    GetActiveCamera()->getFOV() * GetActiveCamera()->getAspectRatio() * chrono::CH_C_RAD_TO_DEG);
+
+        blender_exporter->ExportScript();
+
+        blender_num = 0;
+    }
+}
+#endif
 
 }  // end namespace irrlicht
 }  // end namespace chrono

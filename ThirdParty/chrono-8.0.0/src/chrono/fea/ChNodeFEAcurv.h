@@ -127,6 +127,10 @@ class ChApi ChNodeFEAcurv : public ChNodeFEAbase {
                                         ChVectorDynamic<>& R,
                                         const ChVectorDynamic<>& w,
                                         const double c) override;
+    virtual void NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                          ChVectorDynamic<>& Md,
+                                          double& error,
+                                          const double c) override;
     virtual void NodeIntToDescriptor(const unsigned int off_v,
                                      const ChStateDelta& v,
                                      const ChVectorDynamic<>& R) override;
@@ -145,10 +149,10 @@ class ChApi ChNodeFEAcurv : public ChNodeFEAbase {
     // SERIALIZATION
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
   private:
     ChVariablesGenericDiagonalMass* m_variables;

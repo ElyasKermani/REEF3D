@@ -2,7 +2,7 @@
 // MACRO FOR AUTOMATIC DOWNCASTING of raw pointers
 //
 // A basic mechanism to provide downcasting of base pointers
-// to the specialized types, when polimorphic objects return
+// to the specialized types, when polymorphic objects return
 // from a function.
 // Parameters: base class, inherited, inherited, inherited, ...
 
@@ -79,7 +79,7 @@
 // trick when possible.
 //
 // Parameters: base class, inherited, inherited, ... (only the 
-//    classes wrapped by the chared ptr)
+//    classes wrapped by the shared ptr)
 
 
 %define %_shpointers_dispatch(Type) 

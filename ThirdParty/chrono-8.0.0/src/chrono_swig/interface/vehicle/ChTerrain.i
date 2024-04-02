@@ -14,7 +14,7 @@
 #include "chrono_vehicle/terrain/FlatTerrain.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 
-#include "chrono_vehicle/terrain/SCMDeformableTerrain.h"
+#include "chrono_vehicle/terrain/SCMTerrain.h"
 
 #include "chrono_thirdparty/rapidjson/document.h"
 %}
@@ -27,7 +27,7 @@
 %import "chrono_swig/interface/core/ChBody.i"
 %import "chrono_swig/interface/core/ChNodeXYZ.i"
 %import "chrono_swig/interface/core/ChLoadContainer.i"
-%import "../../../chrono/assets/ChTriangleMeshShape.h"
+%import "../../../chrono/assets/ChVisualShapeTriangleMesh.h"
 #endif
 
 #ifdef SWIGPYTHON
@@ -38,16 +38,16 @@
 %import(module = "pychrono.core") "chrono_swig/interface/core/ChBody.i"
 %import(module = "pychrono.core") "chrono_swig/interface/core/ChNodeXYZ.i"
 %import(module = "pychrono.core") "chrono_swig/interface/core/ChLoadContainer.i"
-%import(module = "pychrono.core") "../../../chrono/assets/ChTriangleMeshShape.h"
+%import(module = "pychrono.core") "../../../chrono/assets/ChVisualShapeTriangleMesh.h"
 #endif
 
 %shared_ptr(chrono::vehicle::ChTerrain)
 %shared_ptr(chrono::vehicle::FlatTerrain)
 %shared_ptr(chrono::vehicle::RigidTerrain::Patch)
 %shared_ptr(chrono::vehicle::RigidTerrain)
-%shared_ptr(chrono::vehicle::SCMDeformableSoil)
-%shared_ptr(chrono::vehicle::SCMDeformableTerrain)
-%shared_ptr(chrono::vehicle::SCMDeformableTerrain::SoilParametersCallback)
+%shared_ptr(chrono::vehicle::SCMLoader)
+%shared_ptr(chrono::vehicle::SCMTerrain)
+%shared_ptr(chrono::vehicle::SCMTerrain::SoilParametersCallback)
 
 %template(ChPatchList) std::vector<std::shared_ptr<chrono::vehicle::RigidTerrain::Patch>>;
 
@@ -61,6 +61,6 @@
 %include "cpointer.i"
 %pointer_functions(int, intp)
 %pointer_functions(double, doublep)
-%include "../../../chrono_vehicle/terrain/SCMDeformableTerrain.h"
+%include "../../../chrono_vehicle/terrain/SCMTerrain.h"
 
 //%include "../../../chrono_vehicle/terrain/CRGTerrain.h"

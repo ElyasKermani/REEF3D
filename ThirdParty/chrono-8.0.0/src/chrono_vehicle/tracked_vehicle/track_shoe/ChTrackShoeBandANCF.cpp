@@ -17,8 +17,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/core/ChGlobal.h"
 
@@ -492,7 +492,7 @@ void ChTrackShoeBandANCF::ExportComponentList(rapidjson::Document& jsonDocument)
 
     std::vector<std::shared_ptr<ChBody>> bodies;
     bodies.push_back(m_shoe);
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 }
 
 void ChTrackShoeBandANCF::Output(ChVehicleOutput& database) const {

@@ -71,7 +71,8 @@ class ChQuaternion {
     const Real& e2() const { return m_data[2]; }
     const Real& e3() const { return m_data[3]; }
 
-    /// Return const pointer to underlying array storage.
+    /// Access to underlying array storage.
+    Real* data() { return m_data; }
     const Real* data() const { return m_data; }
 
     // EIGEN INTER-OPERABILITY
@@ -125,6 +126,12 @@ class ChQuaternion {
 
     /// Sets the vectorial part only
     void SetVector(const ChVector<Real>& v);
+
+    /// Return true if this quaternion is the null quaternion.
+    bool IsNull() const;
+
+    /// Return true if this quaternion is the identity quaternion.
+    bool IsIdentity() const;
 
     /// Return true if quaternion is identical to other quaternion
     bool Equals(const ChQuaternion<Real>& other) const;
@@ -402,10 +409,10 @@ class ChQuaternion {
                             const ChVector<Real>& qimm_dtdt);
 
     /// Method to allow serialization of transient m_data to archives.
-    void ArchiveOUT(ChArchiveOut& marchive);
+    void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient m_data from archives.
-    void ArchiveIN(ChArchiveIn& marchive);
+    void ArchiveIn(ChArchiveIn& marchive);
 
   private:
     /// Data in the order e0, e1, e2, e3
@@ -894,6 +901,16 @@ inline void ChQuaternion<Real>::SetVector(const ChVector<Real>& v) {
 }
 
 template <class Real>
+inline bool ChQuaternion<Real>::IsNull() const {
+    return m_data[0] == 0 && m_data[1] == 0 && m_data[2] == 0 && m_data[3] == 0;
+}
+
+template <class Real>
+inline bool ChQuaternion<Real>::IsIdentity() const {
+    return m_data[0] == 1 && m_data[1] == 0 && m_data[2] == 0 && m_data[3] == 0;
+}
+
+template <class Real>
 inline bool ChQuaternion<Real>::Equals(const ChQuaternion<Real>& other) const {
     return (other.m_data[0] == m_data[0]) && (other.m_data[1] == m_data[1]) && (other.m_data[2] == m_data[2]) &&
            (other.m_data[3] == m_data[3]);
@@ -1332,7 +1349,7 @@ inline void ChQuaternion<Real>::ImmQ_dtdt_complete(const ChQuaternion<Real>& q,
 // Streaming operations
 
 template <class Real>
-inline void ChQuaternion<Real>::ArchiveOUT(ChArchiveOut& marchive) {
+inline void ChQuaternion<Real>::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChQuaternion<double>>();  // must use specialized template (any)
     // stream out all member m_data
@@ -1343,7 +1360,7 @@ inline void ChQuaternion<Real>::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 template <class Real>
-inline void ChQuaternion<Real>::ArchiveIN(ChArchiveIn& marchive) {
+inline void ChQuaternion<Real>::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChQuaternion<double>>();  // must use specialized template (any)
     // stream in all member m_data

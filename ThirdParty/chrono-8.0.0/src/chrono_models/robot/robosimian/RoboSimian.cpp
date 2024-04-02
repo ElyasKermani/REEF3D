@@ -16,11 +16,11 @@
 
 #include <cmath>
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 #include "chrono/motion_functions/ChFunction_Setpoint.h"
 
@@ -55,7 +55,7 @@ const Link PitchLink("robosim_pitch_link",
                      ChVector<>(-0.050402, 0.012816, 0.000000),
                      ChVector<>(0.000670, 0.000955, 0.000726),
                      ChVector<>(0.000062, 0.000000, 0.000000),
-                     {CylinderShape(ChVector<>(-0.07, 0, 0), Q_from_AngZ(CH_C_PI_2), 0.055, 0.07)});
+                     {CylinderShape(ChVector<>(-0.07, 0, 0), Q_from_AngY(CH_C_PI_2), 0.055, 0.07)});
 
 const Link RollLink("robosim_roll_link",
                     ChVector<>(0, 0, 0),
@@ -64,7 +64,7 @@ const Link RollLink("robosim_roll_link",
                     ChVector<>(0.066970, -0.090099, -0.000084),
                     ChVector<>(0.010580, 0.025014, 0.031182),
                     ChVector<>(-0.008765, -0.000002, 0.000007),
-                    {CylinderShape(ChVector<>(0.065, -0.12, 0), Q_from_AngZ(CH_C_PI_2), 0.055, 0.24),
+                    {CylinderShape(ChVector<>(0.065, -0.12, 0), Q_from_AngY(CH_C_PI_2), 0.055, 0.24),
                      CylinderShape(ChVector<>(0.0, -0.035, 0), QUNIT, 0.055, 0.075)});
 
 const Link RollLinkLast("robosim_roll_link",
@@ -74,7 +74,7 @@ const Link RollLinkLast("robosim_roll_link",
                         ChVector<>(0.066970, -0.090099, -0.000084),
                         ChVector<>(0.010580, 0.025014, 0.031182),
                         ChVector<>(-0.008765, -0.000002, 0.000007),
-                        {CylinderShape(ChVector<>(0.105, -0.12, 0), Q_from_AngZ(CH_C_PI_2), 0.055, 0.32),
+                        {CylinderShape(ChVector<>(0.105, -0.12, 0), Q_from_AngY(CH_C_PI_2), 0.055, 0.32),
                          CylinderShape(ChVector<>(0.0, -0.035, 0), QUNIT, 0.055, 0.075)});
 
 const Link RollLinkLastWheel("robosim_roll_link_w_wheel",
@@ -84,9 +84,9 @@ const Link RollLinkLastWheel("robosim_roll_link_w_wheel",
                              ChVector<>(0.066970, -0.090099, -0.000084),
                              ChVector<>(0.010580, 0.025014, 0.031182),
                              ChVector<>(-0.008765, -0.000002, 0.000007),
-                             {CylinderShape(ChVector<>(0.105, -0.12, 0), Q_from_AngZ(CH_C_PI_2), 0.055, 0.32),
-                              CylinderShape(ChVector<>(0.0, -0.035, 0), QUNIT, 0.055, 0.075),
-                              CylinderShape(ChVector<>(0.0, -0.19, 0), QUNIT, 0.080, 0.0375)});
+                             {CylinderShape(ChVector<>(0.105, -0.12, 0), Q_from_AngY(CH_C_PI_2), 0.055, 0.32),
+                              CylinderShape(ChVector<>(0.0, -0.035, 0), Q_from_AngX(CH_C_PI_2), 0.055, 0.075),
+                              CylinderShape(ChVector<>(0.0, -0.19, 0), Q_from_AngX(CH_C_PI_2), 0.080, 0.0375)});
 
 const Link FtAdapterLink("robosim_ft_adapter",
                          ChVector<>(0, 0, 0),
@@ -113,7 +113,7 @@ const Link WheelMountLink("robosim_wheel_mount",
                           ChVector<>(-0.005260, 0.042308, 0.000088),
                           ChVector<>(0.010977, 0.005330, 0.011405),
                           ChVector<>(0.000702, 0.000026, -0.000028),
-                          {CylinderShape(ChVector<>(0.12024, 0.02, 0), QUNIT, 0.0545, 0.175)});
+                          {CylinderShape(ChVector<>(0.12024, 0.02, 0), Q_from_AngX(CH_C_PI_2), 0.0545, 0.175)});
 
 const Link WheelLink("robosim_wheel",
                      ChVector<>(0, 0, 0),
@@ -122,7 +122,7 @@ const Link WheelLink("robosim_wheel",
                      ChVector<>(0.0, 0.0, -0.000229),
                      ChVector<>(0.006378, 0.006377, 0.009155),
                      ChVector<>(0, 0, 0),
-                     {CylinderShape(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2), 0.12, 0.123)});
+                     {CylinderShape(ChVector<>(0, 0, 0), QUNIT, 0.12, 0.123)});
 
 // List of links for front and rear legs
 //     name, link, body included?
@@ -349,7 +349,7 @@ class ContactMaterial : public ChContactContainer::AddContactCallback {
         m_robot->GetSystem()->GetContactContainer()->RegisterAddContactCallback(shared_this);
     }
 
-    virtual void OnAddContact(const collision::ChCollisionInfo& contactinfo,
+    virtual void OnAddContact(const ChCollisionInfo& contactinfo,
                               ChMaterialComposite* const material) override {
         //// TODO: currently, only NSC multicore systems support user override of composite materials.
         auto mat = static_cast<ChMaterialCompositeNSC* const>(material);
@@ -482,8 +482,8 @@ void RoboSimian::Create(bool has_sled, bool fixed) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
     if (contact_method == ChContactMethod::NSC) {
-        collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.01);
-        collision::ChCollisionModel::SetDefaultSuggestedMargin(0.005);
+        ChCollisionModel::SetDefaultSuggestedEnvelope(0.01);
+        ChCollisionModel::SetDefaultSuggestedMargin(0.005);
     }
 
     // Create the contact materials (all with default properties)
@@ -861,7 +861,7 @@ void RS_DriverCallback::OnPhaseChange(RS_Driver::Phase old_phase, RS_Driver::Pha
 
 RS_Part::RS_Part(const std::string& name, std::shared_ptr<ChMaterialSurface> mat, ChSystem* system)
     : m_name(name), m_mat(mat) {
-    m_body = std::shared_ptr<ChBodyAuxRef>(system->NewBodyAuxRef());
+    m_body = chrono_types::make_shared<ChBodyAuxRef>();
     m_body->SetNameString(name + "_body");
 }
 
@@ -880,7 +880,7 @@ void RS_Part::AddVisualizationAssets(VisualizationType vis) {
         auto vis_mesh_file = GetChronoDataFile("robot/robosimian/obj/" + m_mesh_name + ".obj");
         auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, false);
         //// HACK: a trimesh visual asset ignores transforms! Explicitly offset vertices.
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetName(m_mesh_name);
         ////trimesh_shape->Pos = m_offset;
@@ -891,29 +891,19 @@ void RS_Part::AddVisualizationAssets(VisualizationType vis) {
     }
 
     for (const auto& box : m_boxes) {
-        auto box_shape = chrono_types::make_shared<ChBoxShape>();
-        box_shape->GetBoxGeometry().SetLengths(box.m_dims);
+        auto box_shape = chrono_types::make_shared<ChVisualShapeBox>(box.m_dims);
         box_shape->SetColor(m_color);
         m_body->AddVisualShape(box_shape, ChFrame<>(box.m_pos, box.m_rot));
     }
 
     for (const auto& cyl : m_cylinders) {
-        //// HACK: Chrono::OpenGL does not properly account for Pos & Rot.
-        ////       So transform the end points explicitly.
-        ChCoordsys<> csys(cyl.m_pos, cyl.m_rot);
-        ChVector<> p1 = csys * ChVector<>(0, cyl.m_length / 2, 0);
-        ChVector<> p2 = csys * ChVector<>(0, -cyl.m_length / 2, 0);
-        auto cyl_shape = chrono_types::make_shared<ChCylinderShape>();
-        cyl_shape->GetCylinderGeometry().rad = cyl.m_radius;
-        cyl_shape->GetCylinderGeometry().p1 = p1;
-        cyl_shape->GetCylinderGeometry().p2 = p2;
+        auto cyl_shape = chrono_types::make_shared<ChVisualShapeCylinder>(cyl.m_radius, cyl.m_length);
         cyl_shape->SetColor(m_color);
-        m_body->AddVisualShape(cyl_shape);
+        m_body->AddVisualShape(cyl_shape, ChFrame<>(cyl.m_pos, cyl.m_rot));
     }
 
     for (const auto& sphere : m_spheres) {
-        auto sphere_shape = chrono_types::make_shared<ChSphereShape>();
-        sphere_shape->GetSphereGeometry().rad = sphere.m_radius;
+        auto sphere_shape = chrono_types::make_shared<ChVisualShapeSphere>(sphere.m_radius);
         sphere_shape->SetColor(m_color);
         m_body->AddVisualShape(sphere_shape, ChFrame<>(sphere.m_pos, QUNIT));
     }
@@ -921,7 +911,7 @@ void RS_Part::AddVisualizationAssets(VisualizationType vis) {
     for (const auto& mesh : m_meshes) {
         auto vis_mesh_file = GetChronoDataFile("robot/robosimian/obj/" + mesh.m_name + ".obj");
         auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, false);
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetName(mesh.m_name);
         ////trimesh_shape->Pos = m_offset;
@@ -932,39 +922,43 @@ void RS_Part::AddVisualizationAssets(VisualizationType vis) {
 }
 
 void RS_Part::AddCollisionShapes() {
-    m_body->GetCollisionModel()->ClearModel();
-
     for (const auto& sphere : m_spheres) {
-        m_body->GetCollisionModel()->AddSphere(m_mat, sphere.m_radius, sphere.m_pos);
+        auto shape = chrono_types::make_shared<ChCollisionShapeSphere>(m_mat, sphere.m_radius);
+        m_body->AddCollisionShape(shape, ChFrame<>(sphere.m_pos, QUNIT));
     }
     for (const auto& box : m_boxes) {
-        ChVector<> hdims = box.m_dims / 2;
-        m_body->GetCollisionModel()->AddBox(m_mat, hdims.x(), hdims.y(), hdims.z(), box.m_pos, box.m_rot);
+        auto shape = chrono_types::make_shared<ChCollisionShapeBox>(m_mat, box.m_dims);
+        m_body->AddCollisionShape(shape, ChFrame<>(box.m_pos, box.m_rot));
     }
     for (const auto& cyl : m_cylinders) {
-        m_body->GetCollisionModel()->AddCylinder(m_mat, cyl.m_radius, cyl.m_radius, cyl.m_length / 2, cyl.m_pos,
-                                                 cyl.m_rot);
+        auto shape = chrono_types::make_shared<ChCollisionShapeCylinder>(m_mat, cyl.m_radius, cyl.m_length);
+        m_body->AddCollisionShape(shape, ChFrame<>(cyl.m_pos, cyl.m_rot));
     }
     for (const auto& mesh : m_meshes) {
         auto vis_mesh_file = GetChronoDataFile("robot/robosimian/obj/" + mesh.m_name + ".obj");
         auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, false, false);
         switch (mesh.m_type) {
-            case MeshShape::Type::CONVEX_HULL:
-                m_body->GetCollisionModel()->AddConvexHull(m_mat, trimesh->getCoordsVertices(), mesh.m_pos, mesh.m_rot);
+            case MeshShape::Type::CONVEX_HULL: {
+                auto shape = chrono_types::make_shared<ChCollisionShapeConvexHull>(
+                    m_mat, trimesh->getCoordsVertices());
+                m_body->AddCollisionShape(shape, ChFrame<>(mesh.m_pos, mesh.m_rot));
                 break;
-            case MeshShape::Type::TRIANGLE_SOUP:
-                m_body->GetCollisionModel()->AddTriangleMesh(m_mat, trimesh, false, false, mesh.m_pos, mesh.m_rot,
-                                                             0.002);
+            }
+            case MeshShape::Type::TRIANGLE_SOUP: {
+                auto shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(m_mat, trimesh, false,
+                                                                                                false, 0.002);
+                m_body->AddCollisionShape(shape, ChFrame<>(mesh.m_pos, mesh.m_rot));
                 break;
-            case MeshShape::Type::NODE_CLOUD:
+            }
+            case MeshShape::Type::NODE_CLOUD: {
+                auto shape = chrono_types::make_shared<ChCollisionShapeSphere>(m_mat, 0.002);
                 for (const auto& v : trimesh->getCoordsVertices()) {
-                    m_body->GetCollisionModel()->AddSphere(m_mat, 0.002, v);
+                    m_body->AddCollisionShape(shape, ChFrame<>(v, QUNIT));
                 }
                 break;
+            }
         }
     }
-
-    m_body->GetCollisionModel()->BuildModel();
 }
 
 // =============================================================================
@@ -1173,7 +1167,7 @@ RS_Limb::RS_Limb(const std::string& name,
         link->m_offset = data[i].link.m_offset;
         link->m_color = data[i].link.m_color;
 
-        for (auto cyl : data[i].link.m_shapes) {
+        for (const auto& cyl : data[i].link.m_shapes) {
             link->m_cylinders.push_back(cyl);
         }
 
@@ -1220,9 +1214,11 @@ void RS_Limb::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
         // Add contact geometry to child body
         child->AddCollisionShapes();
 
-        // Place all links from this limb in the same collision family
-        child_body->GetCollisionModel()->SetFamily(collision_family);
-        child_body->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(collision_family);
+        if (child_body->GetCollisionModel()) {
+            // Place all links from this limb in the same collision family
+            child_body->GetCollisionModel()->SetFamily(collision_family);
+            child_body->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(collision_family);
+        }
 
         // Note: call this AFTER setting the collision family (required for Chrono::Multicore)
         if (child == m_wheel)

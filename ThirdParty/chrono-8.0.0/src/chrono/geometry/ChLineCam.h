@@ -73,9 +73,8 @@ class ChApi ChLineCam : public ChLine {
     /// "Virtual" copy constructor (covariant return type).
     virtual ChLineCam* Clone() const override { return new ChLineCam(*this); }
 
-    /// Get the class type as unique numerical ID.
-    /// Each inherited class must return an unique ID.
-    virtual GeometryType GetClassType() const override { return LINE_CAM; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::LINE_CAM; }
 
     virtual bool Get_closed() const override { return true; }
     virtual void Set_closed(bool mc) override {}
@@ -126,16 +125,13 @@ class ChApi ChLineCam : public ChLine {
     /// Sets the data for the flat rotating follower (length, distance from cam center, initial phase mb0)
     void Set_flat_oscillate(double me, double md, double mb0);
 
-    /// Evaluate at once all important properties of cam,
-    /// function of rotation 'par'
-    /// (par in range 0..1, since 1 means 360°!):
-    /// Gets point res, pressure angle g, curvature radius q.
-    void EvaluateCamPoint(double par, ChVector<>& res, double& g, double& q) const;
+    /// Evaluate at once all important properties of cam, function of rotation 'par'
+    /// (par in range 0..1, with 1 corresponding to 360 degrees):
+    /// Also returns the pressure angle g and curvature radius q.
+    ChVector<> EvaluateCamPoint(double par, double& g, double& q) const;
 
-    /// Curve evaluation.
-    /// Given a parameter "u", finds position on line of the
-    /// kind p=p(u); note that u is in the range 0...1, to make a complete cycle along the cam
-    virtual void Evaluate(ChVector<>& pos, const double parU) const override;
+    /// Return a point on the line, given parametric coordinate U (in [0,1]).
+    virtual ChVector<> Evaluate(double U) const override;
 
     /// Weight evaluation.
     /// Given that the shape is defined by a Ch_function, the
@@ -144,10 +140,10 @@ class ChApi ChLineCam : public ChLine {
     double Get_weight(double par) const { return law->Get_weight(par * 2 * CH_C_PI); }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 };
 
 }  // end namespace geometry

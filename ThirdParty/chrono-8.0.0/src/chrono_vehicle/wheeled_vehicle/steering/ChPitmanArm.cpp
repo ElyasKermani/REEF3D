@@ -19,8 +19,8 @@
 
 #include <vector>
 
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 
 #include "chrono_vehicle/wheeled_vehicle/steering/ChPitmanArm.h"
 
@@ -45,6 +45,8 @@ ChPitmanArm::~ChPitmanArm() {
 void ChPitmanArm::Initialize(std::shared_ptr<ChChassis> chassis,
                              const ChVector<>& location,
                              const ChQuaternion<>& rotation) {
+    ChSteering::Initialize(chassis, location, rotation);
+
     m_parent = chassis;
     m_rel_xform = ChFrame<>(location, rotation);
 
@@ -80,7 +82,7 @@ void ChPitmanArm::Initialize(std::shared_ptr<ChChassis> chassis,
     ChMatrix33<> rot;
 
     // Create and initialize the steering link body
-    m_link = std::shared_ptr<ChBody>(sys->NewBody());
+    m_link = chrono_types::make_shared<ChBody>();
     m_link->SetNameString(m_name + "_link");
     m_link->SetPos(points[STEERINGLINK]);
     m_link->SetRot(steering_to_abs.GetRot());
@@ -101,7 +103,7 @@ void ChPitmanArm::Initialize(std::shared_ptr<ChChassis> chassis,
     m_pTI = m_link->TransformPointParentToLocal(points[TIEROD_IA]);
 
     // Create and initialize the Pitman arm body
-    m_arm = std::shared_ptr<ChBody>(sys->NewBody());
+    m_arm = chrono_types::make_shared<ChBody>();
     m_arm->SetNameString(m_name + "_arm");
     m_arm->SetPos(points[PITMANARM]);
     m_arm->SetRot(steering_to_abs.GetRot());
@@ -199,37 +201,15 @@ void ChPitmanArm::AddVisualizationAssets(VisualizationType vis) {
         return;
 
     // Visualization for link
-    {
-        auto cyl = chrono_types::make_shared<ChCylinderShape>();
-        cyl->GetCylinderGeometry().p1 = m_pP;
-        cyl->GetCylinderGeometry().p2 = m_pI;
-        cyl->GetCylinderGeometry().rad = getSteeringLinkRadius();
-        m_link->AddVisualShape(cyl);
-
-        auto cyl_P = chrono_types::make_shared<ChCylinderShape>();
-        cyl_P->GetCylinderGeometry().p1 = m_pP;
-        cyl_P->GetCylinderGeometry().p2 = m_pTP;
-        cyl_P->GetCylinderGeometry().rad = getSteeringLinkRadius();
-        m_link->AddVisualShape(cyl_P);
-
-        auto cyl_I = chrono_types::make_shared<ChCylinderShape>();
-        cyl_I->GetCylinderGeometry().p1 = m_pI;
-        cyl_I->GetCylinderGeometry().p2 = m_pTI;
-        cyl_I->GetCylinderGeometry().rad = getSteeringLinkRadius();
-        m_link->AddVisualShape(cyl_I);
-    }
+    ChVehicleGeometry::AddVisualizationCylinder(m_link, m_pP, m_pI, getSteeringLinkRadius());
+    ChVehicleGeometry::AddVisualizationCylinder(m_link, m_pP, m_pTP, getSteeringLinkRadius());
+    ChVehicleGeometry::AddVisualizationCylinder(m_link, m_pI, m_pTI, getSteeringLinkRadius());
 
     // Visualization for arm
-    {
-        auto cyl = chrono_types::make_shared<ChCylinderShape>();
-        cyl->GetCylinderGeometry().p1 = m_pC;
-        cyl->GetCylinderGeometry().p2 = m_pL;
-        cyl->GetCylinderGeometry().rad = getPitmanArmRadius();
-        m_arm->AddVisualShape(cyl);
-    }
+    ChVehicleGeometry::AddVisualizationCylinder(m_arm, m_pC, m_pL, getPitmanArmRadius());
 
     // Visualization for rev-sph link
-    m_revsph->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_revsph->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 }
 
 void ChPitmanArm::RemoveVisualizationAssets() {
@@ -277,13 +257,13 @@ void ChPitmanArm::ExportComponentList(rapidjson::Document& jsonDocument) const {
     std::vector<std::shared_ptr<ChBody>> bodies;
     bodies.push_back(m_link);
     bodies.push_back(m_arm);
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     joints.push_back(m_revolute);
     joints.push_back(m_revsph);
     joints.push_back(m_universal);
-    ChPart::ExportJointList(jsonDocument, joints);
+    ExportJointList(jsonDocument, joints);
 }
 
 void ChPitmanArm::Output(ChVehicleOutput& database) const {

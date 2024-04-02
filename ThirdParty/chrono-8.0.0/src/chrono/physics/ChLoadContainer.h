@@ -54,7 +54,12 @@ class ChApi ChLoadContainer : public ChPhysicsItem {
                                    ChVectorDynamic<>& R,        ///< result: the R residual, R += c*M*v
                                    const ChVectorDynamic<>& w,  ///< the w vector
                                    const double c               ///< a scaling factor
-                                   ) override;
+                                    ) override;
+    virtual void IntLoadLumpedMass_Md(const unsigned int off,  ///< offset in Md vector
+                                      ChVectorDynamic<>& Md,  ///< result: Md vector, diagonal of the lumped mass matrix
+                                      double& err,    ///< result: not touched if lumping does not introduce errors
+                                      const double c  ///< a scaling factor
+                                      ) override;
 
     /// Tell to a system descriptor that there are items of type
     /// ChKblock in this object (for further passing it to a solver)
@@ -72,10 +77,10 @@ class ChApi ChLoadContainer : public ChPhysicsItem {
     //
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow deserialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
   private:
     std::vector<std::shared_ptr<ChLoadBase> > loadlist;

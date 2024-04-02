@@ -16,8 +16,8 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -29,7 +29,6 @@
 #include "chrono_models/vehicle/uaz/UAZBUS_Driveline4WD.h"
 #include "chrono_models/vehicle/uaz/UAZBUS_LeafspringAxle.h"
 #include "chrono_models/vehicle/uaz/UAZBUS_RotaryArm.h"
-#include "chrono_models/vehicle/uaz/UAZBUS_SimpleMapPowertrain.h"
 #include "chrono_models/vehicle/uaz/UAZBUS_ToeBarLeafspringAxle.h"
 #include "chrono_models/vehicle/uaz/UAZBUS_Wheel.h"
 

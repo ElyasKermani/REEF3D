@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
 
     // Create the sys.
     ChSystemNSC sys;
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
     sys.SetSolverType(ChSolver::Type::PSOR);
     sys.SetSolverMaxIterations(20);
 
@@ -92,13 +93,16 @@ int main(int argc, char* argv[]) {
     auto container = chrono_types::make_shared<ChBody>();
     container->SetBodyFixed(true);
     container->SetCollide(true);
-    container->GetCollisionModel()->ClearModel();
-    container->GetCollisionModel()->AddBox(mat, 20, 1, 20, ChVector<>(0, -10, 0));
-    container->GetCollisionModel()->AddBox(mat, 1, 40, 20, ChVector<>(-11, 0, 0));
-    container->GetCollisionModel()->AddBox(mat, 1, 40, 20, ChVector<>(11, 0, 0));
-    container->GetCollisionModel()->AddBox(mat, 20, 40, 1, ChVector<>(0, 0, -11));
-    container->GetCollisionModel()->AddBox(mat, 20, 40, 1, ChVector<>(0, 0, 11));
-    container->GetCollisionModel()->BuildModel();
+    auto shape1 = chrono_types::make_shared<ChCollisionShapeBox>(mat, 40, 2, 40);
+    auto shape2 = chrono_types::make_shared<ChCollisionShapeBox>(mat, 2, 80, 40);
+    auto shape3 = chrono_types::make_shared<ChCollisionShapeBox>(mat, 2, 80, 40);
+    auto shape4 = chrono_types::make_shared<ChCollisionShapeBox>(mat, 40, 80, 2);
+    auto shape5 = chrono_types::make_shared<ChCollisionShapeBox>(mat, 40, 80, 2);
+    container->AddCollisionShape(shape1, ChFrame<>(ChVector<>(0, -10, 0), QUNIT));
+    container->AddCollisionShape(shape2, ChFrame<>(ChVector<>(-11, 0, 0), QUNIT));
+    container->AddCollisionShape(shape3, ChFrame<>(ChVector<>(11, 0, 0), QUNIT));
+    container->AddCollisionShape(shape4, ChFrame<>(ChVector<>(0, 0, -11), QUNIT));
+    container->AddCollisionShape(shape5, ChFrame<>(ChVector<>(0, 0, 11), QUNIT));
     sys.AddBody(container);
 
     // Create falling rigid bodies with different shapes and mark one of each type.
@@ -122,7 +126,8 @@ int main(int argc, char* argv[]) {
             my_box = box;
         }
 
-        auto cylinder = chrono_types::make_shared<ChBodyEasyCylinder>(0.75, 0.5, 100, true, true, mat);
+        auto cylinder =
+            chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, 0.75, 0.5, 100, true, true, mat);
         sys.Add(cylinder);
         cylinder->SetPos(ChVector<>(-5 + ChRandom() * 10, 4 + bi * 0.05, -5 + ChRandom() * 10));
         if (bi == 0) {

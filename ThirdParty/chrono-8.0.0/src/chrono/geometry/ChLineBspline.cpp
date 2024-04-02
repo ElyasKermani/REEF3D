@@ -42,7 +42,7 @@ ChLineBspline::ChLineBspline(const ChLineBspline& source) : ChLine(source) {
 	this->closed = source.closed;
 }
 
-void ChLineBspline::Evaluate(ChVector<>& pos, const double parU) const {
+ChVector<> ChLineBspline::Evaluate(double parU) const {
 	double mU;
 	if (this->closed)
 		mU = fmod(parU, 1.0);
@@ -56,15 +56,17 @@ void ChLineBspline::Evaluate(ChVector<>& pos, const double parU) const {
     ChVectorDynamic<> N(this->p + 1);
     ChBasisToolsBspline::BasisEvaluate(this->p, spanU, u, this->knots, N);
 
-    pos = VNULL;
+    ChVector<> pos = VNULL;
     int uind = spanU - p;
     for (int i = 0; i <= this->p; i++) {
         pos += points[uind + i] * N(i);
     }
+
+    return pos;
 }
 
-void ChLineBspline::Derive(ChVector<>& dir, const double parU) const {
-	double mU;
+ChVector<> ChLineBspline::GetTangent(double parU) const {
+    double mU;
 	if (this->closed)
 		mU = fmod(parU, 1.0);
 	else
@@ -77,11 +79,13 @@ void ChLineBspline::Derive(ChVector<>& dir, const double parU) const {
     ChMatrixDynamic<> NdN(2, p + 1);  // basis on 1st row and their 1st derivatives on 2nd row
     ChBasisToolsBspline::BasisEvaluateDeriv(this->p, spanU, u, this->knots, NdN);
 
-    dir = VNULL;
+    ChVector<> dir = VNULL;
     int uind = spanU - p;
     for (int i = 0; i <= this->p; i++) {
         dir += points[uind + i] * NdN(1, i);
     }
+
+    return dir;
 }
 
 void ChLineBspline::SetupData(
@@ -145,26 +149,26 @@ void ChLineBspline::SetClosed(bool mc) {
 	this->closed = mc;
 }
 
-void ChLineBspline::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLineBspline::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLineBspline>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(points);
-    ////marchive << CHNVP(knots); //**TODO MATRIX DESERIALIZATION
+    marchive << CHNVP(knots);
     marchive << CHNVP(p);
 	marchive << CHNVP(closed);
 }
 
-void ChLineBspline::ArchiveIN(ChArchiveIn& marchive) {
+void ChLineBspline::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLineBspline>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(points);
-    ////marchive >> CHNVP(knots); //**TODO MATRIX DESERIALIZATION
+    marchive >> CHNVP(knots);
     marchive >> CHNVP(p);
 	marchive >> CHNVP(closed);
 }

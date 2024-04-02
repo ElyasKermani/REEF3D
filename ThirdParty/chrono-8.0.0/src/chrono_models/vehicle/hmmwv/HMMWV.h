@@ -23,7 +23,6 @@
 #include <array>
 #include <string>
 
-#include "chrono_vehicle/ChPowertrain.h"
 #include "chrono_vehicle/wheeled_vehicle/ChTire.h"
 
 #include "chrono_models/ChApiModels.h"
@@ -49,7 +48,7 @@ class CH_MODELS_API HMMWV {
     virtual ~HMMWV();
 
     void SetContactMethod(ChContactMethod val) { m_contactMethod = val; }
-    void SetCollisionSystemType(collision::ChCollisionSystemType collsys_type) { m_collsysType = collsys_type; }
+    void SetCollisionSystemType(ChCollisionSystem::Type collsys_type) { m_collsysType = collsys_type; }
 
     void SetChassisFixed(bool val) { m_fixed = val; }
     void SetChassisCollisionType(CollisionType val) { m_chassisCollisionType = val; }
@@ -57,7 +56,8 @@ class CH_MODELS_API HMMWV {
     void SetSteeringType(SteeringTypeWV val) { m_steeringType = val; }
     void SetDriveType(DrivelineTypeWV val) { m_driveType = val; }
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
-    void SetPowertrainType(PowertrainModelType val) { m_powertrainType = val; }
+    void SetEngineType(EngineModelType val) { m_engineType = val; }
+    void SetTransmissionType(TransmissionModelType val) { m_transmissionType = val; }
     void SetTireType(TireModelType val) { m_tireType = val; }
 
     void SetTireCollisionType(ChTire::CollisionType collision_type) { m_tire_collision_type = collision_type; }
@@ -74,7 +74,7 @@ class CH_MODELS_API HMMWV {
     ChWheeledVehicle& GetVehicle() const { return *m_vehicle; }
     std::shared_ptr<ChChassis> GetChassis() const { return m_vehicle->GetChassis(); }
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
-    std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
+    const ChFrameMoving<>& GetRefFrame() const { return m_vehicle->GetRefFrame(); }
 
     void Initialize();
 
@@ -100,14 +100,15 @@ class CH_MODELS_API HMMWV {
     virtual HMMWV_Vehicle* CreateVehicle() = 0;
 
     ChContactMethod m_contactMethod;
-    collision::ChCollisionSystemType m_collsysType;
+    ChCollisionSystem::Type m_collsysType;
     CollisionType m_chassisCollisionType;
     bool m_fixed;
     bool m_brake_locking;
 
     SteeringTypeWV m_steeringType;
     DrivelineTypeWV m_driveType;
-    PowertrainModelType m_powertrainType;
+    EngineModelType m_engineType;
+    TransmissionModelType m_transmissionType;
     BrakeType m_brake_type;
     TireModelType m_tireType;
     ChTire::CollisionType m_tire_collision_type;

@@ -56,21 +56,21 @@ class CH_MODELS_API Marder {
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
     ////void SetTrackShoeType(TrackShoeType shoe_type) { m_shoe_type = shoe_type; }
     ////void SetDrivelineType(DrivelineTypeTV driveline_type) { m_driveline_type = driveline_type; }
-    void SetPowertrainType(PowertrainModelType powertrain_type) { m_powertrain_type = powertrain_type; }
 
     void SetInitPosition(const ChCoordsys<>& pos) { m_initPos = pos; }
     void SetInitFwdVel(double fwdVel) { m_initFwdVel = fwdVel; }
 
-    void SetCollisionSystemType(collision::ChCollisionSystemType collsys_type) { m_collsys_type = collsys_type; }
+    void SetCollisionSystemType(ChCollisionSystem::Type collsys_type) { m_collsys_type = collsys_type; }
 
     void CreateTrack(bool val) { m_create_track = val; }
+    void SetEngineType(EngineModelType val) { m_engineType = val; }
+    void SetTransmissionType(TransmissionModelType val) { m_transmissionType = val; }
 
     ChSystem* GetSystem() const { return m_vehicle->GetSystem(); }
     ChTrackedVehicle& GetVehicle() const { return *m_vehicle; }
     std::shared_ptr<ChChassis> GetChassis() const { return m_vehicle->GetChassis(); }
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
     std::shared_ptr<ChDrivelineTV> GetDriveline() const { return m_vehicle->GetDriveline(); }
-    std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
 
     void Initialize();
 
@@ -85,6 +85,8 @@ class CH_MODELS_API Marder {
     void SetRoadWheelVisualizationType(VisualizationType vis) { m_vehicle->SetRoadWheelVisualizationType(vis); }
     void SetTrackShoeVisualizationType(VisualizationType vis) { m_vehicle->SetTrackShoeVisualizationType(vis); }
 
+    void Synchronize(double time,
+                     const DriverInputs& driver_inputs);
     void Synchronize(double time,
                      const DriverInputs& driver_inputs,
                      const TerrainForces& shoe_forces_left,
@@ -102,12 +104,13 @@ class CH_MODELS_API Marder {
     bool m_idler_cyl;
     bool m_roller_cyl;
 
-    collision::ChCollisionSystemType m_collsys_type;
+    ChCollisionSystem::Type m_collsys_type;
 
     BrakeType m_brake_type;
     TrackShoeType m_shoe_type;
     DrivelineTypeTV m_driveline_type;
-    PowertrainModelType m_powertrain_type;
+    EngineModelType m_engineType;
+    TransmissionModelType m_transmissionType;
 
     ChCoordsys<> m_initPos;
     double m_initFwdVel;

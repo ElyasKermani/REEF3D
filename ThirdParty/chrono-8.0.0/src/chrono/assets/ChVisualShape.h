@@ -21,6 +21,9 @@
 
 namespace chrono {
 
+/// @addtogroup chrono_assets
+/// @{
+
 class ChPhysicsItem;
 
 /// Base class for a visualization asset for rendering (run-time or post processing).
@@ -87,18 +90,18 @@ class ChApi ChVisualShape {
     /// Get the number of visualization materials.
     int GetNumMaterials() const { return (int)material_list.size(); }
 
+    /// Method to allow serialization of transient data to archives.
+    virtual void ArchiveOut(ChArchiveOut& marchive);
+
+    /// Method to allow de-serialization of transient data from archives.
+    virtual void ArchiveIn(ChArchiveIn& marchive);
+
   protected:
     ChVisualShape();
 
     /// Update this visual shape with information for the owning physical object.
     /// Since a visual shape can be shared in multiple instances, this function may be called with different updaters.
     virtual void Update(ChPhysicsItem* updater, const ChFrame<>& frame) {}
-
-    /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive);
-
-    /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive);
 
     bool visible;     ///< shape visibility flag
     bool is_mutable;  ///< flag indicating whether the shape is rigid or deformable
@@ -110,6 +113,8 @@ class ChApi ChVisualShape {
 
     friend class ChVisualModel;
 };
+
+/// @} chrono_assets
 
 CH_CLASS_VERSION(ChVisualShape, 0)
 

@@ -244,6 +244,18 @@ void ChLinkMotorLinearDriveline::IntLoadResidual_Mv(const unsigned int off,
     innershaft2rot->IntLoadResidual_Mv(off + 2, R, w, c);
 }
 
+void ChLinkMotorLinearDriveline::IntLoadLumpedMass_Md(const unsigned int off,
+                                                      ChVectorDynamic<>& Md,
+                                                      double& err,
+                                                      const double c) {
+    // First, inherit to parent class
+    ChLinkMotorLinear::IntLoadLumpedMass_Md(off, Md, err, c);
+
+    innershaft1lin->IntLoadLumpedMass_Md(off + 0, Md, err, c);
+    innershaft2lin->IntLoadLumpedMass_Md(off + 1, Md, err, c);
+    innershaft2rot->IntLoadLumpedMass_Md(off + 2, Md, err, c);
+}
+
 void ChLinkMotorLinearDriveline::IntLoadResidual_CqL(const unsigned int off_L,
                                        ChVectorDynamic<>& R,
                                        const ChVectorDynamic<>& L,
@@ -458,12 +470,12 @@ void ChLinkMotorLinearDriveline::VariablesQbIncrementPosition(double step) {
 
 
 
-void ChLinkMotorLinearDriveline::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkMotorLinearDriveline::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinkMotorLinearDriveline>();
 
     // serialize parent class
-    ChLinkMotorLinear::ArchiveOUT(marchive);
+    ChLinkMotorLinear::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(innershaft1lin);
@@ -476,12 +488,12 @@ void ChLinkMotorLinearDriveline::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 /// Method to allow de serialization of transient data from archives.
-void ChLinkMotorLinearDriveline::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkMotorLinearDriveline::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinkMotorLinearDriveline>();
 
     // deserialize parent class
-    ChLinkMotorLinear::ArchiveIN(marchive);
+    ChLinkMotorLinear::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(innershaft1lin);

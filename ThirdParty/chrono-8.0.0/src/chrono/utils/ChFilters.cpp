@@ -9,7 +9,7 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Radu Serban
+// Authors: Radu Serban, Dario Fusai
 // =============================================================================
 //
 // A collection of various data filters
@@ -841,6 +841,7 @@ void ChISO2631_Vibration_SeatCushionLogger::Config(double step) {
     m_filter_wk_z.Config(step);
 
     m_filter_abspow.Config(step);
+    m_filter_int_abspow.Config(step);
 
     m_filter_int_aw_x.Config(step);
     m_filter_int_aw_y.Config(step);
@@ -863,7 +864,12 @@ void ChISO2631_Vibration_SeatCushionLogger::AddData(double speed, double acc_x, 
     m_data_acc_y.push_back(startFactor * acc_y);
     m_data_acc_z.push_back(startFactor * acc_z);
 
-    m_data_acc_ap_z.push_back(startFactor * acc_z * meter_to_ft);
+    double next_ap = startFactor * acc_z * meter_to_ft;
+    m_data_acc_ap_z.push_back(next_ap);
+    double ap = m_filter_abspow.Filter(next_ap);
+    double ap_int = m_filter_int_abspow.Filter(ap * ap);
+    double time = m_step * m_data_acc_ap_z.size();
+    m_data_ap_avg = ap_int / time;
 
     m_data_acc_x_wd.push_back(m_filter_wd_x.Filter(m_data_acc_x.back()));
     m_data_acc_y_wd.push_back(m_filter_wd_y.Filter(m_data_acc_y.back()));
@@ -998,30 +1004,7 @@ double ChISO2631_Vibration_SeatCushionLogger::GetSeverityVDV() const {
 }
 
 double ChISO2631_Vibration_SeatCushionLogger::GetAbsorbedPowerVertical() {
-    double ap = 0.0;
-    ChFilterI m_filter_int_abspow(m_step);
-
-    std::vector<double> ap_buf, ap_buf_int, ap_buf_avg;
-    for (size_t i = 0; i < m_data_acc_ap_z.size(); i++) {
-        ap_buf.push_back(m_filter_abspow.Filter(m_data_acc_ap_z[i]));
-    }
-    for (size_t i = 0; i < m_data_acc_ap_z.size(); i++) {
-        ap_buf_int.push_back(m_filter_int_abspow.Filter(ap_buf[i] * ap_buf[i]));
-    }
-    for (size_t i = 0; i < m_data_acc_ap_z.size(); i++) {
-        double time = m_step * i;
-        if (i == 0) {
-            ap_buf_avg.push_back(0.0);
-        } else {
-            ap_buf_avg.push_back(ap_buf_int[i] / time);
-        }
-    }
-
-    if (ap_buf_avg.empty())
-        return 0;
-
-    ap = ap_buf_avg.back();
-    return ap;
+    return m_data_ap_avg;
 }
 
 void ChISO2631_Vibration_SeatCushionLogger::Reset() {
@@ -1063,7 +1046,8 @@ void ChISO2631_Vibration_SeatCushionLogger::Reset() {
     m_filter_wk_z.Reset();
 
     m_filter_abspow.Reset();
-
+	m_filter_int_abspow.Reset();
+	
     m_filter_int_aw_x.Reset();
     m_filter_int_aw_y.Reset();
     m_filter_int_aw_z.Reset();
@@ -1260,6 +1244,142 @@ void ChISO2631_Shock_SeatCushionLogger::Reset() {
     m_out_y.clear();
     m_out_z.clear();
 }
+
+
+// Motion law filters ----------------------------------------------------------
+
+// ChMotionlawFilter_SecondOrder
+ChMotionlawFilter_SecondOrder::ChMotionlawFilter_SecondOrder()
+    : ChMotionlawFilter_SecondOrder::ChMotionlawFilter_SecondOrder(0, 0, 0) {}
+
+ChMotionlawFilter_SecondOrder::ChMotionlawFilter_SecondOrder(double vmax, double amax, double timestep)
+    : m_vmax(vmax), m_amax(amax), m_timestep(timestep) {}
+
+void ChMotionlawFilter_SecondOrder::Config(double vmax, double amax, double timestep) {
+    m_vmax = vmax;
+    m_amax = amax;
+    m_timestep = timestep;
+}
+
+void ChMotionlawFilter_SecondOrder::Reset() {
+    m_filtvel_old = 0;
+}
+
+double ChMotionlawFilter_SecondOrder::Filter(double raw_setpos, double raw_setvel) {
+    // Errors
+    double err_pos = (m_filtpos - raw_setpos) / m_amax;
+    double err_vel = (m_filtvel - raw_setvel) / m_amax;
+
+    // Filter
+    double z = 1. / m_timestep * (err_pos / m_timestep + err_vel / 2.);
+    double z_dt = err_vel / m_timestep;
+    double m = std::floor((1. + std::sqrt(1. + 8. * std::abs(z))) / 2.);
+    double sigma = z_dt + z / m + (m - 1.) / 2. * ChSignum(z);
+    double u = -m_amax * ChClamp(sigma, -1., 1.) * (1. + ChSignum(m_filtvel * ChSignum(sigma) + m_vmax - m_timestep * m_amax)) / 2.; // control variable
+
+    // Filtered setpoints
+    m_filtacc = u;
+    m_filtvel += m_timestep * m_filtacc;
+    m_filtpos += m_timestep / 2. * (m_filtvel + m_filtvel_old);
+
+    // Update state
+    m_filtvel_old = m_filtvel;
+
+    // Output
+    return m_filtpos;
+}
+
+
+// ChMotionlawFilter_ThirdOrder
+ChMotionlawFilter_ThirdOrder::ChMotionlawFilter_ThirdOrder()
+    : ChMotionlawFilter_ThirdOrder::ChMotionlawFilter_ThirdOrder(0, 0, 0, 0) {}
+
+ChMotionlawFilter_ThirdOrder::ChMotionlawFilter_ThirdOrder(double vmax, double amax, double jmax, double timestep)
+    : m_vmax(vmax), m_amax(amax), m_jmax(jmax), m_timestep(timestep) {}
+
+void ChMotionlawFilter_ThirdOrder::Config(double vmax, double amax, double jmax, double timestep) {
+    m_vmax = vmax;
+    m_amax = amax;
+    m_jmax = jmax;
+    m_timestep = timestep;
+}
+
+void ChMotionlawFilter_ThirdOrder::Reset() {
+    m_filtvel_old = 0;
+    m_filtacc_old = 0;
+}
+
+double ChMotionlawFilter_ThirdOrder::Filter(double raw_setpos, double raw_setvel, double raw_setacc) {
+    // Errors
+    double err_pos = (m_filtpos - raw_setpos) / m_jmax;
+    m_err_vel = (m_filtvel - raw_setvel) / m_jmax;
+    m_err_acc = (m_filtacc - raw_setacc) / m_jmax;
+
+    m_errmax_vel = (m_vmax - raw_setvel) / m_jmax;
+    m_errmax_acc = (m_amax - raw_setacc) / m_jmax;
+    m_errmin_vel = (-m_vmax - raw_setvel) / m_jmax; // assumed symmetrical
+    m_errmin_acc = (-m_amax - raw_setacc) / m_jmax; // assumed symmetrical
+
+    // Filter
+    double delta = m_err_vel + (m_err_acc * std::abs(m_err_acc)) / 2.;
+    double sign_delta = static_cast<double>(ChSignum(delta));
+    double sigma = err_pos + m_err_vel * m_err_acc * sign_delta - std::pow(m_err_acc, 3) / 6. * (1. - 3. * std::abs(sign_delta)) + sign_delta / 4. * std::sqrt(2. * std::pow(m_err_acc * m_err_acc + 2. * m_err_vel * sign_delta, 3));
+    double ni_p = err_pos - m_errmax_acc * (m_err_acc * m_err_acc - 2. * m_err_vel) / 4. - std::pow(m_err_acc * m_err_acc - 2. * m_err_vel, 2) / (8. * m_errmax_acc) - m_err_acc * (3. * m_err_vel - m_err_acc * m_err_acc) / 3.;
+    double ni_m = err_pos - m_errmin_acc * (m_err_acc * m_err_acc + 2. * m_err_vel) / 4. - std::pow(m_err_acc * m_err_acc + 2. * m_err_vel, 2) / (8. * m_errmin_acc) + m_err_acc * (3. * m_err_vel + m_err_acc * m_err_acc) / 3.;
+    double S = sigma;
+    if (m_err_acc <= m_errmax_acc && m_err_vel <= m_err_acc * m_err_acc / 2. - m_errmax_acc * m_errmax_acc)
+        S = ni_p;
+    else if (m_err_acc >= m_errmin_acc && m_err_vel >= m_errmin_acc * m_errmin_acc - m_err_acc * m_err_acc / 2.)
+        S = ni_m;
+    double uc = -m_jmax * ChSignum(S + (1. - std::abs(ChSignum(S))) * (delta + (1. - std::abs(sign_delta)) * m_err_acc));
+    double u = std::max(GetCoeff_uv(m_errmin_vel), std::min(uc, GetCoeff_uv(m_errmax_vel))); // control variable
+
+    // Filtered setpoints
+    m_filtjerk = u;
+    m_filtacc += m_timestep * u; // euler integration
+    m_filtvel += m_timestep / 2. * (m_filtacc + m_filtacc_old); // trapezoidal integration
+    m_filtpos += m_timestep / 2. * (m_filtvel + m_filtvel_old); // trapezoidal integration
+
+    // Update state
+    m_filtvel_old = m_filtvel;
+    m_filtacc_old = m_filtacc;
+
+    // Output
+    return m_filtpos;
+}
+
+double ChMotionlawFilter_ThirdOrder::GetCoeff_ua(double a) {
+    return -m_jmax * ChSignum(m_err_acc - a);
+}
+
+double ChMotionlawFilter_ThirdOrder::GetCoeff_deltav(double v) {
+    return m_err_acc * std::abs(m_err_acc) + 2. * (m_err_vel - v);
+}
+
+double ChMotionlawFilter_ThirdOrder::GetCoeff_ucv(double v) {
+    return -m_jmax * ChSignum(GetCoeff_deltav(v) + (1. - std::abs(ChSignum(GetCoeff_deltav(v)))) * m_err_acc);
+}
+
+double ChMotionlawFilter_ThirdOrder::GetCoeff_uv(double v) {
+    return std::max(GetCoeff_ua(m_errmin_acc), std::min(GetCoeff_ucv(v), GetCoeff_ua(m_errmax_acc)));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }  // end namespace utils
 }  // end namespace chrono

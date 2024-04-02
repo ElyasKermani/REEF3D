@@ -25,13 +25,8 @@ namespace geometry {
 /// A triangle geometric shape for collisions and visualization.
 class ChApi ChTriangle : public ChGeometry {
   public:
-    ChVector<> p1;  ///< first triangle vertex
-    ChVector<> p2;  ///< second triangle vertex
-    ChVector<> p3;  ///< third triangle vertex
-
-  public:
     ChTriangle() : p1(VNULL), p2(VNULL), p3(VNULL) {}
-    ChTriangle(const ChVector<>& mp1, const ChVector<>& mp2, const ChVector<>& mp3) : p1(mp1), p2(mp2), p3(mp3) {}
+    ChTriangle(const ChVector<>& P1, const ChVector<>& P2, const ChVector<>& P3) : p1(P1), p2(P2), p3(P3) {}
     ChTriangle(const ChTriangle& source);
     ~ChTriangle() {}
 
@@ -41,11 +36,13 @@ class ChApi ChTriangle : public ChGeometry {
     /// Assignment operator: copy from another triangle
     ChTriangle& operator=(const ChTriangle& source);
 
-    virtual GeometryType GetClassType() const override { return TRIANGLE; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::TRIANGLE; }
 
-    /// Compute bounding box along the directions defined by the given rotation matrix.
-    virtual void GetBoundingBox(ChVector<>& cmin, ChVector<>& cmax, const ChMatrix33<>& rot) const override;
+    /// Compute bounding box of this triangle.
+    virtual ChAABB GetBoundingBox() const override;
 
+    /// Compute center of mass.
     virtual ChVector<> Baricenter() const override;
 
     /// This is a surface
@@ -67,11 +64,21 @@ class ChApi ChTriangle : public ChGeometry {
                                  ChVector<>& Bprojected  ///< returns the position of the projected point
     );
 
+    /// Set the triangle vertices.
+    void SetPoints(const ChVector<>& P1, const ChVector<>& P2, const ChVector<>& P3);
+
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
+
+    /// Return the bounding box of a triangle with given vertices.
+    static ChAABB GetBoundingBox(const ChVector<>& P1, const ChVector<>& P2, const ChVector<>& P3);
+
+    ChVector<> p1;  ///< first triangle vertex
+    ChVector<> p2;  ///< second triangle vertex
+    ChVector<> p3;  ///< third triangle vertex
 };
 
 }  // end namespace geometry

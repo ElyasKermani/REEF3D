@@ -35,8 +35,8 @@
 #include "chrono_multicore/physics/ChSystemMulticore.h"
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/utils/ChUtilsCreators.h"
 
 #ifdef CHRONO_OPENGL
@@ -46,7 +46,6 @@
 #include "unit_testing.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 TEST(ChronoMulticore, bodyauxref) {
     bool animate = false;
@@ -91,32 +90,22 @@ TEST(ChronoMulticore, bodyauxref) {
     z2y.Q_from_AngX(-CH_C_PI / 2);
 
     // Create the ground body
-    auto ground = std::shared_ptr<ChBody>(sys->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
     ground->SetBodyFixed(true);
     sys->AddBody(ground);
 
     // Attach a visualization asset representing the Y axis.
-    auto box = chrono_types::make_shared<ChBoxShape>();
-    box->GetBoxGeometry().Size = ChVector<>(0.02, 3, 0.02);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(0.04, 6, 0.04);
     ground->AddVisualShape(box);
 
     // Create a pendulum modeled using ChBody
-    auto pend_1 = std::shared_ptr<ChBody>(sys->NewBody());
+    auto pend_1 = chrono_types::make_shared<ChBody>();
     sys->AddBody(pend_1);
     pend_1->SetIdentifier(1);
     pend_1->SetBodyFixed(false);
     pend_1->SetCollide(false);
     pend_1->SetMass(1);
     pend_1->SetInertiaXX(ChVector<>(0.2, 1, 1));
-
-    // Attach a visualization asset. Note that the cylinder is defined with
-    // respect to the centroidal reference frame (which is the body reference
-    // frame for a ChBody).
-    auto cyl_1 = chrono_types::make_shared<ChCylinderShape>();
-    cyl_1->GetCylinderGeometry().p1 = ChVector<>(0, -1, 0);
-    cyl_1->GetCylinderGeometry().p2 = ChVector<>(0, 1, 0);
-    cyl_1->GetCylinderGeometry().rad = 0.2;
-    pend_1->AddVisualShape(cyl_1, ChFrame<>(ChVector<>(0, 0, 0), y2x));
 
     // Specify the initial position of the pendulum (horizontal, pointing towards
     // positive X). In this case, we set the absolute position of its center of
@@ -130,7 +119,7 @@ TEST(ChronoMulticore, bodyauxref) {
     sys->AddLink(rev_1);
 
     // Create a pendulum modeled using ChBodyAuxRef
-    auto pend_2 = std::shared_ptr<ChBodyAuxRef>(sys->NewBodyAuxRef());
+    auto pend_2 = chrono_types::make_shared<ChBodyAuxRef>();
     sys->Add(pend_2);
     pend_2->SetIdentifier(2);
     pend_2->SetBodyFixed(false);
@@ -138,14 +127,6 @@ TEST(ChronoMulticore, bodyauxref) {
     pend_2->SetMass(1);
     pend_2->SetInertiaXX(ChVector<>(0.2, 1, 1));
     // NOTE: the inertia tensor must still be expressed in the centroidal frame!
-
-    // Attach a visualization asset. Note that now the cylinder is defined with
-    // respect to the body reference frame.
-    auto cyl_2 = chrono_types::make_shared<ChCylinderShape>();
-    cyl_2->GetCylinderGeometry().p1 = ChVector<>(0, -1, 0);
-    cyl_2->GetCylinderGeometry().p2 = ChVector<>(0, 1, 0);
-    cyl_2->GetCylinderGeometry().rad = 0.2;
-    pend_2->AddVisualShape(cyl_2, ChFrame<>(ChVector<>(1, 0, 0), y2x));
 
     // In this case, we must specify the centroidal frame, relative to the body
     // reference frame.
@@ -181,7 +162,7 @@ TEST(ChronoMulticore, bodyauxref) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.SetCameraPosition(ChVector<>(6, -6, 1), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector<>(6, -6, 1), ChVector<>(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
 
         while (vis.Run()) {

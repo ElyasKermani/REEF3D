@@ -18,6 +18,7 @@ MESSAGE(STATUS "\n==== Chrono Postprocess module ====\n")
 
 SET(ChronoEngine_POSTPROCESS_SOURCES 
     ChPovRay.cpp
+    ChBlender.cpp
 )
 
 SET(ChronoEngine_POSTPROCESS_HEADERS
@@ -25,6 +26,7 @@ SET(ChronoEngine_POSTPROCESS_HEADERS
     ChPostProcessBase.h
     ChGnuPlot.h
     ChPovRay.h
+    ChBlender.h
 )
 
 SOURCE_GROUP("" FILES 
@@ -37,13 +39,13 @@ SOURCE_GROUP("" FILES
 # The POSTPROCESS library is added to the project,
 # and some custom properties of this target are set.
 
-ADD_LIBRARY(ChronoEngine_postprocess SHARED 
+ADD_LIBRARY(ChronoEngine_postprocess 
 			${ChronoEngine_POSTPROCESS_SOURCES}
 			${ChronoEngine_POSTPROCESS_HEADERS})
 
 SET_TARGET_PROPERTIES(ChronoEngine_postprocess PROPERTIES
                       COMPILE_FLAGS "${CH_CXX_FLAGS}"
-                      LINK_FLAGS "${CH_LINKERFLAG_SHARED}")
+                      LINK_FLAGS "${CH_LINKERFLAG_LIB}")
                           
 target_compile_definitions(ChronoEngine_postprocess PRIVATE "CH_API_COMPILE_POSTPROCESS")
 target_compile_definitions(ChronoEngine_postprocess PRIVATE "CH_IGNORE_DEPRECATED")

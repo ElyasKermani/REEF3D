@@ -41,7 +41,17 @@ ChLineBezier::ChLineBezier(const ChLineBezier& source) : ChLine(source) {
     complexityU = source.complexityU;
 }
 
-void ChLineBezier::Evaluate(ChVector<>& pos, const double parU) const {
+ChAABB ChLineBezier::GetBoundingBox() const {
+    ChAABB aabb;
+    for (const auto& p : m_path->getPoints()) {
+        aabb.min = Vmin(aabb.min, p);
+        aabb.max = Vmax(aabb.max, p);
+    }
+
+    return aabb;
+}
+
+ChVector<> ChLineBezier::Evaluate(double parU) const {
     double par = ChClamp(parU, 0.0, 1.0);
     size_t numIntervals = m_path->getNumPoints() - 1;
     double epar = par * numIntervals;
@@ -49,23 +59,23 @@ void ChLineBezier::Evaluate(ChVector<>& pos, const double parU) const {
     ChClampValue(i, size_t(0), numIntervals - 1);
     double t = epar - (double)i;
 
-    pos = m_path->eval(i, t);
+    return m_path->eval(i, t);
 }
 
-void ChLineBezier::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLineBezier::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLineBezier>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(m_path);
 }
 
-void ChLineBezier::ArchiveIN(ChArchiveIn& marchive) {
+void ChLineBezier::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLineBezier>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(m_path);
 }

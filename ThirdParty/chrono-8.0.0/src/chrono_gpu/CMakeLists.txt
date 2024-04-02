@@ -16,18 +16,31 @@ message(STATUS "\n==== Chrono GPU module ====\n")
 
 # Return now if Eigen version < 3.3.6
 if(EIGEN3_VERSION VERSION_LESS "3.3.6")
-    message(WARNING "Eigen version (${EIGEN3_VERSION}) is less than the required version (3.3.6); disabling Chrono::GPU")
+    message("Eigen version (${EIGEN3_VERSION}) is less than the required version (3.3.6); disabling Chrono::GPU")
     set(ENABLE_MODULE_GPU OFF CACHE BOOL "Enable the Chrono::GPU module" FORCE)
     return()
 endif()
 
 # Return now if CUDA is not available
 if(NOT CUDA_FOUND)
-    message(WARNING "Chrono::GPU requires CUDA, but CUDA was not found; disabling Chrono::GPU")
+    message("Chrono::GPU requires CUDA, but CUDA was not found; disabling Chrono::GPU")
     set(ENABLE_MODULE_GPU OFF CACHE BOOL "Enable the Chrono::GPU module" FORCE)
     return()
 endif()
 
+# ------------------------------------------------------------------------------
+# Hack to deal with MSVC runtime libraries
+# ------------------------------------------------------------------------------
+
+if(MSVC)
+  if(USE_MSVC_STATIC_RUNTIME)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+  else()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+  endif()
+endif()
 
 # ----------------------------------------------------------------------------
 # Generate and install configuration header file.
@@ -38,12 +51,12 @@ endif()
 # be found at compile time.
 
 configure_file(
-	${CMAKE_CURRENT_SOURCE_DIR}/ChConfigGpu.h.in
-	${PROJECT_BINARY_DIR}/chrono_gpu/ChConfigGpu.h
-	)
+    ${CMAKE_CURRENT_SOURCE_DIR}/ChConfigGpu.h.in
+    ${PROJECT_BINARY_DIR}/chrono_gpu/ChConfigGpu.h
+    )
 
 install(FILES "${PROJECT_BINARY_DIR}/chrono_gpu/ChConfigGpu.h"
-				DESTINATION include/chrono_gpu)
+        DESTINATION include/chrono_gpu)
 
 # ------------------------------------------------------------------------------
 # Collect all additional include directories necessary for the GPU module
@@ -55,7 +68,7 @@ set(CH_GPU_INCLUDES ${CUDA_INCLUDE_DIRS})
 set(CH_GPU_CXX_FLAGS "")
 set(CH_GPU_C_FLAGS "")
 set(CH_CPU_COMPILE_DEFS "")
-set(CH_GPU_LINKER_FLAGS "${CH_LINKERFLAG_SHARED}")
+set(CH_GPU_LINKER_FLAGS "${CH_LINKERFLAG_LIB}")
 set(CH_GPU_LINKED_LIBRARIES ChronoEngine ${CUDA_FRAMEWORK})
 
 # ------------------------------------------------------------------------------
@@ -148,7 +161,7 @@ source_group(utilities FILES ${ChronoEngine_GPU_VISUALIZATION})
 # Add the ChronoEngine_gpu library
 # ------------------------------------------------------------------------------
 
-CUDA_ADD_LIBRARY(ChronoEngine_gpu SHARED
+CUDA_ADD_LIBRARY(ChronoEngine_gpu
                  ${ChronoEngine_GPU_BASE}
                  ${ChronoEngine_GPU_PHYSICS}
                  ${ChronoEngine_GPU_CUDA}
@@ -157,6 +170,7 @@ CUDA_ADD_LIBRARY(ChronoEngine_gpu SHARED
                  )
 
 set_target_properties(ChronoEngine_gpu PROPERTIES
+                      COMPILE_FLAGS "${CH_GPU_CXX_FLAGS}"
                       LINK_FLAGS "${CH_GPU_LINKER_FLAGS}"
                       COMPILE_DEFINITIONS "CH_API_COMPILE_GPU ${CH_CPU_COMPILE_DEFS}")
 
@@ -235,8 +249,8 @@ endif()
 message(STATUS "NVCC Flags: ${CUDA_NVCC_FLAGS}")
 
 # Install required chrono_thirdparty headers
-if (DEFINED ${CUB_INCLUDE_DIR})
-	install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/cub
-    	    DESTINATION include/chrono_thirdparty
-	        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+if(DEFINED ${CUB_INCLUDE_DIR})
+   install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/cub
+           DESTINATION include/chrono_thirdparty
+           FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
 endif()

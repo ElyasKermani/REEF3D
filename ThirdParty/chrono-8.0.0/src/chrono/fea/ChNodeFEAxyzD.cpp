@@ -171,6 +171,18 @@ void ChNodeFEAxyzD::NodeIntLoadResidual_Mv(const unsigned int off,
     }
 }
 
+void ChNodeFEAxyzD::NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                             ChVectorDynamic<>& Md,
+                                             double& error,
+                                             const double c) {
+    ChNodeFEAxyz::NodeIntLoadLumpedMass_Md(off, Md, error, c);
+    if (!IsFixedD()) {
+        Md(off + 3) += c * GetMassDiagonalD()(0);  // unuseful? mass for D isalways zero..
+        Md(off + 4) += c * GetMassDiagonalD()(1);
+        Md(off + 5) += c * GetMassDiagonalD()(2);
+    }
+}
+
 void ChNodeFEAxyzD::NodeIntToDescriptor(const unsigned int off_v, const ChStateDelta& v, const ChVectorDynamic<>& R) {
     ChNodeFEAxyz::NodeIntToDescriptor(off_v, v, R);
     if (!IsFixedD()) {
@@ -290,22 +302,22 @@ void ChNodeFEAxyzD::ComputeNF(
 
 // -----------------------------------------------------------------------------
 
-void ChNodeFEAxyzD::ArchiveOUT(ChArchiveOut& archive) {
+void ChNodeFEAxyzD::ArchiveOut(ChArchiveOut& archive) {
     // version number
     archive.VersionWrite<ChNodeFEAxyzD>();
     // serialize parent class
-    ChNodeFEAxyz::ArchiveOUT(archive);
+    ChNodeFEAxyz::ArchiveOut(archive);
     // serialize all member data:
     archive << CHNVP(D);
     archive << CHNVP(D_dt);
     archive << CHNVP(D_dtdt);
 }
 
-void ChNodeFEAxyzD::ArchiveIN(ChArchiveIn& archive) {
+void ChNodeFEAxyzD::ArchiveIn(ChArchiveIn& archive) {
     // version number
     /*int version = */ archive.VersionRead<ChNodeFEAxyzD>();
     // deserialize parent class
-    ChNodeFEAxyz::ArchiveIN(archive);
+    ChNodeFEAxyz::ArchiveIn(archive);
     // stream in all member data:
     archive >> CHNVP(D);
     archive >> CHNVP(D_dt);

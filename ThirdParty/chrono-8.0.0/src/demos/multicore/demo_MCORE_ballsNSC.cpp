@@ -35,11 +35,10 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #ifdef CHRONO_OPENGL
-#include "chrono_opengl/ChVisualSystemOpenGL.h"
+    #include "chrono_opengl/ChVisualSystemOpenGL.h"
 #endif
 
 using namespace chrono;
-using namespace chrono::collision;
 
 // Tilt angle (about global Y axis) of the container.
 double tilt_angle = 1 * CH_C_PI / 20;
@@ -60,7 +59,7 @@ void AddContainer(ChSystemMulticoreNSC* sys) {
     mat->SetFriction(0.4f);
 
     // Create the containing bin (4 x 4 x 1)
-    auto bin = std::shared_ptr<ChBody>(sys->NewBody());
+    auto bin = chrono_types::make_shared<ChBody>();
     bin->SetIdentifier(binId);
     bin->SetMass(1);
     bin->SetPos(ChVector<>(0, 0, 0));
@@ -68,20 +67,10 @@ void AddContainer(ChSystemMulticoreNSC* sys) {
     bin->SetCollide(true);
     bin->SetBodyFixed(true);
 
-    ChVector<> hdim(2, 2, 0.5);
-    double hthick = 0.1;
-
-    bin->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hdim.y(), hthick), ChVector<>(0, 0, -hthick));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hthick, hdim.y(), hdim.z()),
-                          ChVector<>(-hdim.x() - hthick, 0, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hthick, hdim.y(), hdim.z()),
-                          ChVector<>(hdim.x() + hthick, 0, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hthick, hdim.z()),
-                          ChVector<>(0, -hdim.y() - hthick, hdim.z()));
-    utils::AddBoxGeometry(bin.get(), mat, ChVector<>(hdim.x(), hthick, hdim.z()),
-                          ChVector<>(0, hdim.y() + hthick, hdim.z()));
-    bin->GetCollisionModel()->BuildModel();
+    utils::AddBoxContainer(bin, mat,                                 //
+                           ChFrame<>(ChVector<>(0, 0, 0.5), QUNIT),  //
+                           ChVector<>(4, 4, 1), 0.2,                 //
+                           ChVector<int>(2, 2, -1));
 
     sys->AddBody(bin);
 }
@@ -104,8 +93,7 @@ void AddFallingBalls(ChSystemMulticore* sys) {
         for (int iy = -count_Y; iy <= count_Y; iy++) {
             ChVector<> pos(0.4 * ix, 0.4 * iy, 1);
 
-            auto ball = std::shared_ptr<ChBody>(sys->NewBody());
-
+            auto ball = chrono_types::make_shared<ChBody>();
             ball->SetIdentifier(ballId++);
             ball->SetMass(mass);
             ball->SetInertiaXX(inertia);
@@ -114,9 +102,7 @@ void AddFallingBalls(ChSystemMulticore* sys) {
             ball->SetBodyFixed(false);
             ball->SetCollide(true);
 
-            ball->GetCollisionModel()->ClearModel();
             utils::AddSphereGeometry(ball.get(), ballMat, radius);
-            ball->GetCollisionModel()->BuildModel();
 
             sys->AddBody(ball);
         }
@@ -142,6 +128,7 @@ int main(int argc, char* argv[]) {
     // -------------
 
     ChSystemMulticoreNSC sys;
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // Set number of threads
     sys.SetNumThreads(8);
@@ -170,8 +157,8 @@ int main(int argc, char* argv[]) {
     AddContainer(&sys);
     AddFallingBalls(&sys);
 
-// Perform the simulation
-// ----------------------
+    // Perform the simulation
+    // ----------------------
 
 #ifdef CHRONO_OPENGL
     opengl::ChVisualSystemOpenGL vis;
@@ -180,7 +167,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.SetCameraPosition(ChVector<>(0, -6, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector<>(0, -6, 0), ChVector<>(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     while (true) {

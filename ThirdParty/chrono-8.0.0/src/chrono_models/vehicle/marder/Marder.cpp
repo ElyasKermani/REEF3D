@@ -23,9 +23,15 @@
 
 #include "chrono_models/vehicle/marder/Marder.h"
 
-#include "chrono_models/vehicle/marder/Marder_SimplePowertrain.h"
-#include "chrono_models/vehicle/marder/Marder_SimpleCVTPowertrain.h"
-//#include "chrono_models/vehicle/marder/Marder_ShaftsPowertrain.h"
+//#include "chrono_models/vehicle/marder/Marder_SimplePowertrain.h"
+//#include "chrono_models/vehicle/marder/Marder_SimpleCVTPowertrain.h"
+// #include "chrono_models/vehicle/marder/Marder_ShaftsPowertrain.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_EngineShafts.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_AutomaticTransmissionShafts.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_EngineSimpleMap.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_AutomaticTransmissionSimpleMap.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_EngineSimple.h"
+#include "chrono_models/vehicle/marder/powertrain/Marder_AutomaticTransmissionSimple.h"
 
 namespace chrono {
 namespace vehicle {
@@ -37,7 +43,7 @@ Marder::Marder()
       m_vehicle(nullptr),
       m_contactMethod(ChContactMethod::NSC),
       m_chassisCollisionType(CollisionType::NONE),
-      m_collsys_type(collision::ChCollisionSystemType::BULLET),
+      m_collsys_type(ChCollisionSystem::Type::BULLET),
       m_wheel_cyl(true),
       m_idler_cyl(true),
       m_roller_cyl(true),
@@ -46,7 +52,8 @@ Marder::Marder()
       m_brake_type(BrakeType::SIMPLE),
       m_shoe_type(TrackShoeType::SINGLE_PIN),
       m_driveline_type(DrivelineTypeTV::SIMPLE),
-      m_powertrain_type(PowertrainModelType::SIMPLE),
+      m_engineType(EngineModelType::SHAFTS),
+      m_transmissionType(TransmissionModelType::AUTOMATIC_SHAFTS),
       m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
       m_apply_drag(false) {}
@@ -56,7 +63,7 @@ Marder::Marder(ChSystem* system)
       m_vehicle(nullptr),
       m_contactMethod(ChContactMethod::NSC),
       m_chassisCollisionType(CollisionType::NONE),
-      m_collsys_type(collision::ChCollisionSystemType::BULLET),
+      m_collsys_type(ChCollisionSystem::Type::BULLET),
       m_wheel_cyl(true),
       m_idler_cyl(true),
       m_roller_cyl(true),
@@ -65,7 +72,8 @@ Marder::Marder(ChSystem* system)
       m_brake_type(BrakeType::SIMPLE),
       m_shoe_type(TrackShoeType::SINGLE_PIN),
       m_driveline_type(DrivelineTypeTV::SIMPLE),
-      m_powertrain_type(PowertrainModelType::SIMPLE),
+      m_engineType(EngineModelType::SHAFTS),
+      m_transmissionType(TransmissionModelType::AUTOMATIC_SHAFTS),
       m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
       m_apply_drag(false) {}
@@ -106,19 +114,35 @@ void Marder::Initialize() {
     }
 
     // Create and initialize the powertrain system
-    switch (m_powertrain_type) {
-        default:
-            std::cout << "Warning! Marder powertrain type not supported. Reverting to Simple Powertrain" << std::endl;
-        case PowertrainModelType::SIMPLE: {
-            auto powertrain = chrono_types::make_shared<Marder_SimplePowertrain>("Powertrain");
-            m_vehicle->InitializePowertrain(powertrain);
+    std::shared_ptr<ChEngine> engine;
+    std::shared_ptr<ChTransmission> transmission;
+    switch (m_engineType) {
+        case EngineModelType::SHAFTS:
+            engine = chrono_types::make_shared<Marder_EngineShafts>("Engine");
             break;
-        }
-        case PowertrainModelType::SIMPLE_CVT: {
-            auto powertrain = chrono_types::make_shared<Marder_SimpleCVTPowertrain>("Powertrain");
-            m_vehicle->InitializePowertrain(powertrain);
+        case EngineModelType::SIMPLE_MAP:
+            engine = chrono_types::make_shared<Marder_EngineSimpleMap>("Engine");
             break;
+        case EngineModelType::SIMPLE:
+            engine = chrono_types::make_shared<Marder_EngineSimple>("Engine");
+            transmission = chrono_types::make_shared<Marder_AutomaticTransmissionSimple>("Transmission");
+            break;
+    }
+
+    if (!transmission) {
+        switch (m_transmissionType) {
+            case TransmissionModelType::AUTOMATIC_SHAFTS:
+                transmission = chrono_types::make_shared<Marder_AutomaticTransmissionShafts>("Transmission");
+                break;
+            case TransmissionModelType::AUTOMATIC_SIMPLE_MAP:
+                transmission = chrono_types::make_shared<Marder_AutomaticTransmissionSimpleMap>("Transmission");
+                break;
         }
+    }
+
+    if (engine && transmission) {
+        auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
+        m_vehicle->InitializePowertrain(powertrain);
     }
 
     // Recalculate vehicle mass, to properly account for all subsystems
@@ -126,6 +150,12 @@ void Marder::Initialize() {
 }
 
 // -----------------------------------------------------------------------------
+
+void Marder::Synchronize(double time,
+                         const DriverInputs& driver_inputs) {
+    m_vehicle->Synchronize(time, driver_inputs);
+}
+
 void Marder::Synchronize(double time,
                          const DriverInputs& driver_inputs,
                          const TerrainForces& shoe_forces_left,
@@ -133,7 +163,6 @@ void Marder::Synchronize(double time,
     m_vehicle->Synchronize(time, driver_inputs, shoe_forces_left, shoe_forces_right);
 }
 
-// -----------------------------------------------------------------------------
 void Marder::Advance(double step) {
     m_vehicle->Advance(step);
 }

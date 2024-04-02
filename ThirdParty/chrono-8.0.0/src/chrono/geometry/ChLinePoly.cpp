@@ -57,9 +57,8 @@ bool ChLinePoly::Set_point(int mnum, ChVector<> mpoint) {
 // Curve evaluation.
 //
 
-void ChLinePoly::Evaluate(ChVector<>& pos, const double parU) const {
+ChVector<> ChLinePoly::Evaluate(double parU) const {
     double par = parU;
-    pos = VNULL;
 
     if (par < 0)
         par = 0;
@@ -84,7 +83,7 @@ void ChLinePoly::Evaluate(ChVector<>& pos, const double parU) const {
             pB = 0;
     }
     // linear interpolation
-    pos = Vadd(Vmul(Get_point(pA), 1 - (epar - (double)pA)), Vmul(Get_point(pB), epar - (double)pA));
+    return Vadd(Vmul(Get_point(pA), 1 - (epar - (double)pA)), Vmul(Get_point(pB), epar - (double)pA));
 }
 
 double ChLinePoly::Length(int sampling) const {
@@ -121,21 +120,21 @@ bool ChLinePoly::DrawPostscript(ChFile_ps* mfle, int markpoints, int bezier_inte
     return true;
 }
 
-void ChLinePoly::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinePoly::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinePoly>();
     // serialize parent class
-    ChLine::ArchiveOUT(marchive);
+    ChLine::ArchiveOut(marchive);
     // serialize all member data:
     marchive << CHNVP(points);
     marchive << CHNVP(degree);
 }
 
-void ChLinePoly::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinePoly::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinePoly>();
     // deserialize parent class
-    ChLine::ArchiveIN(marchive);
+    ChLine::ArchiveIn(marchive);
     // stream in all member data:
     marchive >> CHNVP(points);
     marchive >> CHNVP(degree);

@@ -27,8 +27,8 @@
 
 #include <algorithm>
 
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 
 #include "chrono_vehicle/wheeled_vehicle/suspension/ChDoubleWishbone.h"
 
@@ -83,6 +83,8 @@ void ChDoubleWishbone::Initialize(std::shared_ptr<ChChassis> chassis,
                                   const ChVector<>& location,
                                   double left_ang_vel,
                                   double right_ang_vel) {
+    ChSuspension::Initialize(chassis, subchassis, steering, location, left_ang_vel, right_ang_vel);
+
     m_parent = chassis;
     m_rel_loc = location;
 
@@ -128,7 +130,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     auto spindleRot = chassisRot * Q_from_AngZ(sign * getToeAngle()) * Q_from_AngX(sign * getCamberAngle());
 
     // Create and initialize spindle body
-    m_spindle[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_spindle[side] = chrono_types::make_shared<ChBody>();
     m_spindle[side]->SetNameString(m_name + "_spindle" + suffix);
     m_spindle[side]->SetPos(points[SPINDLE]);
     m_spindle[side]->SetRot(spindleRot);
@@ -138,7 +140,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     chassis->GetSystem()->AddBody(m_spindle[side]);
 
     // Create and initialize upright body (same orientation as the chassis)
-    m_upright[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_upright[side] = chrono_types::make_shared<ChBody>();
     m_upright[side]->SetNameString(m_name + "_upright" + suffix);
     m_upright[side]->SetPos(points[UPRIGHT]);
     m_upright[side]->SetRot(chassisRot);
@@ -163,7 +165,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     v = Vcross(w, u);
     rot.Set_A_axis(u, v, w);
 
-    m_UCA[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_UCA[side] = chrono_types::make_shared<ChBody>();
     m_UCA[side]->SetNameString(m_name + "_UCA" + suffix);
     m_UCA[side]->SetPos(points[UCA_CM]);
     m_UCA[side]->SetRot(rot);
@@ -187,7 +189,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     v = Vcross(w, u);
     rot.Set_A_axis(u, v, w);
 
-    m_LCA[side] = std::shared_ptr<ChBody>(chassis->GetSystem()->NewBody());
+    m_LCA[side] = chrono_types::make_shared<ChBody>();
     m_LCA[side]->SetNameString(m_name + "_LCA" + suffix);
     m_LCA[side]->SetPos(points[LCA_CM]);
     m_LCA[side]->SetRot(rot);
@@ -225,9 +227,9 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     chassis->AddJoint(m_revoluteUCA[side]);
 
     // Create and initialize the spherical joint between upright and UCA.
-    m_sphericalUCA[side] =
-        chrono_types::make_shared<ChVehicleJoint>(ChVehicleJoint::Type::SPHERICAL, m_name + "_sphericalUCA" + suffix,
-                                                  m_UCA[side], m_upright[side], ChCoordsys<>(points[UCA_U], QUNIT));
+    m_sphericalUCA[side] = chrono_types::make_shared<ChVehicleJoint>(
+        ChVehicleJoint::Type::SPHERICAL, m_name + "_sphericalUCA" + suffix, m_UCA[side], m_upright[side],
+        ChCoordsys<>(points[UCA_U], chassisRot));
     chassis->AddJoint(m_sphericalUCA[side]);
 
     // Create and initialize the revolute joint between chassis and LCA.
@@ -247,9 +249,9 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     chassis->AddJoint(m_revoluteLCA[side]);
 
     // Create and initialize the spherical joint between upright and LCA.
-    m_sphericalLCA[side] =
-        chrono_types::make_shared<ChVehicleJoint>(ChVehicleJoint::Type::SPHERICAL, m_name + "_sphericalLCA" + suffix,
-                                                  m_LCA[side], m_upright[side], ChCoordsys<>(points[LCA_U], QUNIT));
+    m_sphericalLCA[side] = chrono_types::make_shared<ChVehicleJoint>(
+        ChVehicleJoint::Type::SPHERICAL, m_name + "_sphericalLCA" + suffix, m_LCA[side], m_upright[side],
+        ChCoordsys<>(points[LCA_U], chassisRot));
     chassis->AddJoint(m_sphericalLCA[side]);
 
     if (UseTierodBodies()) {
@@ -261,7 +263,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
         rot.Set_A_axis(u, v, w);
 
         // Create the tierod body
-        m_tierod[side] = std::shared_ptr<ChBody>(chassis->GetBody()->GetSystem()->NewBody());
+        m_tierod[side] = chrono_types::make_shared<ChBody>();
         m_tierod[side]->SetNameString(m_name + "_tierodBody" + suffix);
         m_tierod[side]->SetPos((points[TIEROD_U] + points[TIEROD_C]) / 2);
         m_tierod[side]->SetRot(rot.Get_A_quaternion());
@@ -272,7 +274,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
         // Connect tierod body to upright (spherical) and chassis (universal)
         m_sphericalTierod[side] = chrono_types::make_shared<ChVehicleJoint>(
             ChVehicleJoint::Type::SPHERICAL, m_name + "_sphericalTierod" + suffix, m_upright[side], m_tierod[side],
-            ChCoordsys<>(points[TIEROD_U], QUNIT), getTierodBushingData());
+            ChCoordsys<>(points[TIEROD_U], chassisRot), getTierodBushingData());
         chassis->AddJoint(m_sphericalTierod[side]);
         m_universalTierod[side] = chrono_types::make_shared<ChVehicleJoint>(
             ChVehicleJoint::Type::UNIVERSAL, m_name + "_universalTierod" + suffix, tierod_body, m_tierod[side],
@@ -290,6 +292,7 @@ void ChDoubleWishbone::InitializeSide(VehicleSide side,
     m_shock[side] = chrono_types::make_shared<ChLinkTSDA>();
     m_shock[side]->SetNameString(m_name + "_shock" + suffix);
     m_shock[side]->Initialize(chassis->GetBody(), m_LCA[side], false, points[SHOCK_C], points[SHOCK_A]);
+    m_shock[side]->SetRestLength(getShockRestLength());
     m_shock[side]->RegisterForceFunctor(getShockForceFunctor());
     chassis->GetSystem()->AddLink(m_shock[side]);
 
@@ -363,18 +366,15 @@ double ChDoubleWishbone::GetTrack() {
 // -----------------------------------------------------------------------------
 // Return current suspension forces
 // -----------------------------------------------------------------------------
-ChSuspension::Force ChDoubleWishbone::ReportSuspensionForce(VehicleSide side) const {
-    ChSuspension::Force force;
+std::vector<ChSuspension::ForceTSDA> ChDoubleWishbone::ReportSuspensionForce(VehicleSide side) const {
+    std::vector<ChSuspension::ForceTSDA> forces(2);
 
-    force.spring_force = m_spring[side]->GetForce();
-    force.spring_length = m_spring[side]->GetLength();
-    force.spring_velocity = m_spring[side]->GetVelocity();
+    forces[0] = ChSuspension::ForceTSDA("Spring", m_spring[side]->GetForce(), m_spring[side]->GetLength(),
+                                        m_spring[side]->GetVelocity());
+    forces[1] = ChSuspension::ForceTSDA("Shock", m_shock[side]->GetForce(), m_shock[side]->GetLength(),
+                                        m_shock[side]->GetVelocity());
 
-    force.shock_force = m_shock[side]->GetForce();
-    force.shock_length = m_shock[side]->GetLength();
-    force.shock_velocity = m_shock[side]->GetVelocity();
-
-    return force;
+    return forces;
 }
 
 // -----------------------------------------------------------------------------
@@ -483,18 +483,18 @@ void ChDoubleWishbone::AddVisualizationAssets(VisualizationType vis) {
     AddVisualizationControlArm(m_LCA[RIGHT], m_pointsR[LCA_F], m_pointsR[LCA_B], m_pointsR[LCA_U], getLCARadius());
 
     // Add visualization for the springs and shocks
-    m_spring[LEFT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(2 * getLCARadius(), 150, 15));
-    m_spring[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSpringShape>(2 * getLCARadius(), 150, 15));
-    m_shock[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-    m_shock[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    m_spring[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(2 * getLCARadius(), 150, 15));
+    m_spring[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSpring>(2 * getLCARadius(), 150, 15));
+    m_shock[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+    m_shock[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
 
     // Add visualization for the tie-rods
     if (UseTierodBodies()) {
         AddVisualizationTierod(m_tierod[LEFT], m_pointsL[TIEROD_C], m_pointsL[TIEROD_U], getTierodRadius());
         AddVisualizationTierod(m_tierod[RIGHT], m_pointsR[TIEROD_C], m_pointsR[TIEROD_U], getTierodRadius());
     } else {
-        m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
-        m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+        m_distTierod[LEFT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
+        m_distTierod[RIGHT]->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
     }
 }
 
@@ -537,17 +537,8 @@ void ChDoubleWishbone::AddVisualizationControlArm(std::shared_ptr<ChBody> arm,
     ChVector<> p_B = arm->TransformPointParentToLocal(pt_B);
     ChVector<> p_U = arm->TransformPointParentToLocal(pt_U);
 
-    auto cyl_F = chrono_types::make_shared<ChCylinderShape>();
-    cyl_F->GetCylinderGeometry().p1 = p_F;
-    cyl_F->GetCylinderGeometry().p2 = p_U;
-    cyl_F->GetCylinderGeometry().rad = radius;
-    arm->AddVisualShape(cyl_F);
-
-    auto cyl_B = chrono_types::make_shared<ChCylinderShape>();
-    cyl_B->GetCylinderGeometry().p1 = p_B;
-    cyl_B->GetCylinderGeometry().p2 = p_U;
-    cyl_B->GetCylinderGeometry().rad = radius;
-    arm->AddVisualShape(cyl_B);
+    ChVehicleGeometry::AddVisualizationCylinder(arm, p_F, p_U, radius);
+    ChVehicleGeometry::AddVisualizationCylinder(arm, p_B, p_U, radius);
 }
 
 void ChDoubleWishbone::AddVisualizationUpright(std::shared_ptr<ChBody> upright,
@@ -565,27 +556,15 @@ void ChDoubleWishbone::AddVisualizationUpright(std::shared_ptr<ChBody> upright,
     ChVector<> p_T = upright->TransformPointParentToLocal(pt_T);
 
     if ((p_L - p_C).Length2() > threshold2) {
-        auto cyl_L = chrono_types::make_shared<ChCylinderShape>();
-        cyl_L->GetCylinderGeometry().p1 = p_L;
-        cyl_L->GetCylinderGeometry().p2 = p_C;
-        cyl_L->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_L);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_L, p_C, radius);
     }
 
     if ((p_U - p_C).Length2() > threshold2) {
-        auto cyl_U = chrono_types::make_shared<ChCylinderShape>();
-        cyl_U->GetCylinderGeometry().p1 = p_U;
-        cyl_U->GetCylinderGeometry().p2 = p_C;
-        cyl_U->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_U);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_U, p_C, radius);
     }
 
     if ((p_T - p_C).Length2() > threshold2) {
-        auto cyl_T = chrono_types::make_shared<ChCylinderShape>();
-        cyl_T->GetCylinderGeometry().p1 = p_T;
-        cyl_T->GetCylinderGeometry().p2 = p_C;
-        cyl_T->GetCylinderGeometry().rad = radius;
-        upright->AddVisualShape(cyl_T);
+        ChVehicleGeometry::AddVisualizationCylinder(upright, p_T, p_C, radius);
     }
 }
 
@@ -597,11 +576,7 @@ void ChDoubleWishbone::AddVisualizationTierod(std::shared_ptr<ChBody> tierod,
     ChVector<> p_C = tierod->TransformPointParentToLocal(pt_C);
     ChVector<> p_U = tierod->TransformPointParentToLocal(pt_U);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>();
-    cyl->GetCylinderGeometry().p1 = p_C;
-    cyl->GetCylinderGeometry().p2 = p_U;
-    cyl->GetCylinderGeometry().rad = radius;
-    tierod->AddVisualShape(cyl);
+    ChVehicleGeometry::AddVisualizationCylinder(tierod, p_C, p_U, radius);
 }
 
 // -----------------------------------------------------------------------------
@@ -622,12 +597,12 @@ void ChDoubleWishbone::ExportComponentList(rapidjson::Document& jsonDocument) co
         bodies.push_back(m_tierod[0]);
         bodies.push_back(m_tierod[1]);
     }
-    ChPart::ExportBodyList(jsonDocument, bodies);
+    ExportBodyList(jsonDocument, bodies);
 
     std::vector<std::shared_ptr<ChShaft>> shafts;
     shafts.push_back(m_axle[0]);
     shafts.push_back(m_axle[1]);
-    ChPart::ExportShaftList(jsonDocument, shafts);
+    ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
     std::vector<std::shared_ptr<ChLoadBodyBody>> bushings;
@@ -662,15 +637,15 @@ void ChDoubleWishbone::ExportComponentList(rapidjson::Document& jsonDocument) co
         joints.push_back(m_distTierod[0]);
         joints.push_back(m_distTierod[1]);
     }
-    ChPart::ExportJointList(jsonDocument, joints);
-    ChPart::ExportBodyLoadList(jsonDocument, bushings);
+    ExportJointList(jsonDocument, joints);
+    ExportBodyLoadList(jsonDocument, bushings);
 
     std::vector<std::shared_ptr<ChLinkTSDA>> springs;
     springs.push_back(m_spring[0]);
     springs.push_back(m_spring[1]);
     springs.push_back(m_shock[0]);
     springs.push_back(m_shock[1]);
-    ChPart::ExportLinSpringList(jsonDocument, springs);
+    ExportLinSpringList(jsonDocument, springs);
 }
 
 void ChDoubleWishbone::Output(ChVehicleOutput& database) const {

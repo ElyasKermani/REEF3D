@@ -60,15 +60,14 @@ void ChLinkTrajectory::UpdateTime(double time) {
     double tr_timeA = space_fx->Get_y(time - tstep);
 
     if (trajectory_line) {
-        Vector result, resultB, resultA;
         if (modulo_s) {
             tr_time = fmod(tr_time, 1);
             tr_timeA = fmod(tr_timeA, 1);
             tr_timeB = fmod(tr_timeB, 1);
         }
-        trajectory_line->Evaluate(result, tr_time);
-        trajectory_line->Evaluate(resultA, tr_timeA);
-        trajectory_line->Evaluate(resultB, tr_timeB);
+        auto result = trajectory_line->Evaluate(tr_time);
+        auto resultA = trajectory_line->Evaluate(tr_timeA);
+        auto resultB = trajectory_line->Evaluate(tr_timeB);
 
         ChMatrix33<> mw;
         mw.Set_A_quaternion(marker2->GetAbsCoord().rot);
@@ -101,12 +100,12 @@ void ChLinkTrajectory::Initialize(std::shared_ptr<ChBody> mbody1,
     this->Set_trajectory_line(mline);
 }
 
-void ChLinkTrajectory::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkTrajectory::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinkTrajectory>();
 
     // serialize parent class
-    ChLinkLockLock::ArchiveOUT(marchive);
+    ChLinkLockLock::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(space_fx);
@@ -114,12 +113,12 @@ void ChLinkTrajectory::ArchiveOUT(ChArchiveOut& marchive) {
     marchive << CHNVP(modulo_s);
 }
 
-void ChLinkTrajectory::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkTrajectory::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinkTrajectory>();
 
     // deserialize parent class
-    ChLinkLockLock::ArchiveIN(marchive);
+    ChLinkLockLock::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(space_fx);

@@ -15,42 +15,72 @@
 #ifndef CHC_CYLINDER_H
 #define CHC_CYLINDER_H
 
-#include "chrono/geometry/ChGeometry.h"
+#include "chrono/geometry/ChVolume.h"
 
 namespace chrono {
 namespace geometry {
 
 /// A cylindrical geometric object for collisions and visualization.
-class ChApi ChCylinder : public ChGeometry {
+class ChApi ChCylinder : public ChVolume {
   public:
-    ChVector<> p1;  ///< center of first base
-    ChVector<> p2;  ///< center of second base
-    double rad;     ///< cylinder radius
-
-  public:
-    ChCylinder() : p1(VNULL), p2(ChVector<>(0, 1, 0)), rad(0.1) {}
-    ChCylinder(const ChVector<>& mp1, const ChVector<>& mp2, double mrad) : p1(mp1), p2(mp2), rad(mrad) {}
+    ChCylinder() : r(0), h(0) {}
+    ChCylinder(double radius, double height) : r(radius), h(height) {}
     ChCylinder(const ChCylinder& source);
     ~ChCylinder() {}
 
     /// "Virtual" copy constructor (covariant return type).
     virtual ChCylinder* Clone() const override { return new ChCylinder(*this); }
 
-    virtual GeometryType GetClassType() const override { return CYLINDER; }
+    /// Get the class type as an enum.
+    virtual Type GetClassType() const override { return Type::CYLINDER; }
 
-    /// Compute bounding box along the directions defined by the given rotation matrix.
-    virtual void GetBoundingBox(ChVector<>& cmin, ChVector<>& cmax, const ChMatrix33<>& rot) const override;
+    /// Return the volume of this solid.
+    virtual double GetVolume() const override;
 
-    virtual ChVector<> Baricenter() const override { return (p1 + p2) * 0.5; }
+    /// Return the gyration matrix for this solid.
+    virtual ChMatrix33<> GetGyration() const override;
 
-    /// This is a solid
-    virtual int GetManifoldDimension() const override { return 3; }
+    /// Compute bounding box along the directions of the shape definition frame.
+    virtual ChAABB GetBoundingBox() const override;
+
+    /// Return the radius of a bounding sphere for this geometry.
+    virtual double GetBoundingSphereRadius() const override;
+
+    /// Compute the baricenter of the capsule.
+    virtual ChVector<> Baricenter() const override { return ChVector<>(0); }
+
+    /// Evaluate position in box volume.
+    virtual ChVector<> Evaluate(double parU, double parV, double parW) const override {
+        //// TODO
+        return VNULL;
+    }
+
+    /// Get the cylinder radius.
+    double GetRadius() const { return r; }
+
+    /// Get the cylinder height.
+    double GetHeight() const { return h; }
 
     /// Method to allow serialization of transient data to archives.
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
 
     /// Method to allow de-serialization of transient data from archives.
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
+
+    /// Return the volume of this type of solid with given dimensions.
+    static double GetVolume(double radius, double height);
+
+    /// Return the gyration matrix of this type of solid with given dimensions.
+    static ChMatrix33<> GetGyration(double radius, double height);
+
+    /// Return the bounding box of this type of solid with given dimensions.
+    static ChAABB GetBoundingBox(double radius, double height);
+
+    /// Return the radius of a bounding sphere.
+    static double GetBoundingSphereRadius(double radius, double height);
+
+    double r;  ///< cylinder radius
+    double h;  ///< cylinder height
 };
 
 }  // end namespace geometry

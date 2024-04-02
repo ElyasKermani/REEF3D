@@ -22,22 +22,29 @@
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono_cascade/ChCascadeBodyEasy.h"
 #include "chrono_cascade/ChCascadeDoc.h"
-#include "chrono_cascade/ChCascadeVisualShape.h"
+#include "chrono_cascade/ChVisualShapeCascade.h"
 #include "chrono/solver/ChSolverADMM.h"
 
-#include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
-
-// Use the namespace of Chrono
-using namespace chrono;
+#ifdef CHRONO_IRRLICHT
+    #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 using namespace chrono::irrlicht;
+#endif
 
-// Use the namespace with OpenCascade stuff
-using namespace cascade;
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+using namespace chrono::vsg3d;
+#endif
+
+using namespace chrono;
+using namespace chrono::cascade;
+
+ChVisualSystem::Type vis_type = ChVisualSystem::Type::IRRLICHT;
 
 int main(int argc, char* argv[]) {
     // 1- Create a ChronoENGINE physical system: all bodies and constraints
     //    will be handled by this ChSystemNSC object.
     ChSystemNSC sys;
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create a surface material to be used for collisions, if any
     auto mysurfmaterial = chrono_types::make_shared<ChMaterialSurfaceNSC>();
@@ -59,8 +66,8 @@ int main(int argc, char* argv[]) {
     // print the contained shapes
     mydoc.Dump(GetLog());
 
-    collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.002);
-    collision::ChCollisionModel::SetDefaultSuggestedMargin(0.001);
+    ChCollisionModel::SetDefaultSuggestedEnvelope(0.002);
+    ChCollisionModel::SetDefaultSuggestedMargin(0.001);
 
     //
     // Retrieve some sub shapes from the loaded model, using
@@ -335,8 +342,7 @@ int main(int argc, char* argv[]) {
     motlaw_z_seq->InsertFunct(motlaw_z2, 1, 1, true);  // true = force c0 continuity, traslating fx
     motlaw_z_seq->InsertFunct(motlaw_z3, 1, 1, true);
     motlaw_z_seq->InsertFunct(motlaw_z4, 1, 1, true);
-    std::shared_ptr<ChFunction_Repeat> motlaw_z(new ChFunction_Repeat);
-    motlaw_z->Set_fa(motlaw_z_seq);
+    auto motlaw_z = chrono_types::make_shared<ChFunction_Repeat>(motlaw_z_seq);
     motlaw_z->Set_window_length(4);
 
     std::shared_ptr<ChFunction_Const> motlaw_y1(new ChFunction_Const);
@@ -352,8 +358,7 @@ int main(int argc, char* argv[]) {
     motlaw_y_seq->InsertFunct(motlaw_y2, 1, 1, true);  // true = force c0 continuity, traslating fx
     motlaw_y_seq->InsertFunct(motlaw_y3, 1, 1, true);
     motlaw_y_seq->InsertFunct(motlaw_y4, 1, 1, true);
-    std::shared_ptr<ChFunction_Repeat> motlaw_y(new ChFunction_Repeat);
-    motlaw_y->Set_fa(motlaw_y_seq);
+    auto motlaw_y = chrono_types::make_shared<ChFunction_Repeat>(motlaw_y_seq);
     motlaw_y->Set_window_length(4);
 
     my_marker_move->SetMotion_Z(motlaw_z);
@@ -384,16 +389,40 @@ int main(int argc, char* argv[]) {
             }
     }
 
-    // Create the Irrlicht visualization system
-    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-    vis->AttachSystem(&sys);
-    vis->SetWindowSize(800, 600);
-    vis->SetWindowTitle("Load a robot model from STEP file");
-    vis->Initialize();
-    vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddCamera(ChVector<>(0.2, 1.6, 3.5), ChVector<>(0, 1, 0));
-    vis->AddTypicalLights();
+    // Create the run-time visualization system
+    std::shared_ptr<ChVisualSystem> vis;
+    switch (vis_type) {
+        case ChVisualSystem::Type::IRRLICHT: {
+#ifdef CHRONO_IRRLICHT
+            auto vis_irr = chrono_types::make_shared<ChVisualSystemIrrlicht>();
+            vis_irr->AttachSystem(&sys);
+            vis_irr->SetWindowSize(800, 600);
+            vis_irr->SetWindowTitle("Load a robot model from STEP file");
+            vis_irr->Initialize();
+            vis_irr->AddLogo();
+            vis_irr->AddSkyBox();
+            vis_irr->AddCamera(ChVector<>(0.2, 1.6, 3.5), ChVector<>(0, 1, 0));
+            vis_irr->AddTypicalLights();
+
+            vis = vis_irr;
+#endif
+            break;
+        }
+        case ChVisualSystem::Type::VSG: {
+#ifdef CHRONO_VSG
+            auto vis_vsg = chrono_types::make_shared<ChVisualSystemVSG>();
+            vis_vsg->AttachSystem(&sys);
+            vis_vsg->SetWindowSize(1000, 800);
+            vis_vsg->SetCameraVertical(CameraVerticalDir::Y);
+            vis_vsg->SetWindowTitle("Load a robot model from STEP file");
+            vis_vsg->AddCamera(ChVector<>(2.2, 1.6, 2.5), ChVector<>(0, 1, 0));
+            vis_vsg->Initialize();
+
+            vis = vis_vsg;
+#endif
+            break;
+        }
+    }
 
     // Modify the settings of the solver.
     // By default, the solver might not have sufficient precision to keep the
@@ -424,8 +453,8 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        tools::drawChFunction(vis.get(), motlaw_z, 0, 10, -0.9, 0.2, 10, 400, 300, 80);
-        tools::drawChFunction(vis.get(), motlaw_y, 0, 10, -0.9, 0.2, 10, 500, 300, 80);
+        ////tools::drawChFunction(vis.get(), motlaw_z, 0, 10, -0.9, 0.2, 10, 400, 300, 80);
+        ////tools::drawChFunction(vis.get(), motlaw_y, 0, 10, -0.9, 0.2, 10, 500, 300, 80);
         vis->EndScene();
 
         sys.DoStepDynamics(time_step);

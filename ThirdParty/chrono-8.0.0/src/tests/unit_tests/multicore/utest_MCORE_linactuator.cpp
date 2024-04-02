@@ -17,7 +17,7 @@
 // =============================================================================
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
@@ -30,7 +30,6 @@
 #include "unit_testing.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 // -----------------------------------------------------------------------------
 // Problem definition
@@ -86,6 +85,9 @@ ChLinActuatorTest::ChLinActuatorTest() : animate(false) {
     }
     sys->Set_G_acc(gravity);
 
+    // Set associated collision system
+    sys->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
+
     // Set number of threads
     sys->SetNumThreads(1);
 
@@ -105,17 +107,16 @@ ChLinActuatorTest::ChLinActuatorTest() : animate(false) {
     }
 
     // Create the ground body.
-    std::shared_ptr<ChBody> ground(sys->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
 
     sys->AddBody(ground);
     ground->SetBodyFixed(true);
 
-    auto box_g = chrono_types::make_shared<ChBoxShape>();
-    box_g->GetBoxGeometry().SetLengths(ChVector<>(0.1, 0.1, 5));
+    auto box_g = chrono_types::make_shared<ChVisualShapeBox>(0.1, 0.1, 5);
     ground->AddVisualShape(box_g, ChFrame<>(2.5 * axis, rot));
 
     // Create the plate body.
-    plate = std::shared_ptr<ChBody>(sys->NewBody());
+    plate = chrono_types::make_shared<ChBody>();
     sys->AddBody(plate);
     plate->SetPos(ChVector<>(0, 0, 0));
     plate->SetRot(rot);
@@ -123,8 +124,7 @@ ChLinActuatorTest::ChLinActuatorTest() : animate(false) {
     plate->SetMass(mass);
     plate->SetInertiaXX(inertiaXX);
 
-    auto box_p = chrono_types::make_shared<ChBoxShape>();
-    box_p->GetBoxGeometry().SetLengths(ChVector<>(1, 1, 0.2));
+    auto box_p = chrono_types::make_shared<ChVisualShapeBox>(1, 1, 0.2);
     plate->AddVisualShape(box_p);
 
     // Create prismatic (translational) joint between plate and ground.
@@ -303,7 +303,7 @@ TEST_P(ChLinActuatorTest, simulate) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.SetCameraPosition(ChVector<>(0, -10, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector<>(0, -10, 0), ChVector<>(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
 
         while (time < time_end) {

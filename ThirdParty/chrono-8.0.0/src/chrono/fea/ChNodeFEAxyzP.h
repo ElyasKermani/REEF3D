@@ -99,6 +99,10 @@ class ChApi ChNodeFEAxyzP : public ChNodeFEAbase {
                                         ChVectorDynamic<>& R,
                                         const ChVectorDynamic<>& w,
                                         const double c) override;
+    virtual void NodeIntLoadLumpedMass_Md(const unsigned int off,
+                                          ChVectorDynamic<>& Md,
+                                          double& error,
+                                          const double c) override;
     virtual void NodeIntToDescriptor(const unsigned int off_v,
                                      const ChStateDelta& v,
                                      const ChVectorDynamic<>& R) override;
@@ -118,8 +122,8 @@ class ChApi ChNodeFEAxyzP : public ChNodeFEAbase {
 
     // SERIALIZATION
 
-    virtual void ArchiveOUT(ChArchiveOut& marchive) override;
-    virtual void ArchiveIN(ChArchiveIn& marchive) override;
+    virtual void ArchiveOut(ChArchiveOut& marchive) override;
+    virtual void ArchiveIn(ChArchiveIn& marchive) override;
 
   private:
     ChVariablesGeneric variables;  /// solver proxy: variable with scalar field P

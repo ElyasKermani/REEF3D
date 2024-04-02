@@ -48,7 +48,8 @@ def AddFallingItems(sys):
         mboxBody.GetVisualShape(0).SetTexture(chrono.GetChronoDataFile("textures/cubetexture_bluewhite.png"))
         sys.Add(mboxBody)
 
-        mcylBody = chrono.ChBodyEasyCylinder(0.75, 0.5, # radius, height
+        mcylBody = chrono.ChBodyEasyCylinder(chrono.ChAxis_Y,
+                                             0.75, 0.5, # radius, height
                                              100,       # density
                                              True,      # visualization?
                                              True,      # collision?
@@ -123,6 +124,7 @@ def AddContainer(sys):
 
 #  Create the simulation sys and add items
 sys = chrono.ChSystemNSC()
+sys.SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
 
 mixer = AddContainer(sys)
 AddFallingItems(sys)

@@ -291,7 +291,7 @@ void ChOptixGeometry::AddCylinder(std::shared_ptr<ChBody> body,
     if (!m_cyl_inst) {
         // create first cylinder instance
         OptixAabb aabb[1];
-        *aabb = {-1.f, -.5f, -1.f, 1.f, .5f, 1.f};
+        *aabb = {-1.f, -1.f, -.5f, 1.f, 1.f, .5f};
         CUdeviceptr d_aabb;
         CUDA_ERROR_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_aabb), sizeof(OptixAabb)));
         CUDA_ERROR_CHECK(cudaMemcpy(reinterpret_cast<void*>(d_aabb), &aabb, sizeof(OptixAabb), cudaMemcpyHostToDevice));
@@ -362,7 +362,7 @@ void ChOptixGeometry::AddCylinder(std::shared_ptr<ChBody> body,
 
 unsigned int ChOptixGeometry::AddRigidMesh(CUdeviceptr d_vertices,
                                            CUdeviceptr d_indices,
-                                           std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                           std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                            std::shared_ptr<ChBody> body,
                                            ChFrame<double> asset_frame,
                                            ChVector<double> scale,
@@ -396,7 +396,7 @@ unsigned int ChOptixGeometry::AddRigidMesh(CUdeviceptr d_vertices,
 
 void ChOptixGeometry::AddDeformableMesh(CUdeviceptr d_vertices,
                                         CUdeviceptr d_indices,
-                                        std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+                                        std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                         std::shared_ptr<ChBody> body,
                                         ChFrame<double> asset_frame,
                                         ChVector<double> scale,
@@ -408,7 +408,7 @@ void ChOptixGeometry::AddDeformableMesh(CUdeviceptr d_vertices,
 
 void ChOptixGeometry::UpdateDeformableMeshes() {
     for (int i = 0; i < m_deformable_meshes.size(); i++) {
-        std::shared_ptr<ChTriangleMeshShape> mesh_shape = std::get<0>(m_deformable_meshes[i]);
+        std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape = std::get<0>(m_deformable_meshes[i]);
         CUdeviceptr d_vertices = std::get<1>(m_deformable_meshes[i]);
         CUdeviceptr d_indices = std::get<2>(m_deformable_meshes[i]);
         unsigned int gas_id = std::get<3>(m_deformable_meshes[i]);
@@ -418,7 +418,7 @@ void ChOptixGeometry::UpdateDeformableMeshes() {
     }
 }
 
-unsigned int ChOptixGeometry::BuildTrianglesGAS(std::shared_ptr<ChTriangleMeshShape> mesh_shape,
+unsigned int ChOptixGeometry::BuildTrianglesGAS(std::shared_ptr<ChVisualShapeTriangleMesh> mesh_shape,
                                                 CUdeviceptr d_vertices,
                                                 CUdeviceptr d_indices,
                                                 bool compact_no_update,

@@ -8,7 +8,7 @@
 # Check backward compatibility
 #-----------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 
 #-----------------------------------------------------------------------------
 # Prevent in-source builds.
@@ -24,12 +24,8 @@ endif(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 if(COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
     cmake_policy(SET CMP0048 NEW)
+    cmake_policy(SET CMP0091 NEW)
 endif(COMMAND cmake_policy)
-
-# Get rid of cmake RPATH warning on OSX
-if(APPLE)
-    set(CMAKE_MACOSX_RPATH OFF)
-endif()
 
 #-----------------------------------------------------------------------------
 # Disable solution folders because not supported in VC Express
@@ -64,6 +60,11 @@ message(STATUS "We are on a ${CMAKE_HOST_SYSTEM_NAME} system")
 message(STATUS "The host processor is ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 message(STATUS "Building for a ${CMAKE_SYSTEM_NAME} system")
 message(STATUS "The target processor is ${CMAKE_SYSTEM_PROCESSOR}")
+
+# Get rid of cmake RPATH warning on OSX
+if(APPLE)
+    set(CMAKE_MACOSX_RPATH OFF)
+endif()
 
 #-----------------------------------------------------------------------------
 # Location of additional CMake scripts
@@ -132,6 +133,7 @@ if(MSVC OR XCODE_VERSION)
 else()
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release MinSizeRel RelWithDebInfo)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     set(CPACK_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 endif()
 
@@ -232,10 +234,17 @@ endif()
 # Install sample template_project
 #------------------------------------------------------------
 
-if(MSVC OR XCODE_VERSION)
+get_property(MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(MULTI_CONFIG)
     file(COPY ${CMAKE_SOURCE_DIR}/data/ DESTINATION ${CMAKE_BINARY_DIR}/bin/data/)
+    message(STATUS "Using a multi-config generator (${CMAKE_GENERATOR})")
+    message(STATUS "Data directory copied to: ${CMAKE_BINARY_DIR}/bin/data/")
+    message(STATUS "Binaries will be created in ${CMAKE_BINARY_DIR}/bin/<CONFIGURATION>/")
 else()
     file(COPY ${CMAKE_SOURCE_DIR}/data/ DESTINATION ${CMAKE_BINARY_DIR}/data/)
+    message(STATUS "Using a single configuration generator (${CMAKE_GENERATOR})")
+    message(STATUS "Data directory copied to: ${CMAKE_BINARY_DIR}/data/")
+    message(STATUS "Binaries will be created in ${CMAKE_BINARY_DIR}/bin/")
 endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/ DESTINATION ${CH_INSTALL_DATA})

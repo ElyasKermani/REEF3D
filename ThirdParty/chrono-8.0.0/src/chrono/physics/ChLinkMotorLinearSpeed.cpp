@@ -123,6 +123,14 @@ void ChLinkMotorLinearSpeed::IntLoadResidual_Mv(const unsigned int off,      // 
     R(off) += c * 1.0 * w(off);
 }
 
+void ChLinkMotorLinearSpeed::IntLoadLumpedMass_Md(const unsigned int off,
+                                                  ChVectorDynamic<>& Md,
+                                                  double& err,
+                                                  const double c 
+) {
+    Md(off) += c * 1.0;
+}
+
 void ChLinkMotorLinearSpeed::IntToDescriptor(const unsigned int off_v,  // offset in v, R
                                              const ChStateDelta& v,
                                              const ChVectorDynamic<>& R,
@@ -178,12 +186,12 @@ void ChLinkMotorLinearSpeed::VariablesQbSetSpeed(double step) {
     // Compute accel. by BDF (approximate by differentiation); not needed
 }
 
-void ChLinkMotorLinearSpeed::ArchiveOUT(ChArchiveOut& marchive) {
+void ChLinkMotorLinearSpeed::ArchiveOut(ChArchiveOut& marchive) {
     // version number
     marchive.VersionWrite<ChLinkMotorLinearSpeed>();
 
     // serialize parent class
-    ChLinkMotorLinear::ArchiveOUT(marchive);
+    ChLinkMotorLinear::ArchiveOut(marchive);
 
     // serialize all member data:
     marchive << CHNVP(pos_offset);
@@ -191,12 +199,12 @@ void ChLinkMotorLinearSpeed::ArchiveOUT(ChArchiveOut& marchive) {
 }
 
 /// Method to allow de serialization of transient data from archives.
-void ChLinkMotorLinearSpeed::ArchiveIN(ChArchiveIn& marchive) {
+void ChLinkMotorLinearSpeed::ArchiveIn(ChArchiveIn& marchive) {
     // version number
     /*int version =*/ marchive.VersionRead<ChLinkMotorLinearSpeed>();
 
     // deserialize parent class
-    ChLinkMotorLinear::ArchiveIN(marchive);
+    ChLinkMotorLinear::ArchiveIn(marchive);
 
     // deserialize all member data:
     marchive >> CHNVP(pos_offset);

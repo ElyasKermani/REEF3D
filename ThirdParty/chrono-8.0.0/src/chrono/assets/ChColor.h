@@ -16,10 +16,14 @@
 #define CHCOLOR_H
 
 #include "chrono/core/ChClassFactory.h"
+#include "chrono/core/ChVector.h"
 #include "chrono/core/ChStream.h"
 #include "chrono/serialization/ChArchive.h"
 
 namespace chrono {
+
+/// @addtogroup chrono_assets
+/// @{
 
 /// Definition of a visual color.
 /// The red (R), green (G), and blue (B) channels take values between 0 and 1.
@@ -42,17 +46,25 @@ class ChApi ChColor {
         return *this;
     }
 
+    /// Convert to HSV.
+    static ChVector<float> RGB2HSV(const ChColor& rgb);
+
+    /// Set from HSV.
+    static ChColor HSV2RGB(const ChVector<float>& hsv);
+
     /// Compute a false color from a scalar value. Uses a cold-to-hot colormap.
     /// The 'v' scalar value is mapped in the vmin-vmax range.
     /// If out_of_range_as_bw option is true, then return white for v>vmax and black for v<vmin.
     static ChColor ComputeFalseColor(double v, double vmin, double vmax, bool out_of_range_as_bw = false);
 
     /// Method to allow serialization of transient data to archives.
-    void ArchiveOUT(ChArchiveOut& marchive);
+    void ArchiveOut(ChArchiveOut& marchive);
 
     /// Method to allow de-serialization of transient data from archives.
-    void ArchiveIN(ChArchiveIn& marchive);
+    void ArchiveIn(ChArchiveIn& marchive);
 };
+
+/// @} chrono_assets
 
 CH_CLASS_VERSION(ChColor, 0)
 
