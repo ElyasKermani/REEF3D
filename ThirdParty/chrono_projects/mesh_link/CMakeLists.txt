@@ -16,7 +16,7 @@ cmake_policy(SET CMP0091 NEW)
 # Set the project name
 #--------------------------------------------------------------
 
-project(botwedge)
+project(mesh_link)
 
 #--------------------------------------------------------------
 # === 2 ===
@@ -83,6 +83,12 @@ endif()
 
 set(CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD ${CHRONO_CXX_STANDARD})
+
+#path to cmake build files chrono
+
+set(Chrono_DIR "/Users/weizhiwang/workspace/chrono_build/cmake")
+
+#
 
 #--------------------------------------------------------------
 # Enable creation of "application bundles" on MacOSX.

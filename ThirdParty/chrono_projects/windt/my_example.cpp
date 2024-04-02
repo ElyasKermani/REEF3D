@@ -67,11 +67,11 @@ int main(int argc, char* argv[]) {
     // Load the .stl mesh file for the rigid body
     // Create the rigid body based on the .stl mesh
 
-    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("C:/workspace/chrono_build/bin/data/models/reef3d/housing_stl.stl");
+    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("/Users/weizhiwang/workspace/housing_stl.stl");
 
     ////
 
-    auto trimesh2 = ChTriangleMeshConnected::CreateFromSTLFile("C:/workspace/chrono_build/bin/data/models/reef3d/blades_stl.stl");
+    auto trimesh2 = ChTriangleMeshConnected::CreateFromSTLFile("/Users/weizhiwang/workspace/blades_stl.stl");
 
     ChQuaternion<> rotation1;
     rotation1.Q_from_AngAxis(-CH_C_PI / 2, ChVector<>(1, 0, 0));  // 1: rotate 90� on X axis
@@ -142,10 +142,22 @@ int main(int argc, char* argv[]) {
     //house = chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::X, 0.5, 0.1, 1000, mesh_mat);
     //house->SetPos();
 
+    // ... (previous code)
+
+    // Create a quaternion for 90-degree rotation around the x-axis
+    ChQuaternion<> qRotation = Q_from_AngAxis(90.0 * CH_C_DEG_TO_RAD, VECT_X);
+
+    // Create a blade orientation vector (modify this according to your actual blade orientation)
+    ChVector<> bladeOrientation(0, 0, 1);  // Assuming initial orientation along the z-axis
+
+    // Rotate the blade orientation
+    ChVector<> rotatedBladeOrientation = qRotation.Rotate(bladeOrientation);
+
     auto blade = chrono_types::make_shared<ChBody>();
     blade->SetMass(1.0);
     //blade->SetInertiaXX(ChVector<>(1.0,1.0,1.0));
     //blade->SetRot(Q_from_AngAxis(CH_C_PI / 2, {0, 1, 0}));
+    //blade->SetRot(rotatedBladeOrientation);
     //blade->SetBodyFixed(true);
     blade->SetPos(ChVector<>(-0.03,-0.083,-0.009));  //-0.03,-0.082,-0.009
     //blade->ConcatenatePreTransformation(root_frame);
@@ -171,9 +183,10 @@ int main(int argc, char* argv[]) {
 
 
    // Create the revolute joint between the housing and bladedes
-    //auto joint = chrono_types::make_shared<ChLinkRevolute>();
-    //joint->Initialize(housing, blade, joint_frame);
-    //sys.AddLink(joint);
+    auto joint = chrono_types::make_shared<ChLinkRevolute>();
+    joint->Initialize(blade, housing, ChCoordsys<>(blade->GetPos(), QUNIT));
+    joint->SetShaftDirection(VECT_X);
+    sys.AddLink(joint);
 
     //revoluteJoint->Initialize(housing, blade, ChCoordsys<>(pivot, Q_from_AngAxis(CH_C_PI / 2, axis)));
     //revoluteJoint->Initialize(housing, blade, ChFrame<double>(pivot, Q_from_AngAxis(CH_C_PI / 2, axis)));
@@ -186,7 +199,7 @@ int main(int argc, char* argv[]) {
 
     sys.Add(motor);
 
-    motor->SetSpeedFunction(chrono_types::make_shared<ChFunction_Const>(1.0));  // Set the desired rotation speed in radians per second
+    motor->SetSpeedFunction(chrono_types::make_shared<ChFunction_Const>(2.0));  // Set the desired rotation speed in radians per second
     
 
     // Create the Irrlicht visualization system
