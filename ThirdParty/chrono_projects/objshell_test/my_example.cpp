@@ -45,6 +45,8 @@ int main(int argc, char* argv[]) {
 
     //sys.Set_G_acc(ChVector<>(0, 0, 0));
 
+    /*
+
     SetChronoDataPath(CHRONO_DATA_DIR);
 
     ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
@@ -66,11 +68,9 @@ int main(int argc, char* argv[]) {
     floorBody->SetBodyFixed(true);
     floorBody->GetVisualShape(0)->SetTexture(GetChronoDataFile("textures/blue.png"));
     //sys.Add(floorBody);
+    */
 
     auto mesh = chrono_types::make_shared<ChMesh>();
-
-    // Add the mesh to the system
-    sys.Add(mesh);
 
     double density = 100;
 
@@ -80,16 +80,14 @@ int main(int argc, char* argv[]) {
     material->SetDensity(density);
 
     ChMeshFileLoader::BSTShellFromObjFile(mesh, "/Users/weizhiwang/workspace/circle.obj", material, 0.01);
-    /*
     if (auto mnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(0))) {
-            mnode->SetFixed(true);
+            mnode->SetFixed(false);
     }
-    */
     
 
     //create a load on the nodes of the shell
     auto cont = chrono_types::make_shared<ChLoadContainer>();
-    sys.Add(cont);
+
     /*
     // Create the node loads and add them to the system
     for (int i = 0; i < mesh->GetNnodes(); i++) {
@@ -118,6 +116,7 @@ int main(int argc, char* argv[]) {
     }
     */
 
+   /*
     // Create the node loads and add them to the system
     for (int i = 0; i < mesh->GetNnodes(); i++) {
         if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
@@ -132,6 +131,103 @@ int main(int argc, char* argv[]) {
             cont->Add(nodeLoad);
         }
     }
+    */
+
+   /*
+    // Iterate over all nodes in the mesh
+    for (int i = 0; i < mesh->GetNnodes(); i++) {
+        if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            // Get the position of the node
+            ChVector<> pos = node->GetPos();
+
+            // Print the position
+            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+    }
+
+    for (int i = 0; i < mesh->GetNelements(); i++) {
+        if (auto el = std::dynamic_pointer_cast<ChElementShellBST>(mesh->GetElement(i))) {
+            std::cout << "Element " << i << std::endl;
+        }
+    }
+    */
+
+    /*
+    // Constants for the buoyancy force
+    double waterDensity = 1000; // Density of water in kg/m^3
+    double gravity = 9.81; // Acceleration due to gravity in m/s^2
+
+    // Iterate over all nodes in the mesh
+    for (int i = 0; i < mesh->GetNnodes(); i++) {
+        if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            // Get the position of the node
+            ChVector<> pos = node->GetPos();
+
+            // Calculate the buoyancy force
+            double volume = node->GetVolume(); // Replace with the actual volume of the node
+            double buoyancyForce = waterDensity * volume * gravity;
+
+            // Apply the buoyancy force in the upward direction
+            ChVector<> load(0, buoyancyForce, 0);
+            auto nodeLoad = std::make_shared<ChLoadXYZnode>(node, load);
+            cont->Add(nodeLoad);
+        }
+    }
+    */
+
+   /*
+    for (int i = 0; i < 20; i++) {
+        if (auto nnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            ChVector<> pos = nnode->GetPos();
+
+            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+    }
+
+    // Iterate over the first 19 nodes in the mesh
+    for (int i = 0; i < 20; i++) {
+        if (auto rnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            rnode->SetFixed(true);
+        }
+    }
+    */
+
+    /*
+    double pressure = 1; //Pressure in Pa
+    std::cout << "Pressure of " << pressure << "Pa" << std::endl;
+    //auto element = std::dynamic_pointer_cast<ChElementShellBST>(mesh->GetElement(0));
+
+    //auto pressure_load = chrono_types::make_shared<ChLoad<ChLoaderPressure>>(element);
+
+    for (int i = 0; i < mesh->GetNelements(); i++) {
+        if (auto pel = std::dynamic_pointer_cast<ChElementShellBST>(mesh->GetElement(i))) {
+
+            auto pressure_load = chrono_types::make_shared<ChLoad<ChLoaderPressure>>(pel);
+            pressure_load->loader.SetPressure(pressure);
+            pressure_load->loader.SetStiff(false);
+            cont->Add(pressure_load);
+            std::cout << "Element with pressure" << pressure_load << std::endl;
+
+            auto mnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(30));
+            std::cout << "Node 0 motion" << mnode->GetPos().y() << std::endl;
+        }
+    }
+    */
+
+    sys.Add(mesh);
+    sys.Add(cont);
+
+    // Define the force to be applied
+    ChVector<> force(0, 0.1, 0); // Replace with the actual force
+
+    // Iterate over all nodes in the mesh
+    for (int i = 20; i < 31; i++) {
+        if (auto fnode = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            // Apply the force to the node
+            fnode->SetForce(force);
+        }
+    }
+    
 
     // Visualization of the FEM mesh.
     auto vis_shell_mesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
@@ -177,7 +273,7 @@ int main(int argc, char* argv[]) {
         vis->BeginScene(true, true, ChColor(0.55f, 0.63f, 0.75f));
         vis->Render();
         vis->EndScene();
-        sys.DoStepDynamics(0.001);
+        sys.DoStepDynamics(0.005);
     }
 
     return 0;
