@@ -33,22 +33,35 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
 
         std::vector<std::vector<std::vector<double>>> mesh;
+        std::vector<std::vector<std::vector<double*>>> mesh_ptr;
         for(int n=0;n<fb_obj[nb]->tricount;n++)
         {
             std::vector<std::vector<double>> triangle;
+            std::vector<std::vector<double*>> triangle_ptr;
             for (int m=0;m<3;m++)
             {
                 std::vector<double> point;
+                std::vector<double*> point_ptr;
                 point.push_back(fb_obj[0]->tri_x[n][m]);
                 point.push_back(fb_obj[0]->tri_y[n][m]);
                 point.push_back(fb_obj[0]->tri_z[n][m]);
                 triangle.push_back(point);
+                point_ptr.push_back(&fb_obj[0]->tri_x[n][m]);
+                point_ptr.push_back(&fb_obj[0]->tri_y[n][m]);
+                point_ptr.push_back(&fb_obj[0]->tri_z[n][m]);
+                triangle_ptr.push_back(point_ptr);
             }
             mesh.push_back(triangle);
+            mesh_ptr.push_back(triangle_ptr);
         }
         meshes.push_back(mesh);
+        // fb_objToChrono_obj->push_back(mesh_ptr);
     }
-    chrono_obj->addMeshes(meshes);
+    cout<<(fb_obj[0]->tri_x[0][0])<<endl;
+    fb_objToChrono_obj=&meshes;
+    chrono_obj->meshes_REEF_ptr=fb_objToChrono_obj;
+    // chrono_obj->addMeshes(meshes);
+    chrono_obj->test();
 }
 
 void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)
