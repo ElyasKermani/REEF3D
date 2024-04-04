@@ -58,8 +58,8 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         // fb_objToChrono_obj->push_back(mesh_ptr);
     }
     cout<<(fb_obj[0]->tri_x[0][0])<<endl;
-    fb_objToChrono_obj=&meshes;
-    chrono_obj->meshes_REEF_ptr=fb_objToChrono_obj;
+    // fb_objToChrono_obj=&meshes;
+    // chrono_obj->meshes_REEF_ptr=fb_objToChrono_obj;
     // chrono_obj->addMeshes(meshes);
     chrono_obj->test();
 }
