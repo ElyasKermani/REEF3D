@@ -5,8 +5,6 @@
 chronoWrapperOuter::chronoWrapperOuter()
 {
     obj = new chronoWrapper();
-    meshes_REEF_ptr=obj->meshes_REEF_ptr;
-    std::cout<<"WrappeOuterr:"<<&(meshes_REEF_ptr)<<std::endl;
 }
 chronoWrapperOuter::~chronoWrapperOuter()
 {
