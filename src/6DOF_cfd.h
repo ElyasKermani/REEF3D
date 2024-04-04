@@ -69,7 +69,6 @@ private:
     double alpha[3],gamma[3],zeta[3];
     vector<sixdof_obj*> fb_obj;
 
-    std::vector<std::vector<std::vector<std::vector<double>>>>* fb_objToChrono_obj;
 };
 
 #endif
