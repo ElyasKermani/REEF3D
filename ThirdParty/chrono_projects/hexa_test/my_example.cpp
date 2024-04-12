@@ -1,6 +1,6 @@
 // =============================================================================
 //
-// Chrono FEA using ANCF Hexa 3813 elements - modified version of the demo_FEA_hexaANCF_3813.cpp
+// Chrono FEA using ANCF Hexa 3813 elements in the horizontal x-z plane - modified version of the demo_FEA_hexaANCF_3813.cpp
 //
 // =============================================================================
 
@@ -22,10 +22,9 @@ int main(int argc, char* argv[]) {
 
     ChSystemSMC sys;
 
-    GetLog() << "-----------------------------------------------------------\n";
-    GetLog() << "-----------------------------------------------------------\n";
-    GetLog() << "     Brick Elements demo with implicit integration \n";
-    GetLog() << "-----------------------------------------------------------\n";
+    GetLog() << "---------------------------------------------------------------------------\n";
+    GetLog() << "   Hexa ANCF Elements with horizontal placement and implicit integration   \n";
+    GetLog() << "---------------------------------------------------------------------------\n";
 
     // The physical system: it contains all physical objects.
     // Create a mesh, that is a container for groups
