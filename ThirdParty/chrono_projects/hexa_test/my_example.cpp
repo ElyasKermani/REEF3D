@@ -1,6 +1,6 @@
 // =============================================================================
 //
-// Chrono FEA using ANCF Hexa 3813 elements in the horizontal x-z plane - modified version of the demo_FEA_hexaANCF_3813.cpp
+// Chrono FEA using ANCF Hexa 3813 elements in the horizontal x-z plane  - modified version of the demo_FEA_hexaANCF_3813.cpp
 //
 // =============================================================================
 
@@ -201,8 +201,16 @@ int main(int argc, char* argv[]) {
         elemcount++;
     }
 
-    // Remember to add the mesh to the system!
-    sys.Add(mesh);
+    //Adding the mesh to the system
+    sys.Add(mesh); 
+
+    // Print node positions
+    for (int i = 0; i < mesh->GetNnodes(); i++) {
+        if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
+            ChVector<> pos = node->GetPos();
+            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+    }
 
     // Options for visualization in irrlicht
     auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
@@ -258,10 +266,18 @@ int main(int argc, char* argv[]) {
     mystepper->SetAbsTolerances(1e-3);
 
     while (vis->Run()) {
+        /*
+        // Print node positions
+        if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(i))) {
+            ChVector<> pos = node->GetPos();
+            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+        */
+
         vis->BeginScene();
         vis->Render();
         vis->EndScene();
-        sys.DoStepDynamics(0.001);
+        sys.DoStepDynamics(0.004);
     }
 
     return 0;

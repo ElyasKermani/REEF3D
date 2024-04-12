@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 node_data = {9: [], 14: [], 21: [], 25: []}
 
 # Open the text file and read the data
-with open('/Users/weizhiwang/workspace/chrono_projects/ancf_shell_build/node_positions.txt', 'r') as file:
+with open('/Users/weizhiwang/Project-Chrono-Linker/ThirdParty/chrono_projects/hexa_test/build/node_positions.txt', 'r') as file:
     for line in file:
         # Split the line into words
         words = line.split()

@@ -17,6 +17,9 @@
 #include "chrono/physics/ChLoadsBody.h"
 #include "chrono/physics/ChLoaderUV.h"
 
+#include <iostream>
+#include <fstream>
+
 
 using namespace chrono;
 using namespace chrono::fea;
@@ -187,9 +190,9 @@ int main(int argc, char* argv[]) {
             // Create a ChLoaderPressure for the element
             auto pressure_load = chrono_types::make_shared<ChLoad<MyChLoaderPressure>>(el);
             pressure_load->loader.SetPressure(pressureValue);
-            pressure_load->loader.SetStiff(false); 
+            pressure_load->loader.SetStiff(true); 
             pressure_load->loader.SetIntegrationPoints(2);
-            pressure_load->loader.SetFrequency(3.0);
+            pressure_load->loader.SetFrequency(5.0);
             pressure_load->loader.SetTime(sys.GetChTime());
             loadcontainer->Add(pressure_load);
         }
@@ -200,13 +203,21 @@ int main(int argc, char* argv[]) {
     // Add the mesh to the system
     sys.Add(mesh);
 
+    // Iterate over all elements in the mesh
+    for (int i = 0; i < mesh->GetNelements(); i++) {
+        std::cout << "Element " << i << std::endl;
+    }
+    
+    sys.Add(loadcontainer);
+    
+
     // -------------------------------------
     // Options for visualization in irrlicht
     // -------------------------------------
 
     auto visualizemeshA = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     visualizemeshA->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
-    visualizemeshA->SetColorscaleMinMax(0.0, 5.50);
+    visualizemeshA->SetColorscaleMinMax(-600.0, 600.0);
     visualizemeshA->SetShrinkElements(true, 0.85);
     visualizemeshA->SetSmoothFaces(true);
     mesh->AddVisualShapeFEA(visualizemeshA);
@@ -227,7 +238,7 @@ int main(int argc, char* argv[]) {
     visualizemeshD->SetFEMglyphType(ChVisualShapeFEA::GlyphType::ELEM_TENS_STRAIN);
     visualizemeshD->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     visualizemeshD->SetSymbolsScale(1);
-    visualizemeshD->SetColorscaleMinMax(-0.5, 5);
+    visualizemeshD->SetColorscaleMinMax(-600.0, 600.0);
     visualizemeshD->SetZbufferHide(false);
     mesh->AddVisualShapeFEA(visualizemeshD);
 
@@ -254,25 +265,13 @@ int main(int argc, char* argv[]) {
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
 
-    /*
-    // Set up integrator
-    auto stepper = chrono_types::make_shared<ChTimestepperHHT>(&sys);
-    sys.SetTimestepper(stepper);
-    // Alternative way of changing the integrator:
-    ////sys.SetTimestepperType(ChTimestepper::Type::HHT);
-    ////auto stepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
-
-    stepper->SetAlpha(-0.2);
-    stepper->SetMaxiters(5);
-    stepper->SetAbsTolerances(1e-2);
-    stepper->SetStepControl(true);
-    stepper->SetMinStepSize(1e-4);
-    ////stepper->SetVerbose(true);
-    */
+    // Open the file in append mode
+        std::ofstream file("node_positions.txt", std::ios_base::app);
 
     // Simulation loop
 
-    while (vis->Run()) {
+    while (vis->Run()){
+
         // Update time for each pressure load
         for (auto& load : loadcontainer->GetLoadList()) {
             if (auto pressure_load = std::dynamic_pointer_cast<ChLoad<MyChLoaderPressure>>(load)) {
@@ -280,6 +279,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        /*
         // Print node positions
         for (int i = 0; i < mesh->GetNnodes(); i++) {
             if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(i))) {
@@ -287,12 +287,54 @@ int main(int argc, char* argv[]) {
                 std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
             }
         }
+        */
+
+        // Write node positions to file
+        if (auto fnode = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(9))) {
+            ChVector<> pos = fnode->GetPos();
+            file << "Time " << sys.GetChTime() << " - Node 9: " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+
+        if (auto fnode = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(14))) {
+            ChVector<> pos = fnode->GetPos();
+            file << "Time " << sys.GetChTime() << " - Node 14: " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+
+        if (auto fnode = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(21))) {
+            ChVector<> pos = fnode->GetPos();
+            file << "Time " << sys.GetChTime() << " - Node 21: " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+
+        if (auto fnode = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(25))) {
+            ChVector<> pos = fnode->GetPos();
+            file << "Time " << sys.GetChTime() << " - Node 25: " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        }
+
+        /*
+        // Iterate over all elements in the mesh
+        for (int i = 0; i < mesh->GetNelements(); i++) {
+            if (auto el = std::dynamic_pointer_cast<ChElementShellANCF_3423>(mesh->GetElement(i))) {
+                // Compute the internal forces at the center of the element
+                double U = 0.5, V = 0.5;
+                ChVectorDynamic<> Qi(24);
+                double detJ;
+                ChVectorDynamic<> F(9);
+                el->ComputeNF(U, V, Qi, detJ, F, nullptr, nullptr);
+
+                // Print the forces
+                std::cout << "Forces for element " << i << ": " << Qi << std::endl;
+            }
+        }
+        */
 
         vis->BeginScene();
         vis->Render();
-        vis->EndScene();
-        sys.DoStepDynamics(0.001);
+        vis->EndScene();    
+        sys.DoStepDynamics(0.01);
     }
+
+    // Close the file
+        file.close();
 
     return 0;
 }
