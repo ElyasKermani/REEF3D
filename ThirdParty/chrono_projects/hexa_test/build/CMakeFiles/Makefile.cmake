@@ -29,7 +29,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/Applications/CMake.app/Contents/share/cmake-3.27/Modules/Platform/Darwin-Initialize.cmake"
   "/Applications/CMake.app/Contents/share/cmake-3.27/Modules/Platform/Darwin.cmake"
   "/Applications/CMake.app/Contents/share/cmake-3.27/Modules/Platform/UnixPaths.cmake"
-  "/Users/weizhiwang/workspace/chrono_projects/hexa_test/CMakeLists.txt"
+  "/Users/weizhiwang/Project-Chrono-Linker/ThirdParty/chrono_projects/hexa_test/CMakeLists.txt"
   "CMakeFiles/3.27.7/CMakeCCompiler.cmake"
   "CMakeFiles/3.27.7/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.27.7/CMakeSystem.cmake"
