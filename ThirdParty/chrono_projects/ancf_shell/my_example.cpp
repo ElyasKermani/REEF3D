@@ -1,3 +1,9 @@
+// =============================================================================
+//
+// Chrono FEA using ANCF Shell 3423 elements with modified pressure load - modified version of the demo_FEA_shellsANCF_3423.cpp
+//
+// =============================================================================
+
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/fea/ChElementShellANCF_3423.h"

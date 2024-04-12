@@ -1,5 +1,5 @@
 // =============================================================================
-// PROJECT CHRONO
+// PROJECT CHRONO - OBJ mesh import from triangle mesh to Chrono mesh, with added modified pressure load
 //==============================================================================
 
 #include "chrono/physics/ChBodyEasy.h"

@@ -1,16 +1,7 @@
 // =============================================================================
-// PROJECT CHRONO - http://projectchrono.org
+// 
+// Importing a STL mesh file and simulating it in Chrono::Engine, trying to link blade and rotor for wind turbine simulation.
 //
-// Copyright (c) 2014 projectchrono.org
-// All rights reserved.
-//
-// Use of this source code is governed by a BSD-style license that can be found
-// in the LICENSE file at the top level of the distribution and at
-// http://projectchrono.org/license-chrono.txt.
-//
-// =============================================================================
-// A very simple example that can be used as template project for
-// a Chrono::Engine simulator with 3D view.
 // =============================================================================
 
 #include "chrono/physics/ChSystemNSC.h"
