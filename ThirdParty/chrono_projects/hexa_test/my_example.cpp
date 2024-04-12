@@ -202,15 +202,21 @@ int main(int argc, char* argv[]) {
     }
 
     //Adding the mesh to the system
-    sys.Add(mesh); 
+    sys.Add(mesh);
+
+    // Open the file in append mode
+    std::ofstream file("node_positions.txt", std::ios_base::app);
 
     // Print node positions
     for (int i = 0; i < mesh->GetNnodes(); i++) {
         if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(i))) {
             ChVector<> pos = node->GetPos();
-            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+            file << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
         }
     }
+
+    // Close the file
+    file.close();
 
     // Options for visualization in irrlicht
     auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
@@ -266,13 +272,12 @@ int main(int argc, char* argv[]) {
     mystepper->SetAbsTolerances(1e-3);
 
     while (vis->Run()) {
-        /*
+
         // Print node positions
-        if (auto node = std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(i))) {
-            ChVector<> pos = node->GetPos();
-            std::cout << "Node " << i << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+        if (auto nodetip = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(TotalNumNodes - 1))) {
+            ChVector<> pos = nodetip->GetPos();
+            std::cout << "Node " << "49" << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
         }
-        */
 
         vis->BeginScene();
         vis->Render();
