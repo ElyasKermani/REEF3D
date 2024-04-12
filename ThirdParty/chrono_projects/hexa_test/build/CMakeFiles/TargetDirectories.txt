@@ -1,0 +1,3 @@
+/Users/weizhiwang/workspace/chrono_projects/hexa_test/build/CMakeFiles/my_demo.dir
+/Users/weizhiwang/workspace/chrono_projects/hexa_test/build/CMakeFiles/edit_cache.dir
+/Users/weizhiwang/workspace/chrono_projects/hexa_test/build/CMakeFiles/rebuild_cache.dir
