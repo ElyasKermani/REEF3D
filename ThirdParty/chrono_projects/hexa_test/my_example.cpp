@@ -1,6 +1,6 @@
 // =============================================================================
 //
-// FEA using the brick element - modified version of the demo_FEA_hexaANCF_3813.cpp
+// Chrono FEA using ANCF Hexa 3813 elements - modified version of the demo_FEA_hexaANCF_3813.cpp
 //
 // =============================================================================
 
