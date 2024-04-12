@@ -1,18 +1,6 @@
 // =============================================================================
-// PROJECT CHRONO - http://projectchrono.org
 //
-// Copyright (c) 2014 projectchrono.org
-// All rights reserved.
-//
-// Use of this source code is governed by a BSD-style license that can be found
-// in the LICENSE file at the top level of the distribution and at
-// http://projectchrono.org/license-chrono.txt.
-//
-// =============================================================================
-// Authors: Alessandro Tasora
-// =============================================================================
-//
-// FEA using the brick element
+// FEA using the brick element - modified version of the demo_FEA_hexaANCF_3813.cpp
 //
 // =============================================================================
 
@@ -42,7 +30,7 @@ int main(int argc, char* argv[]) {
     // The physical system: it contains all physical objects.
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
-    auto my_mesh = chrono_types::make_shared<ChMesh>();
+    auto mesh = chrono_types::make_shared<ChMesh>();
     // Geometry of the plate
     double plate_lenght_x = 1;
     double plate_lenght_y = 0.05;
@@ -178,13 +166,13 @@ int main(int argc, char* argv[]) {
         auto node =
             chrono_types::make_shared<ChNodeFEAxyz>(ChVector<>(COORDFlex(i, 0), COORDFlex(i, 1), COORDFlex(i, 2)));
         node->SetMass(0.0);
-        my_mesh->AddNode(node);
+        mesh->AddNode(node);
         if (NDR(i, 0) == 1 && NDR(i, 1) == 1 && NDR(i, 2) == 1) {
             node->SetFixed(true);
         }
         i++;
     }
-    auto nodetip = std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(TotalNumNodes - 1));
+    auto nodetip = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(TotalNumNodes - 1));
 
     int elemcount = 0;
     while (elemcount < TotalNumElements) {
@@ -193,14 +181,14 @@ int main(int argc, char* argv[]) {
             ElemLengthXY(elemcount, 0), ElemLengthXY(elemcount, 1),
             ElemLengthXY(elemcount, 2));  // read element length, used in ChElementHexaANCF_3813
         element->SetInertFlexVec(InertFlexVec);
-        element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 0))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 1))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 2))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 3))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 4))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 5))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 6))),
-                          std::dynamic_pointer_cast<ChNodeFEAxyz>(my_mesh->GetNode(NumNodes(elemcount, 7))));
+        element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 0))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 1))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 2))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 3))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 4))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 5))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 6))),
+                          std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(NumNodes(elemcount, 7))));
 
         element->SetMaterial(mmaterial);
         element->SetElemNum(elemcount);        // for EAS
@@ -210,40 +198,39 @@ int main(int argc, char* argv[]) {
         element->SetStockAlpha(stock_alpha_EAS(0), stock_alpha_EAS(1), stock_alpha_EAS(2), stock_alpha_EAS(3),
                                stock_alpha_EAS(4), stock_alpha_EAS(5), stock_alpha_EAS(6), stock_alpha_EAS(7),
                                stock_alpha_EAS(8));
-        my_mesh->AddElement(element);
+        mesh->AddElement(element);
         elemcount++;
     }
 
-    //sys.Set_G_acc(ChVector<>(0, 0, -9.81));
     // Remember to add the mesh to the system!
-    sys.Add(my_mesh);
+    sys.Add(mesh);
 
     // Options for visualization in irrlicht
-    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     mvisualizemesh->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_P);
     mvisualizemesh->SetShrinkElements(true, 0.85);
     mvisualizemesh->SetSmoothFaces(false);
-    my_mesh->AddVisualShapeFEA(mvisualizemesh);
+    mesh->AddVisualShapeFEA(mvisualizemesh);
 
-    auto mvisualizemeshref = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizemeshref = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     mvisualizemeshref->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemeshref->SetWireframe(true);
     mvisualizemeshref->SetDrawInUndeformedReference(true);
-    my_mesh->AddVisualShapeFEA(mvisualizemeshref);
+    mesh->AddVisualShapeFEA(mvisualizemeshref);
 
-    auto mvisualizemeshC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizemeshC = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     mvisualizemeshC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     mvisualizemeshC->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemeshC->SetSymbolsThickness(0.015);
-    my_mesh->AddVisualShapeFEA(mvisualizemeshC);
+    mesh->AddVisualShapeFEA(mvisualizemeshC);
 
-    auto mvisualizemeshD = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizemeshD = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     mvisualizemeshD->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NONE);
     mvisualizemeshD->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemeshD->SetSymbolsScale(1);
     mvisualizemeshD->SetColorscaleMinMax(-0.5, 5);
     mvisualizemeshD->SetZbufferHide(false);
-    my_mesh->AddVisualShapeFEA(mvisualizemeshD);
+    mesh->AddVisualShapeFEA(mvisualizemeshD);
 
     // Create the Irrlicht visualization system
     auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
