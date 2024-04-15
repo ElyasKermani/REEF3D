@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
     auto mvisualizemeshref = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
     mvisualizemeshref->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemeshref->SetWireframe(true);
-    mvisualizemeshref->SetDrawInUndeformedReference(true);
+    mvisualizemeshref->SetDrawInUndeformedReference(false); // True: undeformed visualized mesh; False: deformed mesh
     mesh->AddVisualShapeFEA(mvisualizemeshref);
 
     auto mvisualizemeshC = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
@@ -243,6 +243,7 @@ int main(int argc, char* argv[]) {
     mvisualizemeshD->SetSymbolsScale(1);
     mvisualizemeshD->SetColorscaleMinMax(-0.5, 5);
     mvisualizemeshD->SetZbufferHide(false);
+    mvisualizemeshD->SetDefaultMeshColor(ChColor(1.0f, 0.0f, 0.0f)); // red surface colour
     mesh->AddVisualShapeFEA(mvisualizemeshD);
 
     // Create the Irrlicht visualization system
@@ -271,12 +272,14 @@ int main(int argc, char* argv[]) {
     mystepper->SetMaxiters(100);
     mystepper->SetAbsTolerances(1e-3);
 
+    std::ofstream file2("tip_node.txt", std::ios_base::app);
+
     while (vis->Run()) {
 
         // Print node positions
         if (auto nodetip = std::dynamic_pointer_cast<ChNodeFEAxyz>(mesh->GetNode(TotalNumNodes - 1))) {
             ChVector<> pos = nodetip->GetPos();
-            std::cout << "Node " << "49" << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
+            file2 << "Time " << sys.GetChTime() << " - Node " << "49" << ": " << pos.x() << ", " << pos.y() << ", " << pos.z() << std::endl;
         }
 
         vis->BeginScene();
@@ -284,6 +287,8 @@ int main(int argc, char* argv[]) {
         vis->EndScene();
         sys.DoStepDynamics(0.004);
     }
+
+    file2.close();
 
     return 0;
 }
