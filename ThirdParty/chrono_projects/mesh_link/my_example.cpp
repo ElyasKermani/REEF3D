@@ -118,163 +118,6 @@ int main(int argc, char* argv[]) {
     box1->AddVisualModel(vis_model);
     box1->AddCollisionShape(colli_shape);
     box1->SetCollide(true);
-
-    //
-
-    auto box2 = chrono_types::make_shared<ChBodyAuxRef>();
-    box2->SetMass(10);
-    //box2->SetBodyFixed(true);
-
-    // Set the COG coordinates to barycenter, without displacing the REF reference.
-    // Make the COG frame a principal frame.
-    box2->SetFrame_COG_to_REF(ChFrame<>(cog, principal_inertia_rot));
-
-    // Set inertia
-    box2->SetMass(mass * density);
-    box2->SetInertiaXX(density * principal_I);
-
-    // Set the absolute position of the body:
-    //box2->SetFrame_REF_to_abs(ChFrame<>(ChVector<>(0,0,0)));
-
-    //ChQuaternion<> rotation1 = Q_from_AngAxis(CH_C_PI / 2, ChVector<>(1, 0, 0)); 
-
-    //box1->SetRot(rotation1);
-    box2->SetPos(ChVector<>(0.5,0,0)); //box2 directly above box1
-    
-    sys.Add(box2);
-
-    box2->AddVisualModel(vis_model);
-    box2->AddCollisionShape(colli_shape);
-    box2->SetCollide(true);
-
-    //
-
-    auto box3 = chrono_types::make_shared<ChBodyAuxRef>();
-    box3->SetMass(10);
-    //box3->SetBodyFixed(true);
-
-    // Set the COG coordinates to barycenter, without displacing the REF reference.
-    // Make the COG frame a principal frame.
-    box3->SetFrame_COG_to_REF(ChFrame<>(cog, principal_inertia_rot));
-
-    // Set inertia
-    box3->SetMass(mass * density);
-    box3->SetInertiaXX(density * principal_I);
-
-    // Set the absolute position of the body:
-    //box3->SetFrame_REF_to_abs(ChFrame<>(ChVector<>(0,0,0)));
-
-    //ChQuaternion<> rotation1 = Q_from_AngAxis(CH_C_PI / 2, ChVector<>(1, 0, 0)); 
-
-    //box1->SetRot(rotation1);
-    box3->SetPos(ChVector<>(1,0,0)); //box3 directly above box2
-    
-    sys.Add(box3);
-
-    box3->AddVisualModel(vis_model);
-    box3->AddCollisionShape(colli_shape);
-    box3->SetCollide(true);
-
-    //
-
-    auto box4 = chrono_types::make_shared<ChBodyAuxRef>();
-    box4->SetMass(10);
-    //box4->SetBodyFixed(true);
-
-    // Set the COG coordinates to barycenter, without displacing the REF reference.
-    // Make the COG frame a principal frame.
-    box4->SetFrame_COG_to_REF(ChFrame<>(cog, principal_inertia_rot));
-
-    // Set inertia
-    box4->SetMass(mass * density);
-    box4->SetInertiaXX(density * principal_I);
-
-    box4->SetPos(ChVector<>(1.5,0,0)); //box3 directly above box2
-    
-    sys.Add(box4);
-
-    box4->AddVisualModel(vis_model);
-    box4->AddCollisionShape(colli_shape);
-    box4->SetCollide(true);
-
-    //
-
-    auto box5 = chrono_types::make_shared<ChBodyAuxRef>();
-    box5->SetMass(10);
-    //box5->SetBodyFixed(true);
-
-    // Set the COG coordinates to barycenter, without displacing the REF reference.
-    // Make the COG frame a principal frame.
-    box5->SetFrame_COG_to_REF(ChFrame<>(cog, principal_inertia_rot));
-
-    // Set inertia
-    box5->SetMass(mass * density);
-    box5->SetInertiaXX(density * principal_I);
-
-    box5->SetPos(ChVector<>(2,0,0)); //box3 directly above box2
-    
-    sys.Add(box5);
-
-    box5->AddVisualModel(vis_model);
-    box5->AddCollisionShape(colli_shape);
-    box5->SetCollide(true);
-
-    //
-
-    auto box6 = chrono_types::make_shared<ChBodyAuxRef>();
-    box6->SetMass(10);
-    //box6->SetBodyFixed(true);
-
-    // Set the COG coordinates to barycenter, without displacing the REF reference.
-    // Make the COG frame a principal frame.
-    box6->SetFrame_COG_to_REF(ChFrame<>(cog, principal_inertia_rot));
-
-    // Set inertia
-    box6->SetMass(mass * density);
-    box6->SetInertiaXX(density * principal_I);
-
-    box6->SetPos(ChVector<>(2.5,0,0)); //box3 directly above box2
-    
-    sys.Add(box6);
-
-    box6->AddVisualModel(vis_model);
-    box6->AddCollisionShape(colli_shape);
-    box6->SetCollide(true);
-
-    // Create a revolute joint between box1 and box2, on top of box 1
-    auto revolute1 = chrono_types::make_shared<ChLinkRevolute>();
-    ChVector<> revolute1_loc = (box1->GetPos() + box2->GetPos()) / 2.0; // close connection between box1 and box2
-    ChFrame<> frame1(revolute1_loc, QUNIT);
-    revolute1->Initialize(box1, box2, frame1);
-    sys.AddLink(revolute1);
-
-    // Create a revolute joint between box2 and box3 at the top face of box2
-    auto revolute2 = chrono_types::make_shared<ChLinkRevolute>();
-    ChVector<> revolute2_loc = (box2->GetPos() + box3->GetPos()) / 2.0; // Top face of box2
-    ChFrame<> frame2(revolute2_loc, QUNIT);
-    revolute2->Initialize(box2, box3, frame2);
-    sys.AddLink(revolute2);
-
-    // Create a revolute joint between box2 and box3 at the top face of box2
-    auto revolute3 = chrono_types::make_shared<ChLinkRevolute>();
-    ChVector<> revolute3_loc = (box3->GetPos() + box4->GetPos()) / 2.0; // Top face of box2
-    ChFrame<> frame3(revolute3_loc, QUNIT);
-    revolute3->Initialize(box3, box4, frame3);
-    sys.AddLink(revolute3);
-
-    // Create a revolute joint between box2 and box3 at the top face of box2
-    auto revolute4 = chrono_types::make_shared<ChLinkRevolute>();
-    ChVector<> revolute4_loc = (box4->GetPos() + box5->GetPos()) / 2.0; // Top face of box2
-    ChFrame<> frame4(revolute4_loc, QUNIT);
-    revolute4->Initialize(box4, box5, frame4);
-    sys.AddLink(revolute4);
-
-    // Create a revolute joint between box2 and box3 at the top face of box2
-    auto revolute5 = chrono_types::make_shared<ChLinkRevolute>();
-    ChVector<> revolute5_loc = (box5->GetPos() + box6->GetPos()) / 2.0; // Top face of box2
-    ChFrame<> frame5(revolute5_loc, QUNIT);
-    revolute5->Initialize(box5, box6, frame5);
-    sys.AddLink(revolute5);
     
     /*
     auto load_container = chrono_types::make_shared<ChLoadContainer>();
@@ -348,6 +191,7 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         auto load_container = chrono_types::make_shared<ChLoadContainer>();
 
+        /*
         // Apply the oscillating force to each box at its center with a phase shift
         auto load1 = chrono_types::make_shared<ChLoadBodyForce>(box1, ChVector<>(0, -amp * sin(2 * CH_C_PI * freq * time + 0), 0), true, box1->GetPos(), true);
         load_container->Add(load1);
@@ -368,6 +212,7 @@ int main(int argc, char* argv[]) {
         load_container->Add(load6);
 
         sys.Add(load_container);
+        */
 
         vis->BeginScene(true, true, ChColor(0.55f, 0.63f, 0.75f));
         vis->Render();

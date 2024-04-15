@@ -79,23 +79,8 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < TotalNumElements; i++) {
         // All the elements belong to the same layer, e.g layer number 1.
         LayNum(i, 0) = 1;
-        // Node number of the 4 nodes which creates element i.
-        // The nodes are distributed this way. First in the x direction for constant
-        // y when max x is reached go to the
-        // next level for y by doing the same   distribution but for y+1 and keep
-        // doing until y limit is reached. Node
-        // number start from 1.
-
-        /*
-        NumNodes(i, 0) = (i / (numDiv_x)) * (N_x+1) + i % numDiv_x;
-        NumNodes(i, 1) = (i / (numDiv_x)) * (N_x+1) + i % numDiv_x + 1;
-        NumNodes(i, 2) = (i / (numDiv_x)) * (N_x+1) + i % numDiv_x + 1 + N_x;
-        NumNodes(i, 3) = (i / (numDiv_x)) * (N_x+1) + i % numDiv_x + N_x;
-        NumNodes(i, 4) = (numDiv_x + 1) * (numDiv_z + 1) + NumNodes(i, 0);
-        NumNodes(i, 5) = (numDiv_x + 1) * (numDiv_z + 1) + NumNodes(i, 1);
-        NumNodes(i, 6) = (numDiv_x + 1) * (numDiv_z + 1) + NumNodes(i, 2);
-        NumNodes(i, 7) = (numDiv_x + 1) * (numDiv_z + 1) + NumNodes(i, 3);
-        */
+        // The code iterates along the x-axis, before going to the next line in the y direction. When this is finished,
+        // the code goes to the next layer in the z direction.
 
         int ix = i % numDiv_x;
         int iy = (i / numDiv_x) % numDiv_y;
@@ -136,12 +121,9 @@ int main(int argc, char* argv[]) {
 
         //-COORDFlex are the initial coordinates for each node,
         // the first three are the position
-        // Adjust the calculation of node coordinates
-        /*
-        COORDFlex(i, 0) = (i % (numDiv_x + 1)) * dx; // x-coordinate
-        COORDFlex(i, 1) = (i) / ((numDiv_x + 1) * (numDiv_z + 1)) * dy; // y-coordinate (thickness)
-        COORDFlex(i, 2) = (i / (numDiv_x + 1)) % (numDiv_z + 1) * dz; // z-coordinate
-        */
+        // The coodrinates are adjusted to implement the plate in the x-z plane
+        // The x nodes will be created first, before y changes between 0 and 1 depending on the x nodes.
+        // The z nodes will be created last, as this code ensures that the z starts when both x and y have completed their first cycle.
 
         int ix = i % (numDiv_x + 1);
         int iy = (i / (numDiv_x + 1)) % (numDiv_y + 1);
