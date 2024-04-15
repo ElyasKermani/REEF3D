@@ -1,20 +1,19 @@
 #include "chronoWrapperOuter.h"
 #include "chronoWrapper.h"
 #include <iostream>
+#include <vector>
 
-chronoWrapperOuter::chronoWrapperOuter()
+#include "lexer.h"
+
+chronoWrapperOuter::chronoWrapperOuter(lexer* p)
 {
-    obj = new chronoWrapper();
+    obj = new chronoWrapper(p);
 }
 chronoWrapperOuter::~chronoWrapperOuter()
 {
     delete obj;
 }
 
-void chronoWrapperOuter::addMeshes(std::vector<std::vector<std::vector<std::vector<double>>>> _meshes)
-{
-    obj->addMeshes(_meshes);
-}
 void chronoWrapperOuter::test()
 {
     obj->test();

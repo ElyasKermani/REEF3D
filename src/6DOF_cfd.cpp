@@ -36,6 +36,8 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
     
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj.push_back(new sixdof_obj(p,pgc,nb));
+
+    chrono_obj = new chronoWrapperOuter(p);
 }
     
 sixdof_cfd::~sixdof_cfd()
