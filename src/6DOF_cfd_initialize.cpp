@@ -48,7 +48,8 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         }
         meshes.push_back(mesh);
     }
-    chrono_obj->addMeshes(meshes);
+    // chrono_obj->addMeshes(meshes);
+    if(p->mpirank==0)
     chrono_obj->test();
 }
 

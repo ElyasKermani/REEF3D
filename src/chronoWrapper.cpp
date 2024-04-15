@@ -5,8 +5,8 @@
 #include<sys/stat.h>
 
 #include "chrono/physics/ChBodyEasy.h"
-#include "chrono/physics/ChSystemSMC.h"
-#include "chrono/fea/ChElementShellANCF_3833.h"
+#include "chrono/physics/ChSystemNSC.h"
+// #include "chrono/fea/ChElementShellANCF_3833.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 
@@ -42,288 +42,62 @@ void chronoWrapper::test()
     using namespace chrono;
     using namespace chrono::fea;
     using namespace chrono::irrlicht;
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    using namespace chrono::geometry;
+    // using namespace chrono::geometry:
 
-    double time_step = 1e-3;
+    // Create a Chrono::Engine physical system + collision system
+    ChSystemNSC sys;
 
-    ChSystemSMC sys;
+    // SetChronoDataPath(CHRONO_DATA_DIR);
+
+    ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
+	ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
+
+    sys.Set_G_acc(ChVector<>(0, 0, 0));
     sys.Set_G_acc(ChVector<>(0, 0, -9.81));
 
-    GetLog() << "-----------------------------------------------------------------\n";
-    GetLog() << " Higher order ANCF Shell Element demo with different constraints \n";
-    GetLog() << "-----------------------------------------------------------------\n";
+    sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
-    // Mesh properties
-    double length = 1.0;       // m
-    double width = 0.1;        // m
-    double thickness = 0.001;  // m
-    double rho = 7810;         // kg/m^3
-    double E = 2.1e11;         // Pa
-    double nu = 0.3;           // Poisson's Ratio
-    int num_elements = 4;      // Number of elements along each cantilever beam
+    //create surface material
+    auto surfacemat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 
-    double dx = length / (num_elements);
+    auto floorBody = chrono_types::make_shared<ChBodyEasyBox>(20, 1, 20,  // x, y, z dimensions
+                                                     3000,       // density
+                                                     true,       // create visualization asset
+                                                     true,       // collision geometry
+                                                     surfacemat // surface material
+                                                     );
+    floorBody->SetPos(ChVector<>(0, -1, 0)); 
+    floorBody->SetBodyFixed(true);
+    sys.Add(floorBody);
 
-    auto material = chrono_types::make_shared<ChMaterialShellANCF>(rho, E, nu);
+    //Shared contact mat for all meshes
 
-    // Create mesh container
-    auto mesh = chrono_types::make_shared<ChMesh>();
-    sys.Add(mesh);
-
-    // Setup shell normals to initially align with the global z direction with no curvature
-    ChVector<> dir1(0, 0, 1);
-    ChVector<> Curv1(0, 0, 0);
-
-    //   y
-    //   ^
-    //   |
-    //   D---G---C
-    //   |   |   |
-    //   H---+---F
-    //   |   |   |
-    //   A---E---B----> x
-
-    std::shared_ptr<ChNodeFEAxyzDD> nodeA;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeB;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeC;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeD;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeE;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeF;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeG;
-    std::shared_ptr<ChNodeFEAxyzDD> nodeH;
-
-    // -------------------------------------
-    // Create the first beam, fixing its nodal coordinates on one end
-    // -------------------------------------
-
-    // Create the first nodes and fix them completely to ground (Cantilever constraint)
-    nodeA = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, 0, 0.0), dir1, Curv1);
-    nodeA->SetFixed(true);
-    mesh->AddNode(nodeA);
-
-    nodeD = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, width, 0), dir1, Curv1);
-    nodeD->SetFixed(true);
-    mesh->AddNode(nodeD);
-
-    nodeH = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, 0.5 * width, 0), dir1, Curv1);
-    nodeH->SetFixed(true);
-    mesh->AddNode(nodeH);
-
-    // Generate the rest of the nodes as well as all of the elements
-    for (int i = 1; i <= num_elements; i++) {
-        nodeB = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, 0, 0), dir1, Curv1);
-        mesh->AddNode(nodeB);
-        nodeC = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, width, 0), dir1, Curv1);
-        mesh->AddNode(nodeC);
-        nodeE = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx - 0.5 * dx, 0, 0.0), dir1, Curv1);
-        mesh->AddNode(nodeE);
-        nodeF = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, 0.5 * width, 0), dir1, Curv1);
-        mesh->AddNode(nodeF);
-        nodeG = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx - 0.5 * dx, width, 0), dir1, Curv1);
-        mesh->AddNode(nodeG);
-
-        auto element = chrono_types::make_shared<ChElementShellANCF_3833>();
-        element->SetNodes(nodeA, nodeB, nodeC, nodeD, nodeE, nodeF, nodeG, nodeH);
-        element->SetDimensions(dx, width);
-        element->SetAlphaDamp(0.001);
-
-        // Add a single layers with a fiber angle of 0 degrees.
-        element->AddLayer(thickness, 0 * CH_C_DEG_TO_RAD, material);
-
-        mesh->AddElement(element);
-
-        nodeA = nodeB;
-        nodeD = nodeC;
-        nodeH = nodeF;
-    }
-    auto nodetipB_beam1 = nodeB;
-    auto nodetipC_beam1 = nodeC;
-    auto nodetipF_beam1 = nodeF;
-
-    // Apply a step load at the end of the beam that generates a twist
-    nodetipB_beam1->SetForce(ChVector<>(0, 0, -3));
-    nodetipC_beam1->SetForce(ChVector<>(0, 0, -2));
-    nodetipF_beam1->SetForce(ChVector<>(0, 0, -1));
-
-    // -------------------------------------
-    // Create the second beam, fixing its nodal coordinates with constraints
-    // Note that these constraints will create different boundary conditions than when completely fixing the nodes
-    // -------------------------------------
-
-    // Lateral offset for the second cantilever beam
-    double offset = 2.0 * width;
-
-    // Create the ground body to connect the cantilever beam to
-    auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    sys.Add(ground);
-
-    // Create the first nodes
-    nodeA = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, offset, 0.0), dir1, Curv1);
-    mesh->AddNode(nodeA);
-
-    nodeD = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, width + offset, 0), dir1, Curv1);
-    mesh->AddNode(nodeD);
-
-    nodeH = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, 0.5 * width + offset, 0), dir1, Curv1);
-    mesh->AddNode(nodeH);
-
-    // Fix the position of the starting nodes to the ground body
-    auto constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
-    constraintxyz->Initialize(nodeA, ground);
-    sys.Add(constraintxyz);
-
-    constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
-    constraintxyz->Initialize(nodeD, ground);
-    sys.Add(constraintxyz);
-
-    constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
-    constraintxyz->Initialize(nodeH, ground);
-    sys.Add(constraintxyz);
-
-    // Fix the position vector gradient coordinate set normal to the surface of the shell to remain parallel to the
-    // original axis on the ground body (in this case the z axis)
-    auto constraintD = chrono_types::make_shared<ChLinkDirFrame>();
-    constraintD->Initialize(nodeA, ground);
-    sys.Add(constraintD);
-
-    constraintD = chrono_types::make_shared<ChLinkDirFrame>();
-    constraintD->Initialize(nodeD, ground);
-    sys.Add(constraintD);
-
-    constraintD = chrono_types::make_shared<ChLinkDirFrame>();
-    constraintD->Initialize(nodeH, ground);
-    sys.Add(constraintD);
-
-    // Constrain curvature at the base nodes (keep at initial value)
-    nodeA->SetFixedDD(true);
-    nodeD->SetFixedDD(true);
-    nodeH->SetFixedDD(true);
-
-    // Store the starting nodes so that their coordinates can be inspected
-    auto nodebaseA_beam2 = nodeA;
-    auto nodebaseD_beam2 = nodeD;
-    auto nodebaseH_beam2 = nodeH;
-
-    // Generate the rest of the nodes as well as all of the elements
-    for (int i = 1; i <= num_elements; i++) {
-        nodeB = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, 0 + offset, 0), dir1, Curv1);
-        mesh->AddNode(nodeB);
-        nodeC = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, width + offset, 0), dir1, Curv1);
-        mesh->AddNode(nodeC);
-        nodeE = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx - 0.5 * dx, 0 + offset, 0.0), dir1, Curv1);
-        mesh->AddNode(nodeE);
-        nodeF = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx, 0.5 * width + offset, 0), dir1, Curv1);
-        mesh->AddNode(nodeF);
-        nodeG =
-            chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(i * dx - 0.5 * dx, width + offset, 0), dir1, Curv1);
-        mesh->AddNode(nodeG);
-
-        auto element = chrono_types::make_shared<ChElementShellANCF_3833>();
-        element->SetNodes(nodeA, nodeB, nodeC, nodeD, nodeE, nodeF, nodeG, nodeH);
-        element->SetDimensions(dx, width);
-        element->SetAlphaDamp(0.001);
-
-        // Add a single layers with a fiber angle of 0 degrees.
-        element->AddLayer(thickness, 0 * CH_C_DEG_TO_RAD, material);
-
-        mesh->AddElement(element);
-
-        nodeA = nodeB;
-        nodeD = nodeC;
-        nodeH = nodeF;
-    }
-    auto nodetipB_beam2 = nodeB;
-    auto nodetipC_beam2 = nodeC;
-    auto nodetipF_beam2 = nodeF;
-
-    // Apply a step load at the end of the beam that generates a twist
-    nodetipB_beam2->SetForce(ChVector<>(0, 0, -3));
-    nodetipC_beam2->SetForce(ChVector<>(0, 0, -2));
-    nodetipF_beam2->SetForce(ChVector<>(0, 0, -1));
-
-    // -------------------
-    // Testing
-    // -------------------
-    // auto mesh = chrono_types::make_shared<ChMesh>();
-    // double density = 100;
-
-    // // Create a material
-    // auto elasticity = chrono_types::make_shared<ChElasticityKirchhoffIsothropic>(500, 0.33);
-    // auto material = chrono_types::make_shared<ChMaterialShellKirchhoff>(elasticity);
-    // material->SetDensity(density);
-
-    // auto inputMesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>(meshes_chrono[0]);
-    // chronoWrapper::BSTShellFromTriangleMesh(mesh,inputMesh,material,0.01);
+    auto mesh_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 
 
-    // -------------------------------------
-    // Options for visualization in irrlicht
-    // -------------------------------------
+    // chrono::geometry::ChTriangleMeshConnected _mesh = chrono::geometry::ChTriangleMeshConnected();
+    // auto _mesh->CreateFromSTLFile("/floating.stl");
+    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("./floating.stl");
 
-    auto vismesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
-    vismesh->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_DISP_Z);
-    vismesh->SetColorscaleMinMax(-0.2, 0.2);
-    vismesh->SetSmoothFaces(true);
-    mesh->AddVisualShapeFEA(vismesh);
+    auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
 
-    auto visnodes = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
-    visnodes->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
-    visnodes->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
-    visnodes->SetSymbolsThickness(0.004);
-    mesh->AddVisualShapeFEA(visnodes);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetMass(10);
+    body->SetPos(ChVector<>(0,10,0));
+    
+    sys.Add(body);
 
-    // Create the Irrlicht visualization system
-    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-    vis->SetWindowSize(800, 600);
-    vis->SetWindowTitle("ANCF Shells");
-    vis->SetCameraVertical(CameraVerticalDir::Z);
-    vis->Initialize();
-    vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.5, -0.5, 0.5), ChVector<>(0.5, 0.25, 0.0));
-    vis->AttachSystem(&sys);
+    body->AddCollisionShape(colli_shape);
+    body->SetCollide(true);
 
-    // ----------------------------------
-    // Perform a dynamic time integration
-    // ----------------------------------
+    auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    cont_mat->SetFriction(0.2f);
 
-    // Set up solver
-    auto solver = chrono_types::make_shared<ChSolverSparseLU>();
-    solver->UseSparsityPatternLearner(false);
-    solver->LockSparsityPattern(true);
-    solver->SetVerbose(false);
-    sys.SetSolver(solver);
-
-    // Set up integrator
-    sys.SetTimestepperType(ChTimestepper::Type::HHT);
-    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
-    mystepper->SetAlpha(-0.2);
-    mystepper->SetMaxiters(50);
-    mystepper->SetAbsTolerances(1e-4, 1e2);
-    mystepper->SetStepControl(false);
-    mystepper->SetModifiedNewton(true);
-
-    while (vis->Run()) {
-        std::cout << "Time: " << sys.GetChTime() << "s. \n";
-
-        GetLog() << "  Beam1 Tip Node B vertical position:    " << nodetipB_beam1->GetPos().z() << "\n";
-        GetLog() << "  Beam2 Tip Node B vertical position:    " << nodetipB_beam2->GetPos().z() << "\n";
-        GetLog() << "  Delta vertical position (Beam1-Beam2): "
-                 << nodetipB_beam1->GetPos().z() - nodetipB_beam2->GetPos().z() << "\n";
-        GetLog() << "  Beam2 Base Node A Coordinates (xyz):   " << nodebaseA_beam2->GetPos().x() << " "
-                 << nodebaseA_beam2->GetPos().y() << " " << nodebaseA_beam2->GetPos().z() << "\n";
-        GetLog() << "  Beam2 Base Node A Coordinates (D):     " << nodebaseA_beam2->GetD().x() << " "
-                 << nodebaseA_beam2->GetD().y() << " " << nodebaseA_beam2->GetD().z() << "\n";
-        GetLog() << "  Beam2 Base Node A Coordinates (DD):    " << nodebaseA_beam2->GetDD().x() << " "
-                 << nodebaseA_beam2->GetDD().y() << " " << nodebaseA_beam2->GetDD().z() << "\n";
-
-        vis->BeginScene();
-        vis->Render();
-        vis->EndScene();
-        sys.DoStepDynamics(time_step);
-    }
+    std::cout<<"CHRONO"<<std::endl;
+    std::cout<<body->GetPos().z()<<std::endl;
+    sys.DoStepDynamics(0.005);
+    std::cout<<body->GetPos().z()<<std::endl;
 }
 
 
