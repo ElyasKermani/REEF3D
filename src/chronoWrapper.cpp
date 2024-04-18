@@ -6,7 +6,6 @@
 
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChLoadContainer.h"
-#include "chrono/physics/ChLoadBodyMesh.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
 
 #include "lexer.h"
@@ -19,7 +18,7 @@ chronoWrapper::chronoWrapper(lexer* p)
     ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
 	ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
 
-    sys.Set_G_acc(ChVector<>(p->W20, p->W21, p->W22));
+    sys.Set_G_acc(Vector(p->W20, p->W21, p->W22));
 
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
@@ -31,7 +30,7 @@ chronoWrapper::chronoWrapper(lexer* p)
                                                      true,       // collision geometry
                                                      surfacemat // surface material
                                                      );
-    floorBody->SetPos(ChVector<>((p->global_xmax-p->global_xmin)/2.0, (p->global_ymax-p->global_ymin)/2.0, p->global_zmin-0.5)); 
+    floorBody->SetPos(Vector((p->global_xmax-p->global_xmin)/2.0, (p->global_ymax-p->global_ymin)/2.0, p->global_zmin-0.5)); 
     floorBody->SetBodyFixed(true);
     sys.Add(floorBody);
 
@@ -40,7 +39,7 @@ chronoWrapper::~chronoWrapper()
 {
 }
 
-void chronoWrapper::ini()
+void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
 {
     using namespace ::chrono;
     using namespace ::chrono::geometry;
@@ -53,7 +52,12 @@ void chronoWrapper::ini()
 
     auto body = chrono_types::make_shared<ChBody>();
     body->SetMass(10);
-    body->SetPos(ChVector<>(0,0,2));
+
+    if(p->X181==1)
+    body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
+
+    if(p->X182==1)
+    body->SetPos(ChVector<>(p->X182_x,p->X182_y,p->X182_z));
     
     sys.Add(body);
 
@@ -65,40 +69,56 @@ void chronoWrapper::ini()
 
     auto load_container = chrono_types::make_shared<ChLoadContainer>();
     sys.Add(load_container);
-
-    ChVector<> force(0, 0, -1);
-    std::vector<ChVector<>> forces;
-    forces.push_back(force);
-    std::vector<int> verticies={1};
-
-    // auto load = chrono_types::make_shared<ChLoadBodyForce>(body, force, true, body->GetPos(), true);
-    auto load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
-    
+    load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
     load_container->Add(load);
 
-    // load->OutputSimpleMesh(); @HANS
-    load->InputSimpleForces(forces,verticies);
+    std::vector<Vector> vert_pos;
+    std::vector<Vector> vert_vel;
+    std::vector<ChVector<int>> triangles;
+    load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+    for(auto n=0;n<vert_pos.size();n++)
+    std::cout<<vert_pos.at(n).x()<<","<<vert_pos.at(n).y()<<","<<vert_pos.at(n).y()<<std::endl;
 
-    load_container->GetLoadList();
-    std::cout<<sys.GetNphysicsItems()<<std::endl;;
-
-    std::cout<<"CHRONO"<<std::endl;
-    std::cout<<body->GetPos().z()<<std::endl;
-    sys.DoStepDynamics(0.005);
-    std::cout<<body->GetPos().z()<<std::endl;
-    load->GetForceList().clear();
-    sys.DoStepDynamics(0.5);
-    std::cout<<body->GetPos().z()<<std::endl;
-    sys.DoStepDynamics(0.005);
-    std::cout<<body->GetPos().z()<<std::endl;
+    for(auto n=0;n<vert_pos.size();n++)
+    {
+        std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+        _pos->push_back(temp);
+    }
 }
 
-void chronoWrapper::test()
+void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel)
 {
     using namespace ::chrono;
-    using namespace ::chrono::geometry;
+    if(_timestep!=0)
+    {
+        std::vector<Vector> forces;
+        for(size_t n=0;n<_forces.size();n++)
+        {
+            ChVector<> force(_forces[n][x], _forces[n][y], _forces[n][z]);
+            forces.push_back(force);
+        }
 
-    //Shared contact mat for all meshes
+        load->InputSimpleForces(forces,_verticies);
 
-    ini();
+        sys.DoStepDynamics(_timestep);
+
+        load->GetForceList().clear();
+
+        std::vector<Vector> vert_pos;
+        std::vector<Vector> vert_vel;
+        std::vector<ChVector<int>> triangles;
+        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+
+        for(auto n=0;n<vert_pos.size();n++)
+        {
+             std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+            _pos->push_back(temp);
+        }
+
+        for(auto n=0;n<vert_vel.size();n++)
+        {
+             std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
+            _vel->push_back(temp);
+        }
+    }
 }

@@ -31,7 +31,10 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
     
     if(p->mpirank==0)
-    chrono_obj->test();
+    {
+        std::vector<std::vector<double>> pos;
+        chrono_obj->ini(p,&pos);
+    }
 }
 
 void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)
