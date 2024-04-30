@@ -247,8 +247,7 @@ void chronoWrapper::readDIVEControl()
                                                         true,       // collision geometry
                                                         surfacemat
                                                         );
-        cout<<box->GetPos()<<endl;
-        // box->SetPos(Vector(S10[n][0]+0.5*(S10[n][1]-S10[n][0]),S10[n][2]+0.5*(S10[n][3]-S10[n][2]),S10[n][4]+0.5*(S10[n][5]-S10[n][4])));
+        box->SetPos(Vector(S10[n][0]+0.5*(S10[n][1]-S10[n][0]),S10[n][2]+0.5*(S10[n][3]-S10[n][2]),S10[n][4]+0.5*(S10[n][5]-S10[n][4])));
         box->SetBodyFixed(true);
         sys.Add(box);
     }
