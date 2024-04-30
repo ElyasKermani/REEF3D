@@ -619,6 +619,10 @@
           <File Name="net_void.h"/>
           <File Name="net.h"/>
         </VirtualDirectory>
+        <VirtualDirectory Name="Chrono">
+          <File Name="chronoWrapper.h"/>
+          <File Name="chronoWrapperOuter.h"/>
+        </VirtualDirectory>
         <File Name="6DOF.h"/>
         <File Name="6DOF_void.h"/>
       </VirtualDirectory>
@@ -2066,6 +2070,10 @@
             <File Name="mooring_Catenary.cpp"/>
           </VirtualDirectory>
           <File Name="mooring_void.cpp"/>
+        </VirtualDirectory>
+        <VirtualDirectory Name="Chrono">
+          <File Name="chronoWrapper.cpp"/>
+          <File Name="chronoWrapperOuter.cpp"/>
         </VirtualDirectory>
       </VirtualDirectory>
       <VirtualDirectory Name="Concentration">
