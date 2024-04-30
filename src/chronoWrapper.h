@@ -15,4 +15,5 @@ private:
     ::chrono::ChSystemNSC sys;
     std::shared_ptr<::chrono::ChLoadBodyMesh> load;
     enum {x,y,z};
+    void readDIVEControl();
 };
