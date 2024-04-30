@@ -54,17 +54,23 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
 
     auto body = chrono_types::make_shared<ChBody>();
     body->SetMass(10);
+    body->SetPos(trimesh->GetBoundingBox().Center());
 
     if(p->X182==1)
-    body->SetPos(ChVector<>(p->X182_x,p->X182_y,p->X182_z));
+    {
+        Vector pos = body->GetPos();
+        Vector mov = {p->X182_x,p->X182_y,p->X182_z};
+        body->SetPos(pos+mov);
+    }
 
     // if(p->X183==1)
     // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
     
-    sys.Add(body);
-
     body->AddCollisionShape(colli_shape);
     body->SetCollide(true);
+    body->SyncCollisionModels();
+
+    sys.Add(body);    
 
     auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
     cont_mat->SetFriction(0.2f);
@@ -78,8 +84,6 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
     std::vector<Vector> vert_vel;
     std::vector<ChVector<int>> triangles;
     load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-    for(auto n=0;n<vert_pos.size();n++)
-    std::cout<<vert_pos.at(n).x()<<","<<vert_pos.at(n).y()<<","<<vert_pos.at(n).y()<<std::endl;
 
     for(auto n=0;n<vert_pos.size();n++)
     {
@@ -243,7 +247,8 @@ void chronoWrapper::readDIVEControl()
                                                         true,       // collision geometry
                                                         surfacemat
                                                         );
-        box->SetPos(Vector(S10[n][0]+0.5*(S10[n][1]-S10[n][0]),S10[n][2]+0.5*(S10[n][3]-S10[n][2]),S10[n][4]+0.5*(S10[n][5]-S10[n][4])));
+        cout<<box->GetPos()<<endl;
+        // box->SetPos(Vector(S10[n][0]+0.5*(S10[n][1]-S10[n][0]),S10[n][2]+0.5*(S10[n][3]-S10[n][2]),S10[n][4]+0.5*(S10[n][5]-S10[n][4])));
         box->SetBodyFixed(true);
         sys.Add(box);
     }
