@@ -105,6 +105,8 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     for(auto n=0;n<vert_pos.size();n++)
     {
         std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+        if(n==0)
+        temp.push_back(body->GetMass());
         _pos->push_back(temp);
     }
 
@@ -116,10 +118,10 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
 
     p->printcount_sixdof = 0;
 
-    for(auto element:vert_pos)
-        std::cout<<element<<std::endl;
-    for(auto element:triangles)
-        std::cout<<element<<std::endl;
+    // for(auto element:vert_pos)
+    //     std::cout<<element<<std::endl;
+    // for(auto element:triangles)
+    //     std::cout<<element<<std::endl;
 
 
 
@@ -143,7 +145,7 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     // }
 }
 
-void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel)
+void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel,  std::vector<std::vector<int>>* _tri)
 {
     using namespace ::chrono;
     if(_timestep!=0)
@@ -166,16 +168,26 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _fo
         std::vector<ChVector<int>> triangles;
         load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
 
+        _pos->clear();
         for(auto n=0;n<vert_pos.size();n++)
         {
-             std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+            
+            std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
             _pos->push_back(temp);
         }
 
+        _vel->clear();
         for(auto n=0;n<vert_vel.size();n++)
         {
-             std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
+            std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
             _vel->push_back(temp);
+        }
+
+        _tri->clear();
+        for(auto n=0;n<triangles.size();n++)
+        {
+            std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
+            _tri->push_back(temp);
         }
 
         // vis->BeginScene();

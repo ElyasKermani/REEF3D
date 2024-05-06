@@ -19,13 +19,13 @@ chronoWrapperOuter::~chronoWrapperOuter()
 //     obj->test(p);
 // }
 
-void chronoWrapperOuter::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::vector<std::vector<int>>* _tri)
+void chronoWrapperOuter::ini(lexer* p)
 {
-    obj->ini(p,_pos,_tri);
+    obj->ini(p,&verticies,&triangles);
 }
 
-void chronoWrapperOuter::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel)
+void chronoWrapperOuter::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies)
 {
 
-    obj->start(_timestep,_forces,_verticies,_pos,_vel);
+    obj->start(_timestep,_forces,_verticies,&verticies,&velocities,&triangles);
 }

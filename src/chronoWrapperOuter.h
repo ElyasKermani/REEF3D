@@ -9,8 +9,11 @@ public:
     chronoWrapperOuter(lexer*);
     ~chronoWrapperOuter();
     // void test(lexer*);
-    void ini(lexer*,std::vector<std::vector<double>>*,std::vector<std::vector<int>>*);
-    void start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel);
+    void ini(lexer*);
+    void start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies);
+    std::vector<std::vector<double>> verticies;
+    std::vector<std::vector<double>> velocities;
+    std::vector<std::vector<int>> triangles;
 private:
     chronoWrapper* obj;
 };
