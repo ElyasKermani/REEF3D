@@ -50,9 +50,11 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
     
     for (int nb=0; nb<number6DOF;++nb)
     {
+        if(p->Y5!=1)
+        {
         // Calculate forces
         fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
-        
+
         // Advance body in time
         fb_obj[nb]->solve_eqmotion(p,a,pgc,iter,pvrans,pnet);
         
@@ -61,7 +63,46 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         
         // Update position and trimesh
         fb_obj[nb]->update_position_3D(p,a,pgc,finalize);  //----> main time consumer
-        
+        }
+        else
+        {
+            // Calculate forces
+            fb_obj[0]->forces_stl2(p,a,pgc,uvel,vvel,wvel,iter);
+            // GetMax
+            // ...
+            if(p->mpirank==0)
+            {
+                // Advance body in time
+                std::vector<std::vector<double>> forces;
+                std::vector<int> vertex;
+                for(auto element:fb_obj[0]->FpT)
+                {
+                    // chrono_obj->triangles[std::get<3>(element)]
+                }
+
+                
+                chrono_obj->start(p->dt,forces,vertex);
+                for(int n=0;n<tri.size();n++)
+                {
+                    fb_obj[0]->tri_x[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][0];
+                    fb_obj[0]->tri_x[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][0];
+                    fb_obj[0]->tri_x[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][0];
+
+                    fb_obj[0]->tri_y[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][1];
+                    fb_obj[0]->tri_y[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][1];
+                    fb_obj[0]->tri_y[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][1];
+
+                    fb_obj[0]->tri_z[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][2];
+                    fb_obj[0]->tri_z[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][2];
+                    fb_obj[0]->tri_z[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][2];
+                }
+            }
+            // Update position and trimesh
+            // ray_cast(p,a,pgc);
+            // reini_RK2(p,a,pgc,a->fb);
+            // pgc->start4a(p,a->fb,50); 
+        }
+
         // Save
         fb_obj[nb]->update_fbvel(p,pgc);
         

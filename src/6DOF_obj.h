@@ -156,6 +156,7 @@ private:
     
     // force
     void forces_stl(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
+    void forces_stl2(lexer*, fdm*, ghostcell*,field&,field&,field&,int);
     void forces_lsm(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
     void triangulation(lexer*, fdm*, ghostcell*, field&);
 	void reconstruct(lexer*, fdm*, field&);
@@ -371,6 +372,8 @@ private:
     int triangle_token,printnormal_count;
     
     double alpha[3],gamma[3],zeta[3];
+
+    std::vector<std::tuple<double,double,double,int>> FpT;
 };
 
 #endif

@@ -64,7 +64,10 @@ void sixdof_obj::update_forces(lexer *p)
     
     
     if(Ffb_(0)!=Ffb_(0))
+    {
     cout<<"Ffb_(0)....###"<<endl;
+    cout<<Xext<<","<<Xe<<","<<p->X26_Cu<<","<<Mass_fb<<endl;
+    }
     
     if(Ffb_(1)!=Ffb_(1))
     cout<<"Ffb_(1)....###"<<endl;
