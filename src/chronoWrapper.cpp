@@ -24,22 +24,21 @@ chronoWrapper::chronoWrapper(lexer* p)
 
     auto surfacemat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 
-    auto floorBody = chrono_types::make_shared<ChBodyEasyBox>(p->global_xmax-p->global_xmin, p->global_ymax-p->global_ymin, 1,  // x, y, z dimensions
+    auto floorBody = chrono_types::make_shared<ChBodyEasyBox>(p->global_xmax-p->global_xmin, p->global_ymax-p->global_ymin, 0.001,  // x, y, z dimensions
                                                      3000,       // density
                                                      false,       // create visualization asset
                                                      true,       // collision geometry
                                                      surfacemat // surface material
                                                      );
-    floorBody->SetPos(Vector(p->global_xmin+(p->global_xmax-p->global_xmin)/2.0, p->global_ymin+(p->global_ymax-p->global_ymin)/2.0, p->global_zmin-0.5)); 
+    floorBody->SetPos(Vector(p->global_xmin+(p->global_xmax-p->global_xmin)/2.0, p->global_ymin+(p->global_ymax-p->global_ymin)/2.0, p->global_zmin-0.001)); 
     floorBody->SetBodyFixed(true);
     sys.Add(floorBody);
-
 }
 chronoWrapper::~chronoWrapper()
 {
 }
 
-void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
+void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::vector<std::vector<int>>* _tri)
 {
     using namespace ::chrono;
     using namespace ::chrono::geometry;
@@ -50,11 +49,22 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
 
     auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("./floating.stl");
 
+    // Scale needs to happen here
+
+    Vector center = trimesh->GetBoundingBox().Center();
+    ChMatrix33<> intertia;
+    trimesh->ComputeMassProperties(true,volume,center,intertia);
+
     auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
 
+    // auto vis_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
+    // vis_shape->SetMesh(trimesh);
+
     auto body = chrono_types::make_shared<ChBody>();
-    body->SetMass(10);
-    body->SetPos(trimesh->GetBoundingBox().Center());
+    if(p->X22==1)
+        body->SetMass(p->X22_m);
+    else
+        body->SetMass(p->X21_d*volume);
 
     if(p->X182==1)
     {
@@ -67,6 +77,7 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
     // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
     
     body->AddCollisionShape(colli_shape);
+    // body->AddVisualShape(vis_shape);
     body->SetCollide(true);
     body->SyncCollisionModels();
 
@@ -80,6 +91,12 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
     load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
     load_container->Add(load);
 
+    if (p->X102==1)
+    body->SetPos_dt(Vector(p->X102_u,p->X102_v,p->X102_w));
+
+    // if (p->X103==1)
+    // body->SetRot_dt(ChQuaternion<double>(0,p->X103_p,p->X103_q,p->X103_r));
+
     std::vector<Vector> vert_pos;
     std::vector<Vector> vert_vel;
     std::vector<ChVector<int>> triangles;
@@ -90,6 +107,40 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos)
         std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
         _pos->push_back(temp);
     }
+
+    for(auto n=0;n<triangles.size();n++)
+    {
+        std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
+        _tri->push_back(temp);
+    }
+
+    p->printcount_sixdof = 0;
+
+    for(auto element:vert_pos)
+        std::cout<<element<<std::endl;
+    for(auto element:triangles)
+        std::cout<<element<<std::endl;
+
+
+
+    // Create the Irrlicht visualization system
+    // SetChronoDataPath("/Users/alexander.hanke/Documents/Source/Project Chrono/data/");
+    // vis = chrono_types::make_shared<irrlicht::ChVisualSystemIrrlicht>();
+    // vis->SetWindowSize(800, 600);
+    // vis->SetWindowTitle("Test");
+    // vis->SetCameraVertical(CameraVerticalDir::Y);
+    // vis->Initialize();
+    // vis->AddSkyBox();
+    // vis->AddTypicalLights();
+    // vis->AddCamera(ChVector<>(0.5, -0.5, 0.5), ChVector<>(0.5, 0.25, 0.0));
+    // vis->AttachSystem(&sys);
+
+    // while (vis->Run()) {
+    //     // vis->Run();
+    //     vis->BeginScene();
+    //     vis->Render();
+    //     vis->EndScene();
+    // }
 }
 
 void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel)
@@ -126,6 +177,10 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _fo
              std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
             _vel->push_back(temp);
         }
+
+        // vis->BeginScene();
+        // vis->Render();
+        // vis->EndScene();
     }
 }
 
@@ -160,80 +215,82 @@ void chronoWrapper::readDIVEControl()
 
     // ChBodyEasyConvexHull for wedge
 
-	std::ifstream control("control.txt", std::ios_base::in);
+	std::ifstream control("./control.txt", std::ios_base::in);
 
-	if(!control)
+	if(!control.is_open())
 	{
 		cout<<"no 'control.txt' file"<<endl<<endl;
 	}
-    
-	while(!control.eof())
-	{
-	    control>>c;
-
-        if (c == '/') 
+    else
+    {
+        while(!control.eof())
         {
-            control.ignore(1000, '\n');
-        }
-        else
-        {	
-            switch(c)
+            control>>c;
+
+            if (c == '/') 
             {
-                case 'S':
-                    control>>numint;
-                    switch(numint)
-                    {
-                        // box
-                        case 10:
+                control.ignore(1000, '\n');
+            }
+            else
+            {	
+                switch(c)
+                {
+                    case 'S':
+                        control>>numint;
+                        switch(numint)
                         {
-                            std::vector<double> box(6);
-                            control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5];
-                            S10.push_back(box);
-                            break;
+                            // box
+                            case 10:
+                            {
+                                std::vector<double> box(6);
+                                control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5];
+                                S10.push_back(box);
+                                break;
+                            }
+                            case 11:
+                            {
+                                std::vector<double> box(8);
+                                control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5]>>box[6]>>box[7];
+                                S11.push_back(box);
+                                break;
+                            }
+                            case 12:
+                            {
+                                std::vector<double> box(8);
+                                control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5]>>box[6]>>box[7];
+                                S11.push_back(box);
+                                break;
+                            }
+                            // cylinder
+                            // case 32: ++S32;
+                            // clear(c,numint);
+                            // break;
+                            // case 33: ++S33;
+                            // clear(c,numint);
+                            // break;
+                            // case 37: ++S37;
+                            // clear(c,numint);
+                            // break;
+                            // elipsoid
+                            // case 51: ++S51;
+                            // clear(c,numint);
+                            // break;
+                            // case 52: ++S52;
+                            // clear(c,numint);
+                            // break;
+                            // wedge
+                            // case 61: ++S61;
+                            // clear(c,numint);
+                            // break;
+                            // case 62: ++S62;
+                            // clear(c,numint);
+                            // break;
+                            // case 63: ++S63;
+                            // clear(c,numint);
+                            // break;
                         }
-                        case 11:
-                        {
-                            std::vector<double> box(8);
-                            control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5]>>box[6]>>box[7];
-                            S11.push_back(box);
-                            break;
-                        }
-                        case 12:
-                        {
-                            std::vector<double> box(8);
-                            control>>box[0]>>box[1]>>box[2]>>box[3]>>box[4]>>box[5]>>box[6]>>box[7];
-                            S11.push_back(box);
-                            break;
-                        }
-                        // cylinder
-                        // case 32: ++S32;
-                        // clear(c,numint);
-                        // break;
-                        // case 33: ++S33;
-                        // clear(c,numint);
-                        // break;
-                        // case 37: ++S37;
-                        // clear(c,numint);
-                        // break;
-                        // elipsoid
-                        // case 51: ++S51;
-                        // clear(c,numint);
-                        // break;
-                        // case 52: ++S52;
-                        // clear(c,numint);
-                        // break;
-                        // wedge
-                        // case 61: ++S61;
-                        // clear(c,numint);
-                        // break;
-                        // case 62: ++S62;
-                        // clear(c,numint);
-                        // break;
-                        // case 63: ++S63;
-                        // clear(c,numint);
-                        // break;
-                    }
-                break;
+                    break;
+                }
             }
         }
     }
