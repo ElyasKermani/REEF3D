@@ -30,11 +30,102 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
     for (int nb = 0; nb < number6DOF; nb++)
         fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
     
-    if(p->mpirank==0)
+    if(p->Y5==1)
     {
-        std::vector<std::vector<double>> pos;
-        chrono_obj->ini(p,&pos);
+        double* broadcast;
+        int count[1];
+        if(p->mpirank==0)
+        {
+            chrono_obj->ini(p);
+
+            int tricount=chrono_obj->triangles.size();
+            fb_obj[0]->tricount=tricount;
+            fb_obj[0]->Mass_fb=pos[0][3];
+            p->Darray(fb_obj[0]->tri_x,tricount,3);
+            p->Darray(fb_obj[0]->tri_y,tricount,3);
+            p->Darray(fb_obj[0]->tri_z,tricount,3);
+            p->Darray(fb_obj[0]->tri_x0,tricount,3);
+            p->Darray(fb_obj[0]->tri_y0,tricount,3);
+            p->Darray(fb_obj[0]->tri_z0,tricount,3);
+
+            for(int n=0;n<tri.size();n++)
+            {
+                fb_obj[0]->tri_x[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][0];
+                fb_obj[0]->tri_x[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][0];
+                fb_obj[0]->tri_x[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][0];
+
+                fb_obj[0]->tri_y[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][1];
+                fb_obj[0]->tri_y[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][1];
+                fb_obj[0]->tri_y[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][1];
+
+                fb_obj[0]->tri_z[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][2];
+                fb_obj[0]->tri_z[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][2];
+                fb_obj[0]->tri_z[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][2];
+            }
+
+            count[0]=tri.size()*9;
+            broadcast = new double[count[0]];
+            for(int n=0;n<tri.size();n++)
+            {
+                broadcast[n*9+0] = fb_obj[0]->tri_x[n][0];
+                broadcast[n*9+1] = fb_obj[0]->tri_x[n][1];
+                broadcast[n*9+2] = fb_obj[0]->tri_x[n][2];
+                broadcast[n*9+3] = fb_obj[0]->tri_y[n][0];
+                broadcast[n*9+4] = fb_obj[0]->tri_y[n][1];
+                broadcast[n*9+5] = fb_obj[0]->tri_y[n][2];
+                broadcast[n*9+6] = fb_obj[0]->tri_z[n][0];
+                broadcast[n*9+7] = fb_obj[0]->tri_z[n][1];
+                broadcast[n*9+8] = fb_obj[0]->tri_z[n][2];
+            }
+        }
+        // Mass
+        MPI_Bcast(&(fb_obj[0]->Mass_fb),1,MPI_DOUBLE,0,pgc->mpi_comm);
+
+        // Shape
+        MPI_Bcast(count,1,MPI_INT,0,pgc->mpi_comm);
+        if(p->mpirank!=0)
+        {
+            fb_obj[0]->tricount=count[0]/9;
+            broadcast = new double[count[0]];
+        }
+        MPI_Bcast(broadcast,count[0],MPI_DOUBLE,0,pgc->mpi_comm);
+        if(p->mpirank!=0)
+        for(int n=0;n<fb_obj[0]->tricount;n++)
+        {
+            p->Darray(fb_obj[0]->tri_x,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_y,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_z,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_x0,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_y0,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_z0,fb_obj[0]->tricount,3);
+
+            fb_obj[0]->tri_x[n][0] = broadcast[n*9+0];
+            fb_obj[0]->tri_x[n][1] = broadcast[n*9+1];
+            fb_obj[0]->tri_x[n][2] = broadcast[n*9+2];
+            fb_obj[0]->tri_y[n][0] = broadcast[n*9+3];
+            fb_obj[0]->tri_y[n][1] = broadcast[n*9+4];
+            fb_obj[0]->tri_y[n][2] = broadcast[n*9+5];
+            fb_obj[0]->tri_z[n][0] = broadcast[n*9+6];
+            fb_obj[0]->tri_z[n][1] = broadcast[n*9+7];
+            fb_obj[0]->tri_z[n][2] = broadcast[n*9+8];
+        }
+        delete[] broadcast;
+        initialize_chrono(p,a,pgc,pnet);
     }
+    
+
+    // if(p->mpirank==0)
+    // {
+
+    //     std::vector<std::vector<double>> forces={{1,0,0}};
+    //     std::vector<int> vertex={3};
+
+    //     std::vector<std::vector<double>> pos;
+    //     std::vector<std::vector<double>> vel;
+    //     double startTime=pgc->timer();
+    //     chrono_obj->start(0.001,forces,vertex,&pos,&vel);
+    //     cout<<pgc->timer()-startTime<<endl;
+    // }
 }
 
 void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)
@@ -63,4 +154,57 @@ void sixdof_cfd::setup(lexer *p, fdm *a, ghostcell *pgc)
     pgc->start2(p,a->fbh2,11);
     pgc->start3(p,a->fbh3,12);
     pgc->start4(p,a->fbh4,40);
+}
+
+void sixdof_cfd::initialize_chrono(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet)
+{
+    fb_obj[0]->ini_fbvel(p,pgc);
+
+    fb_obj[0]->ray_cast(p,a,pgc);
+    //if(p->X188==1)
+    fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
+    
+    pgc->start4a(p,a->fb,50);
+    
+    // Calculate geometrical properties
+    fb_obj[0]->geometry_parameters(p,a,pgc);
+    
+    // Initialise position of bodies
+    fb_obj[0]->iniPosition_RBM(p,pgc);
+    
+    // Recalculate distances
+    fb_obj[0]->ray_cast(p,a,pgc);
+    fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
+    pgc->start4a(p,a->fb,50);
+    
+    // Initialise global variables
+    fb_obj[0]->update_fbvel(p,pgc);
+
+    // Initialise floating fields
+    ULOOP
+    a->fbh1(i,j,k) = fb_obj[0]->Hsolidface(p,a,1,0,0);
+
+    VLOOP
+    a->fbh2(i,j,k) = fb_obj[0]->Hsolidface(p,a,0,1,0);
+
+    WLOOP
+    a->fbh3(i,j,k) = fb_obj[0]->Hsolidface(p,a,0,0,1);
+
+    LOOP
+    a->fbh4(i,j,k) = fb_obj[0]->Hsolidface(p,a,0,0,0);
+
+    pgc->start1(p,a->fbh1,10);
+    pgc->start2(p,a->fbh2,11);
+    pgc->start3(p,a->fbh3,12);
+    pgc->start4(p,a->fbh4,40);
+
+    // Print initial body 
+    if(p->X50==1)
+    fb_obj[0]->print_vtp(p,pgc);
+    
+    if(p->X50==2)
+    fb_obj[0]->print_stl(p,pgc);
+
+    // ghostcell update
+    pgc->gcdf_update(p,a);
 }

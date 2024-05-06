@@ -48,6 +48,7 @@ public:
     
     virtual void ini(lexer*,ghostcell*);
     virtual void initialize(lexer*, fdm*, ghostcell*, vector<net*>&);
+    virtual void initialize_chrono(lexer*, fdm*, ghostcell*, vector<net*>&);
     virtual void initialize(lexer*, fdm_nhf*, ghostcell*, vector<net*>&);
     
     virtual void isource(lexer*,fdm*,ghostcell*);
