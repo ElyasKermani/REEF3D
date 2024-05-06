@@ -19,9 +19,9 @@ chronoWrapperOuter::~chronoWrapperOuter()
 //     obj->test(p);
 // }
 
-void chronoWrapperOuter::ini(lexer* p, std::vector<std::vector<double>>* _pos)
+void chronoWrapperOuter::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::vector<std::vector<int>>* _tri)
 {
-    obj->ini(p,_pos);
+    obj->ini(p,_pos,_tri);
 }
 
 void chronoWrapperOuter::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel)
