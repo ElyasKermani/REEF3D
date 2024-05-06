@@ -92,6 +92,7 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 	cout<<"Surface triangles: "<<tricount<<endl;
     
     // Initialise STL geometric parameters
+    if(p->X180==1)
 	geometry_stl(p,pgc);
     
     // Order Triangles for correct inside/outside orientation

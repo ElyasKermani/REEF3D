@@ -53,7 +53,7 @@ void sixdof_obj::initialize_cfd(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& 
     print_ini_stl(p,pgc);
  
     // Initialise processor boundaries
-    ini_parallel(p,pgc);
+    // ini_parallel(p,pgc);
     
     // Initialise objects
 	objects_create(p,pgc);
@@ -82,22 +82,22 @@ void sixdof_obj::initialize_cfd(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& 
 	update_fbvel(p,pgc);
    
     // Initialise floating fields
-     ULOOP
-     a->fbh1(i,j,k) = Hsolidface(p,a,1,0,0);
+    ULOOP
+    a->fbh1(i,j,k) = Hsolidface(p,a,1,0,0);
 
-     VLOOP
-     a->fbh2(i,j,k) = Hsolidface(p,a,0,1,0);
+    VLOOP
+    a->fbh2(i,j,k) = Hsolidface(p,a,0,1,0);
 
-     WLOOP
-     a->fbh3(i,j,k) = Hsolidface(p,a,0,0,1);
+    WLOOP
+    a->fbh3(i,j,k) = Hsolidface(p,a,0,0,1);
 
-     LOOP
-     a->fbh4(i,j,k) = Hsolidface(p,a,0,0,0);
+    LOOP
+    a->fbh4(i,j,k) = Hsolidface(p,a,0,0,0);
 
-     pgc->start1(p,a->fbh1,10);
-     pgc->start2(p,a->fbh2,11);
-     pgc->start3(p,a->fbh3,12);
-     pgc->start4(p,a->fbh4,40);
+    pgc->start1(p,a->fbh1,10);
+    pgc->start2(p,a->fbh2,11);
+    pgc->start3(p,a->fbh3,12);
+    pgc->start4(p,a->fbh4,40);
 
     // Print initial body 
     if(p->X50==1)
