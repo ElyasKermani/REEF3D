@@ -145,27 +145,31 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     // }
 }
 
-void chronoWrapper::start(double _timestep, std::vector<std::vector<double>> _forces, std::vector<int> _verticies, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel,  std::vector<std::vector<int>>* _tri)
+void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel,  std::vector<std::vector<int>>* _tri)
 {
     using namespace ::chrono;
     if(_timestep!=0)
     {
-        std::vector<Vector> forces;
-        for(size_t n=0;n<_forces.size();n++)
-        {
-            ChVector<> force(_forces[n][x], _forces[n][y], _forces[n][z]);
-            forces.push_back(force);
-        }
-
-        load->InputSimpleForces(forces,_verticies);
-
-        sys.DoStepDynamics(_timestep);
-
-        load->GetForceList().clear();
-
         std::vector<Vector> vert_pos;
         std::vector<Vector> vert_vel;
         std::vector<ChVector<int>> triangles;
+        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+        sys.Get_bodylist()[0]->Empty_forces_accumulators();
+        for(auto element : _forces)
+        {
+            Vector triangle = {triangles[std::get<3>(element)]};
+            Vector center = {(vert_pos[triangle.x()].x()+vert_pos[triangle.y()].x()+vert_pos[triangle.z()].x())/3.0,
+            (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
+            (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
+            sys.Get_bodylist()[0]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+        }
+
+        // load->InputSimpleForces(forces,_verticies);
+
+        sys.DoStepDynamics(_timestep);
+
+        // load->GetForceList().clear();
+
         load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
 
         _pos->clear();
