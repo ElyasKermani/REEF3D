@@ -33,39 +33,38 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
     if(p->Y5==1)
     {
         double* broadcast;
-        int count[1];
+        int count;
         if(p->mpirank==0)
         {
             chrono_obj->ini(p);
 
-            int tricount=chrono_obj->triangles.size();
-            fb_obj[0]->tricount=tricount;
-            fb_obj[0]->Mass_fb=pos[0][3];
-            p->Darray(fb_obj[0]->tri_x,tricount,3);
-            p->Darray(fb_obj[0]->tri_y,tricount,3);
-            p->Darray(fb_obj[0]->tri_z,tricount,3);
-            p->Darray(fb_obj[0]->tri_x0,tricount,3);
-            p->Darray(fb_obj[0]->tri_y0,tricount,3);
-            p->Darray(fb_obj[0]->tri_z0,tricount,3);
+            fb_obj[0]->tricount=chrono_obj->triangles.size();
+            fb_obj[0]->Mass_fb=chrono_obj->verticies[0][3];
+            p->Darray(fb_obj[0]->tri_x,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_y,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_z,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_x0,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_y0,fb_obj[0]->tricount,3);
+            p->Darray(fb_obj[0]->tri_z0,fb_obj[0]->tricount,3);
 
-            for(int n=0;n<tri.size();n++)
+            for(int n=0;n<fb_obj[0]->tricount;n++)
             {
-                fb_obj[0]->tri_x[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][0];
-                fb_obj[0]->tri_x[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][0];
-                fb_obj[0]->tri_x[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][0];
+                fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][0];
+                fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][0];
+                fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][0];
 
-                fb_obj[0]->tri_y[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][1];
-                fb_obj[0]->tri_y[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][1];
-                fb_obj[0]->tri_y[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][1];
+                fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][1];
+                fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][1];
+                fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][1];
 
-                fb_obj[0]->tri_z[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][2];
-                fb_obj[0]->tri_z[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][2];
-                fb_obj[0]->tri_z[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][2];
+                fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][2];
+                fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][2];
+                fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][2];
             }
 
-            count[0]=tri.size()*9;
-            broadcast = new double[count[0]];
-            for(int n=0;n<tri.size();n++)
+            count=fb_obj[0]->tricount*9;
+            broadcast = new double[count];
+            for(int n=0;n<fb_obj[0]->tricount;n++)
             {
                 broadcast[n*9+0] = fb_obj[0]->tri_x[n][0];
                 broadcast[n*9+1] = fb_obj[0]->tri_x[n][1];
@@ -82,13 +81,13 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         MPI_Bcast(&(fb_obj[0]->Mass_fb),1,MPI_DOUBLE,0,pgc->mpi_comm);
 
         // Shape
-        MPI_Bcast(count,1,MPI_INT,0,pgc->mpi_comm);
+        MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
         if(p->mpirank!=0)
         {
-            fb_obj[0]->tricount=count[0]/9;
-            broadcast = new double[count[0]];
+            fb_obj[0]->tricount=count/9;
+            broadcast = new double[count];
         }
-        MPI_Bcast(broadcast,count[0],MPI_DOUBLE,0,pgc->mpi_comm);
+        MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
         if(p->mpirank!=0)
         for(int n=0;n<fb_obj[0]->tricount;n++)
         {

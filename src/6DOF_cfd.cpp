@@ -52,62 +52,124 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
     {
         if(p->Y5!=1)
         {
-        // Calculate forces
-        fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
+            // Calculate forces
+            fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
 
-        // Advance body in time
-        fb_obj[nb]->solve_eqmotion(p,a,pgc,iter,pvrans,pnet);
-        
-        // Update transformation matrices
-        fb_obj[nb]->quat_matrices(p);
-        
-        // Update position and trimesh
-        fb_obj[nb]->update_position_3D(p,a,pgc,finalize);  //----> main time consumer
+            // Advance body in time
+            fb_obj[nb]->solve_eqmotion(p,a,pgc,iter,pvrans,pnet);
+            
+            // Update transformation matrices
+            fb_obj[nb]->quat_matrices(p);
+            
+            // Update position and trimesh
+            fb_obj[nb]->update_position_3D(p,a,pgc,finalize);  //----> main time consumer
         }
         else
         {
+            if(p->mpirank==0)
+            cout<<"CHRONO"<<endl;
             // Calculate forces
             fb_obj[0]->forces_stl2(p,a,pgc,uvel,vvel,wvel,iter);
-            // GetMax
-            // ...
+            // Gather .
+            int local_size = fb_obj[0]->FpT.size();
+            std::vector<int> sizes(p->M10);
+            MPI_Gather(&local_size, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+            if (p->mpirank == 0)
+            {
+                std::vector<int> displs(p->M10);
+                for (int i = 1; i < p->M10; ++i)
+                    displs[i] = displs[i-1] + sizes[i-1];
+
+                int total_size = displs.back() + sizes.back();
+                std::vector<std::tuple<double,double,double,int>> recv_data(total_size);
+
+                // Gather the data.
+                MPI_Gatherv(fb_obj[0]->FpT.data(), local_size, MPI_BYTE, recv_data.data(), sizes.data(), displs.data(), MPI_BYTE, 0, MPI_COMM_WORLD);
+                fb_obj[0]->FpT.clear();
+                fb_obj[0]->FpT=recv_data;
+            }
+            else
+            {
+                MPI_Gatherv(fb_obj[0]->FpT.data(), local_size, MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, 0, MPI_COMM_WORLD);
+            }
+
+            double* broadcast;
+            int count;
             if(p->mpirank==0)
             {
                 // Advance body in time
-                std::vector<std::vector<double>> forces;
-                std::vector<int> vertex;
-                for(auto element:fb_obj[0]->FpT)
+                chrono_obj->start(p->dt,fb_obj[0]->FpT);
+                fb_obj[0]->FpT.clear();
+
+                for(int n=0;n<chrono_obj->triangles.size();n++)
                 {
-                    // chrono_obj->triangles[std::get<3>(element)]
-                }
+                    fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][0];
+                    fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][0];
+                    fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][0];
 
-                
-                chrono_obj->start(p->dt,forces,vertex);
-                for(int n=0;n<tri.size();n++)
-                {
-                    fb_obj[0]->tri_x[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][0];
-                    fb_obj[0]->tri_x[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][0];
-                    fb_obj[0]->tri_x[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][0];
+                    fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][1];
+                    fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][1];
+                    fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][1];
 
-                    fb_obj[0]->tri_y[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][1];
-                    fb_obj[0]->tri_y[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][1];
-                    fb_obj[0]->tri_y[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][1];
-
-                    fb_obj[0]->tri_z[n][0]=chrono_obj->position[chrono_obj->triangles[n][0]][2];
-                    fb_obj[0]->tri_z[n][1]=chrono_obj->position[chrono_obj->triangles[n][1]][2];
-                    fb_obj[0]->tri_z[n][2]=chrono_obj->position[chrono_obj->triangles[n][2]][2];
+                    fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][2];
+                    fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][2];
+                    fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][2];
                 }
             }
+
+            if(p->mpirank==0)
+            {
+
+                count=fb_obj[0]->tricount*9;
+                broadcast = new double[count];
+                for(int n=0;n<fb_obj[0]->tricount;n++)
+                {
+                    broadcast[n*9+0] = fb_obj[0]->tri_x[n][0];
+                    broadcast[n*9+1] = fb_obj[0]->tri_x[n][1];
+                    broadcast[n*9+2] = fb_obj[0]->tri_x[n][2];
+                    broadcast[n*9+3] = fb_obj[0]->tri_y[n][0];
+                    broadcast[n*9+4] = fb_obj[0]->tri_y[n][1];
+                    broadcast[n*9+5] = fb_obj[0]->tri_y[n][2];
+                    broadcast[n*9+6] = fb_obj[0]->tri_z[n][0];
+                    broadcast[n*9+7] = fb_obj[0]->tri_z[n][1];
+                    broadcast[n*9+8] = fb_obj[0]->tri_z[n][2];
+                }
+            }
+
+            // Shape
+            MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
+            if(p->mpirank!=0)
+            {
+                fb_obj[0]->tricount=count/9;
+                broadcast = new double[count];
+            }
+            MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
+            if(p->mpirank!=0)
+            for(int n=0;n<fb_obj[0]->tricount;n++)
+            {
+                fb_obj[0]->tri_x[n][0] = broadcast[n*9+0];
+                fb_obj[0]->tri_x[n][1] = broadcast[n*9+1];
+                fb_obj[0]->tri_x[n][2] = broadcast[n*9+2];
+                fb_obj[0]->tri_y[n][0] = broadcast[n*9+3];
+                fb_obj[0]->tri_y[n][1] = broadcast[n*9+4];
+                fb_obj[0]->tri_y[n][2] = broadcast[n*9+5];
+                fb_obj[0]->tri_z[n][0] = broadcast[n*9+6];
+                fb_obj[0]->tri_z[n][1] = broadcast[n*9+7];
+                fb_obj[0]->tri_z[n][2] = broadcast[n*9+8];
+            }
+            delete[] broadcast;
             // Update position and trimesh
-            // ray_cast(p,a,pgc);
-            // reini_RK2(p,a,pgc,a->fb);
-            // pgc->start4a(p,a->fb,50); 
+            fb_obj[0]->ray_cast(p,a,pgc);
+            fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
+            pgc->start4a(p,a->fb,50); 
         }
 
         // Save
         fb_obj[nb]->update_fbvel(p,pgc);
         
         // Update forcing terms
-        fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
+        // fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter); // breaks as prob. center is incorrect
         
         
         // Print
