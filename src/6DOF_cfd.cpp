@@ -47,6 +47,9 @@ sixdof_cfd::~sixdof_cfd()
 void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vector<net*>& pnet, int iter, field &uvel, field &vvel, field &wvel, field &fx, field &fy, field &fz, bool finalize)
 {
     setup(p,a,pgc);
+
+    std::vector<std::vector<double>> velocities;
+    std::vector<std::vector<double>> verticies;
     
     for (int nb=0; nb<number6DOF;++nb)
     {
@@ -159,6 +162,49 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 fb_obj[0]->tri_z[n][2] = broadcast[n*9+8];
             }
             delete[] broadcast;
+
+            // vel broadcast
+            if(p->mpirank==0)
+            {
+                count=chrono_obj->velocities.size()*3;
+                broadcast = new double[count];
+                for(int n=0;n<chrono_obj->velocities.size();n++)
+                {
+                    broadcast[n*3+0] = chrono_obj->velocities[n][0];
+                    broadcast[n*3+1] = chrono_obj->velocities[n][1];
+                    broadcast[n*3+2] = chrono_obj->velocities[n][2];
+                }
+            }
+            MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
+            if(p->mpirank!=0)
+            {
+                broadcast = new double[count];
+            }
+            MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
+            for(int n=0;n<count/3;n++)
+            velocities.push_back({broadcast[n*3+0],broadcast[n*3+1],broadcast[n*3+2]});
+
+            // vel broadcast
+            if(p->mpirank==0)
+            {
+                count=chrono_obj->verticies.size()*3;
+                broadcast = new double[count];
+                for(int n=0;n<chrono_obj->verticies.size();n++)
+                {
+                    broadcast[n*3+0] = chrono_obj->verticies[n][0];
+                    broadcast[n*3+1] = chrono_obj->verticies[n][1];
+                    broadcast[n*3+2] = chrono_obj->verticies[n][2];
+                }
+            }
+            MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
+            if(p->mpirank!=0)
+            {
+                broadcast = new double[count];
+            }
+            MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
+            for(int n=0;n<count/3;n++)
+            verticies.push_back({broadcast[n*3+0],broadcast[n*3+1],broadcast[n*3+2]});
+
             // Update position and trimesh
             fb_obj[0]->ray_cast(p,a,pgc);
             fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
@@ -169,7 +215,10 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         fb_obj[nb]->update_fbvel(p,pgc);
         
         // Update forcing terms
-        // fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter); // breaks as prob. center is incorrect
+        if(p->Y5!=1)
+        fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
+        else
+        fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities,verticies);
         
         
         // Print

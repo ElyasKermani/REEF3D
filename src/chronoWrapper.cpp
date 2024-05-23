@@ -61,6 +61,7 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     // vis_shape->SetMesh(trimesh);
 
     auto body = chrono_types::make_shared<ChBody>();
+    body->SetName("Floater");
     if(p->X22==1)
         body->SetMass(p->X22_m);
     else
@@ -81,7 +82,8 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     body->SetCollide(true);
     body->SyncCollisionModels();
 
-    sys.Add(body);    
+    sys.Add(body);
+    floater_id=body->GetId();
 
     auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
     cont_mat->SetFriction(0.2f);
@@ -154,15 +156,21 @@ void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double
         std::vector<Vector> vert_vel;
         std::vector<ChVector<int>> triangles;
         load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-        sys.Get_bodylist()[0]->Empty_forces_accumulators();
+        sys.Get_bodylist()[floater_id]->Empty_forces_accumulators();
+        
+        Vector total_forces;
         for(auto element : _forces)
         {
             Vector triangle = {triangles[std::get<3>(element)]};
             Vector center = {(vert_pos[triangle.x()].x()+vert_pos[triangle.y()].x()+vert_pos[triangle.z()].x())/3.0,
             (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
             (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
-            sys.Get_bodylist()[0]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+            sys.Get_bodylist()[floater_id]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+            total_forces.x() += std::get<x>(element);
+            total_forces.y() += std::get<y>(element);
+            total_forces.z() += std::get<z>(element);
         }
+        std::cout<<"Chrono: total forces: "<<total_forces<<std::endl;
 
         // load->InputSimpleForces(forces,_verticies);
 

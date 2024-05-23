@@ -18,6 +18,7 @@ public:
 private:
     ::chrono::ChSystemNSC sys;
     std::shared_ptr<::chrono::ChLoadBodyMesh> load;
+    unsigned int floater_id;
     // std::shared_ptr<::chrono::irrlicht::ChVisualSystemIrrlicht> vis;
     enum {x,y,z};
     void readDIVEControl();

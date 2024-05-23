@@ -49,8 +49,8 @@ void sixdof_obj::ray_cast_io_x(lexer *p, fdm *a, ghostcell *pgc, int ts, int te)
 
     ALOOP
 	{
-	cutl(i,j,k)=0;
-	cutr(i,j,k)=0;
+		cutl(i,j,k)=0;
+		cutr(i,j,k)=0;
 	}
 
 	for(n=ts; n<te; ++n)
@@ -106,89 +106,88 @@ void sixdof_obj::ray_cast_io_x(lexer *p, fdm *a, ghostcell *pgc, int ts, int te)
 
 
 
-	js = p->posc_j(ys);
-	je = p->posc_j(ye);
-	
-	ks = p->posc_k(zs);
-	ke = p->posc_k(ze);	
-	
-	js = MAX(js,0);
-	je = MIN(je,p->knoy);
-	
-	ks = MAX(ks,0);
-	ke = MIN(ke,p->knoz);			
-	
-    
-		for(j=js;j<je;j++)
-		for(k=ks;k<ke;k++)
-		{
-		Px = p->global_xmin-10.0*p->DXM;
-		Py = p->YP[JP]-psi;
-		Pz = p->ZP[KP]+psi;
-		
-		Qx = p->global_xmax+10.0*p->DXM;
-		Qy = p->YP[JP]+psi;
-		Qz = p->ZP[KP]-psi;
-		
-		
-		PQx = Qx-Px;
-		PQy = Qy-Py;
-		PQz = Qz-Pz;
-		
-		PAx = Ax-Px;
-		PAy = Ay-Py;
-		PAz = Az-Pz;
-		
-		PBx = Bx-Px;
-		PBy = By-Py;
-		PBz = Bz-Pz;
-		
-		PCx = Cx-Px;
-		PCy = Cy-Py;
-		PCz = Cz-Pz;
-		
-		// uvw
-		Mx = PQy*Pz - PQz*Py;
-		My = PQz*Px - PQx*Pz;
-		Mz = PQx*Py - PQy*Px;
-
-		
-		u = PQx*(Cy*Bz - Cz*By) + PQy*(Cz*Bx - Cx*Bz) + PQz*(Cx*By - Cy*Bx)
-		  + Mx*(Cx-Bx) + My*(Cy-By) + Mz*(Cz-Bz);
-		  
-		v = PQx*(Ay*Cz - Az*Cy) + PQy*(Az*Cx - Ax*Cz) + PQz*(Ax*Cy - Ay*Cx)
-		  + Mx*(Ax-Cx) + My*(Ay-Cy) + Mz*(Az-Cz);
-		  
-		w = PQx*(By*Az - Bz*Ay) + PQy*(Bz*Ax - Bx*Az) + PQz*(Bx*Ay - By*Ax)
-		  + Mx*(Bx-Ax) + My*(By-Ay) + Mz*(Bz-Az);
-		
-		
-		int check=1;
-		if(u==0.0 && v==0.0 && w==0.0)
-		check = 0;
-		
-			if(((u>0.0 && v>0.0 && w>0.0) || (u<0.0 && v<0.0 && w<0.0)) && check==1)
-			{
-			denom = 1.0/(u+v+w);
-			u *= denom;
-			v *= denom;
-			w *= denom;
+			js = p->posc_j(ys);
+			je = p->posc_j(ye);
 			
-			Rx = u*Ax + v*Bx + w*Cx;
-            
-			for(i=0;i<p->knox;++i)
-             {
-				if(p->XP[IP]<Rx)
-				cutr(i,j,k) += 1;
-				
-				if(p->XP[IP]>=Rx)
-				cutl(i,j,k) += 1;
-             }
-            
-            
-			}
+			ks = p->posc_k(zs);
+			ke = p->posc_k(ze);	
+			
+			js = MAX(js,0);
+			je = MIN(je,p->knoy);
+			
+			ks = MAX(ks,0);
+			ke = MIN(ke,p->knoz);
+		
+			for(j=js;j<je;j++)
+				for(k=ks;k<ke;k++)
+				{
+					Px = p->global_xmin-10.0*p->DXM;
+					Py = p->YP[JP]-psi;
+					Pz = p->ZP[KP]+psi;
+					
+					Qx = p->global_xmax+10.0*p->DXM;
+					Qy = p->YP[JP]+psi;
+					Qz = p->ZP[KP]-psi;
+					
+					
+					PQx = Qx-Px;
+					PQy = Qy-Py;
+					PQz = Qz-Pz;
+					
+					PAx = Ax-Px;
+					PAy = Ay-Py;
+					PAz = Az-Pz;
+					
+					PBx = Bx-Px;
+					PBy = By-Py;
+					PBz = Bz-Pz;
+					
+					PCx = Cx-Px;
+					PCy = Cy-Py;
+					PCz = Cz-Pz;
+					
+					// uvw
+					Mx = PQy*Pz - PQz*Py;
+					My = PQz*Px - PQx*Pz;
+					Mz = PQx*Py - PQy*Px;
+
+					
+					u = PQx*(Cy*Bz - Cz*By) + PQy*(Cz*Bx - Cx*Bz) + PQz*(Cx*By - Cy*Bx)
+					+ Mx*(Cx-Bx) + My*(Cy-By) + Mz*(Cz-Bz);
+					
+					v = PQx*(Ay*Cz - Az*Cy) + PQy*(Az*Cx - Ax*Cz) + PQz*(Ax*Cy - Ay*Cx)
+					+ Mx*(Ax-Cx) + My*(Ay-Cy) + Mz*(Az-Cz);
+					
+					w = PQx*(By*Az - Bz*Ay) + PQy*(Bz*Ax - Bx*Az) + PQz*(Bx*Ay - By*Ax)
+					+ Mx*(Bx-Ax) + My*(By-Ay) + Mz*(Bz-Az);
+					
+					
+					int check=1;
+					if(u==0.0 && v==0.0 && w==0.0)
+						check = 0;
+					
+					if(((u>0.0 && v>0.0 && w>0.0) || (u<0.0 && v<0.0 && w<0.0)) && check==1)
+					{
+						denom = 1.0/(u+v+w);
+						u *= denom;
+						v *= denom;
+						w *= denom;
+						
+						Rx = u*Ax + v*Bx + w*Cx;
+						
+						ILOOP
+						{
+							if(p->XP[IP]<Rx)
+								cutr(i,j,k) += 1;
+							
+							if(p->XP[IP]>=Rx)
+								cutl(i,j,k) += 1;
+						}
+						
+						
+					}
+				}
 		}
-	}
     }
     
     

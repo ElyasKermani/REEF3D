@@ -34,12 +34,19 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
     {
         double* broadcast;
         int count;
+        p->Iarray(fb_obj[0]->tstart,1);
+        p->Iarray(fb_obj[0]->tend,1);
+        fb_obj[0]->entity_sum=1;
         if(p->mpirank==0)
         {
             chrono_obj->ini(p);
 
             fb_obj[0]->tricount=chrono_obj->triangles.size();
             fb_obj[0]->Mass_fb=chrono_obj->verticies[0][3];
+
+            fb_obj[0]->tstart[0] = 0;
+            fb_obj[0]->tend[0] = fb_obj[0]->tricount;
+            
             p->Darray(fb_obj[0]->tri_x,fb_obj[0]->tricount,3);
             p->Darray(fb_obj[0]->tri_y,fb_obj[0]->tricount,3);
             p->Darray(fb_obj[0]->tri_z,fb_obj[0]->tricount,3);
@@ -85,6 +92,8 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         if(p->mpirank!=0)
         {
             fb_obj[0]->tricount=count/9;
+            fb_obj[0]->tstart[0] = 0;
+            fb_obj[0]->tend[0] = fb_obj[0]->tricount;
             broadcast = new double[count];
         }
         MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
@@ -160,10 +169,8 @@ void sixdof_cfd::initialize_chrono(lexer *p, fdm *a, ghostcell *pgc, vector<net*
     fb_obj[0]->ini_fbvel(p,pgc);
 
     fb_obj[0]->ray_cast(p,a,pgc);
-    //if(p->X188==1)
-    fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
-    
-    pgc->start4a(p,a->fb,50);
+    // fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
+    // pgc->start4a(p,a->fb,50);
     
     // Calculate geometrical properties
     fb_obj[0]->geometry_parameters(p,a,pgc);
@@ -173,8 +180,8 @@ void sixdof_cfd::initialize_chrono(lexer *p, fdm *a, ghostcell *pgc, vector<net*
     
     // Recalculate distances
     fb_obj[0]->ray_cast(p,a,pgc);
-    fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
-    pgc->start4a(p,a->fb,50);
+    // fb_obj[0]->reini_RK2(p,a,pgc,a->fb);
+    // pgc->start4a(p,a->fb,50);
     
     // Initialise global variables
     fb_obj[0]->update_fbvel(p,pgc);
@@ -206,4 +213,21 @@ void sixdof_cfd::initialize_chrono(lexer *p, fdm *a, ghostcell *pgc, vector<net*
 
     // ghostcell update
     pgc->gcdf_update(p,a);
+
+    if(p->mpirank==0)
+    for(int n=0;n<fb_obj[0]->tricount;n++)
+    {
+        cout
+        <<"----"<<n<<"----\n"
+        <<fb_obj[0]->tri_x[n][0]<<","
+        <<fb_obj[0]->tri_y[n][0]<<","
+        <<fb_obj[0]->tri_z[n][0]<<"\n"
+        <<fb_obj[0]->tri_x[n][1]<<","
+        <<fb_obj[0]->tri_y[n][1]<<","
+        <<fb_obj[0]->tri_z[n][1]<<"\n"
+        <<fb_obj[0]->tri_x[n][2]<<","
+        <<fb_obj[0]->tri_y[n][2]<<","
+        <<fb_obj[0]->tri_z[n][2]<<
+        endl;
+    }
 }

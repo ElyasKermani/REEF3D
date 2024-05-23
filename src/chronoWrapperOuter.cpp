@@ -3,7 +3,6 @@
 #include <iostream>
 
 #include "lexer.h"
-// #include "chrono/core/ChVector.h"
 
 chronoWrapperOuter::chronoWrapperOuter(lexer* p)
 {
@@ -26,6 +25,5 @@ void chronoWrapperOuter::ini(lexer* p)
 
 void chronoWrapperOuter::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces)
 {
-
     obj->start(_timestep,_forces,&verticies,&velocities,&triangles);
 }

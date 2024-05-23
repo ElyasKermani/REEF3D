@@ -70,6 +70,7 @@ public:
 	// Additional functions
     void transform(lexer*, fdm*, ghostcell*, bool);
     void update_forcing(lexer*, fdm*, ghostcell*,field&,field&,field&,field&,field&,field&,int);
+    void update_forcing_chrono(lexer*, fdm*, ghostcell*,field&,field&,field&,field&,field&,field&,int,std::vector<std::vector<double>>, std::vector<std::vector<double>>);
     void hydrodynamic_forces_cfd(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
     void hydrodynamic_forces_nhflow(lexer*, fdm_nhf*, ghostcell*,bool);
 	
@@ -144,7 +145,8 @@ private:
     
     double Hsolidface(lexer*, fdm*, int,int,int);
 	double Hsolidface_t(lexer*, fdm*, int,int,int);
-    
+
+    int closest_point(lexer*, fdm*, std::vector<std::vector<double>>);
 	
 	void geometry_parameters(lexer*, fdm*, ghostcell*);
     void geometry_parameters_nhflow(lexer*, fdm_nhf*, ghostcell*);
