@@ -76,61 +76,63 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<std::vector<double>>>*
     // }
 }
 
-void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel,  std::vector<std::vector<std::vector<int>>>* _tri)
+void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<double,double,double,int>>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel,  std::vector<std::vector<std::vector<int>>>* _tri)
 {
     using namespace ::chrono;
 
-    int m=0;
     if(_timestep!=0)
     {
-        std::vector<Vector> vert_pos;
-        std::vector<Vector> vert_vel;
-        std::vector<ChVector<int>> triangles;
-        load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-        sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
-        
-        Vector total_forces;
-        for(auto element : _forces)
+        for(int m=0;m<floater_id.size();m++)
         {
-            Vector triangle = {triangles[std::get<3>(element)]};
-            Vector center = {(vert_pos[triangle.x()].x()+vert_pos[triangle.y()].x()+vert_pos[triangle.z()].x())/3.0,
-            (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
-            (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
-            sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
-            total_forces.x() += std::get<x>(element);
-            total_forces.y() += std::get<y>(element);
-            total_forces.z() += std::get<z>(element);
-        }
-        std::cout<<"Chrono: total forces: "<<total_forces<<std::endl;
-
-        // load->InputSimpleForces(forces,_verticies);
-
-        sys.DoStepDynamics(_timestep);
-
-        // load->GetForceList().clear();
-
-        load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-        
-        _pos->at(m).clear();
-        for(auto n=0;n<vert_pos.size();n++)
-        {
+            std::vector<Vector> vert_pos;
+            std::vector<Vector> vert_vel;
+            std::vector<ChVector<int>> triangles;
+            load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+            sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
             
-            std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
-            _pos->at(m).push_back(temp);
-        }
+            Vector total_forces;
+            for(auto element : _forces[m])
+            {
+                Vector triangle = {triangles[std::get<3>(element)]};
+                Vector center = {(vert_pos[triangle.x()].x()+vert_pos[triangle.y()].x()+vert_pos[triangle.z()].x())/3.0,
+                (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
+                (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
+                sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+                total_forces.x() += std::get<x>(element);
+                total_forces.y() += std::get<y>(element);
+                total_forces.z() += std::get<z>(element);
+            }
+            std::cout<<"Chrono: total forces: "<<total_forces<<std::endl;
 
-        _vel->at(m).clear();
-        for(auto n=0;n<vert_vel.size();n++)
-        {
-            std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
-            _vel->at(m).push_back(temp);
-        }
+            // load->InputSimpleForces(forces,_verticies);
 
-        _tri->at(m).clear();
-        for(auto n=0;n<triangles.size();n++)
-        {
-            std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
-            _tri->at(m).push_back(temp);
+            sys.DoStepDynamics(_timestep);
+
+            // load->GetForceList().clear();
+
+            load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+            
+            _pos->at(m).clear();
+            for(auto n=0;n<vert_pos.size();n++)
+            {
+                
+                std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+                _pos->at(m).push_back(temp);
+            }
+
+            _vel->at(m).clear();
+            for(auto n=0;n<vert_vel.size();n++)
+            {
+                std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
+                _vel->at(m).push_back(temp);
+            }
+
+            _tri->at(m).clear();
+            for(auto n=0;n<triangles.size();n++)
+            {
+                std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
+                _tri->at(m).push_back(temp);
+            }
         }
 
         // vis->BeginScene();
@@ -273,6 +275,7 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
 
     // "REEF3D_Chrono"
     string baseName = "floatingChrono";
+    floater_id.clear();
     for(int m = 0;m<p->Y5;m++)
     {
         string name = baseName + to_string(m+1);
