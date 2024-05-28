@@ -20,7 +20,7 @@ chronoWrapperOuter::~chronoWrapperOuter()
 
 void chronoWrapperOuter::ini(lexer* p)
 {
-    obj->ini(p,&verticies,&triangles);
+    obj->ini(p,&verticies,&velocities,&triangles);
 }
 
 void chronoWrapperOuter::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces)

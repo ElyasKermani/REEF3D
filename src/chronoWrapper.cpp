@@ -38,85 +38,14 @@ chronoWrapper::~chronoWrapper()
 {
 }
 
-void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::vector<std::vector<int>>* _tri)
+void chronoWrapper::ini(lexer* p, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>> *_vel, std::vector<std::vector<std::vector<int>>>* _tri)
 {
     using namespace ::chrono;
     using namespace ::chrono::geometry;
 
     readDIVEControl();
-    
-    auto mesh_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 
-    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("./floatingChrono.stl");
-
-    // Scale needs to happen here
-
-    Vector center = trimesh->GetBoundingBox().Center();
-    ChMatrix33<> intertia;
-    trimesh->ComputeMassProperties(true,volume,center,intertia);
-
-    auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
-
-    // auto vis_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
-    // vis_shape->SetMesh(trimesh);
-
-    auto body = chrono_types::make_shared<ChBody>();
-    body->SetName("Floater");
-    if(p->X22==1)
-        body->SetMass(p->X22_m);
-    else
-        body->SetMass(p->X21_d*volume);
-
-    if(p->X182==1)
-    {
-        Vector pos = body->GetPos();
-        Vector mov = {p->X182_x,p->X182_y,p->X182_z};
-        body->SetPos(pos+mov);
-    }
-
-    // if(p->X183==1)
-    // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
-    
-    body->AddCollisionShape(colli_shape);
-    // body->AddVisualShape(vis_shape);
-    body->SetCollide(true);
-    body->SyncCollisionModels();
-
-    sys.Add(body);
-    floater_id=body->GetId();
-
-    auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
-    cont_mat->SetFriction(0.2f);
-
-    auto load_container = chrono_types::make_shared<ChLoadContainer>();
-    sys.Add(load_container);
-    load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
-    load_container->Add(load);
-
-    if (p->X102==1)
-    body->SetPos_dt(Vector(p->X102_u,p->X102_v,p->X102_w));
-
-    // if (p->X103==1)
-    // body->SetRot_dt(ChQuaternion<double>(0,p->X103_p,p->X103_q,p->X103_r));
-
-    std::vector<Vector> vert_pos;
-    std::vector<Vector> vert_vel;
-    std::vector<ChVector<int>> triangles;
-    load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-
-    for(auto n=0;n<vert_pos.size();n++)
-    {
-        std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
-        if(n==0)
-        temp.push_back(body->GetMass());
-        _pos->push_back(temp);
-    }
-
-    for(auto n=0;n<triangles.size();n++)
-    {
-        std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
-        _tri->push_back(temp);
-    }
+    createBodies(p,_pos,_vel,_tri);
 
     p->printcount_sixdof = 0;
 
@@ -147,16 +76,18 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     // }
 }
 
-void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces, std::vector<std::vector<double>>* _pos, std::vector<std::vector<double>>* _vel,  std::vector<std::vector<int>>* _tri)
+void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel,  std::vector<std::vector<std::vector<int>>>* _tri)
 {
     using namespace ::chrono;
+
+    int m=0;
     if(_timestep!=0)
     {
         std::vector<Vector> vert_pos;
         std::vector<Vector> vert_vel;
         std::vector<ChVector<int>> triangles;
         load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-        sys.Get_bodylist()[floater_id]->Empty_forces_accumulators();
+        sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
         
         Vector total_forces;
         for(auto element : _forces)
@@ -165,7 +96,7 @@ void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double
             Vector center = {(vert_pos[triangle.x()].x()+vert_pos[triangle.y()].x()+vert_pos[triangle.z()].x())/3.0,
             (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
             (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
-            sys.Get_bodylist()[floater_id]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+            sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
             total_forces.x() += std::get<x>(element);
             total_forces.y() += std::get<y>(element);
             total_forces.z() += std::get<z>(element);
@@ -179,27 +110,27 @@ void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double
         // load->GetForceList().clear();
 
         load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-
-        _pos->clear();
+        
+        _pos->at(m).clear();
         for(auto n=0;n<vert_pos.size();n++)
         {
             
             std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
-            _pos->push_back(temp);
+            _pos->at(m).push_back(temp);
         }
 
-        _vel->clear();
+        _vel->at(m).clear();
         for(auto n=0;n<vert_vel.size();n++)
         {
             std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
-            _vel->push_back(temp);
+            _vel->at(m).push_back(temp);
         }
 
-        _tri->clear();
+        _tri->at(m).clear();
         for(auto n=0;n<triangles.size();n++)
         {
             std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
-            _tri->push_back(temp);
+            _tri->at(m).push_back(temp);
         }
 
         // vis->BeginScene();
@@ -330,6 +261,97 @@ void chronoWrapper::readDIVEControl()
                                                         );
         box->SetPos(Vector(S10[n][0]+0.5*(S10[n][1]-S10[n][0]),S10[n][2]+0.5*(S10[n][3]-S10[n][2]),S10[n][4]+0.5*(S10[n][5]-S10[n][4])));
         box->SetBodyFixed(true);
+        box->SetName("Solid");
         sys.Add(box);
+    }
+}
+
+void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<double>>> *_pos, std::vector<std::vector<std::vector<double>>> *_vel, std::vector<std::vector<std::vector<int>>> *_tri)
+{
+    using namespace ::chrono;
+    using namespace ::chrono::geometry;
+
+    // "REEF3D_Chrono"
+    string baseName = "floatingChrono";
+    for(int m = 0;m<p->Y5;m++)
+    {
+        string name = baseName + to_string(m+1);
+        string fileName = "./"+name+".stl";
+
+        auto mesh_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+
+        auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile(fileName);
+
+        Vector center = trimesh->GetBoundingBox().Center();
+        ChMatrix33<> intertia;
+        trimesh->ComputeMassProperties(true,volume,center,intertia);
+
+        auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
+
+        // auto vis_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
+        // vis_shape->SetMesh(trimesh);
+
+        auto body = chrono_types::make_shared<ChBody>();
+        body->SetName(name.c_str());
+        if(p->X22==1)
+            body->SetMass(p->X22_m);
+        else
+            body->SetMass(p->X21_d*volume);
+
+        if(p->X182==1)
+        {
+            Vector pos = body->GetPos();
+            Vector mov = {p->X182_x,p->X182_y,p->X182_z};
+            body->SetPos(pos+mov);
+        }
+
+        // if(p->X183==1)
+        // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
+        
+        body->AddCollisionShape(colli_shape);
+        // body->AddVisualShape(vis_shape);
+        body->SetCollide(true);
+        body->SyncCollisionModels();
+
+        sys.Add(body);
+        floater_id.push_back(body->GetId());
+
+        auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+        cont_mat->SetFriction(0.2f);
+
+        auto load_container = chrono_types::make_shared<ChLoadContainer>();
+        sys.Add(load_container);
+        load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
+        load_container->Add(load);
+
+        if (p->X102==1)
+        body->SetPos_dt(Vector(p->X102_u,p->X102_v,p->X102_w));
+
+        // if (p->X103==1)
+        // body->SetRot_dt(ChQuaternion<double>(0,p->X103_p,p->X103_q,p->X103_r));
+
+        std::vector<Vector> vert_pos;
+        std::vector<Vector> vert_vel;
+        std::vector<ChVector<int>> triangles;
+        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+        std::vector<std::vector<double>> temp2;
+        std::vector<std::vector<int>> temp3;
+        _vel->push_back(temp2);
+
+        for(auto n=0;n<vert_pos.size();n++)
+        {
+            std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
+            if(n==0)
+            temp.push_back(body->GetMass());
+            temp2.push_back(temp);
+        }
+        _pos->push_back(temp2);
+
+        for(auto n=0;n<triangles.size();n++)
+        {
+            std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
+            temp3.push_back(temp);
+        }
+        _tri->push_back(temp3);
     }
 }

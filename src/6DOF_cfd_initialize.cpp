@@ -30,9 +30,11 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
     for (int nb = 0; nb < number6DOF; nb++)
         fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
     
-    if(p->Y5==1)
+    if(p->Y5>0)
     {
         cout<<"CHRONO"<<endl;
+
+        int m=0;
         double* broadcast;
         int count;
         p->Iarray(fb_obj[0]->tstart,1);
@@ -42,8 +44,8 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         {
             chrono_obj->ini(p);
 
-            fb_obj[0]->tricount=chrono_obj->triangles.size();
-            fb_obj[0]->Mass_fb=chrono_obj->verticies[0][3];
+            fb_obj[0]->tricount=chrono_obj->triangles[0].size();
+            fb_obj[0]->Mass_fb=chrono_obj->verticies[0][0][3];
 
             fb_obj[0]->tstart[0] = 0;
             fb_obj[0]->tend[0] = fb_obj[0]->tricount;
@@ -57,17 +59,17 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
 
             for(int n=0;n<fb_obj[0]->tricount;n++)
             {
-                fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][0];
-                fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][0];
-                fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][0];
+                fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][0];
+                fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][0];
+                fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][0];
 
-                fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][1];
-                fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][1];
-                fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][1];
+                fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][1];
+                fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][1];
+                fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][1];
 
-                fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][2];
-                fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][2];
-                fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][2];
+                fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][2];
+                fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][2];
+                fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][2];
             }
 
             count=fb_obj[0]->tricount*9;

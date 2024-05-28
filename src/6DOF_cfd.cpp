@@ -53,7 +53,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
     
     for (int nb=0; nb<number6DOF;++nb)
     {
-        if(p->Y5!=1)
+        if(p->Y5==0)
         {
             // Calculate forces
             fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
@@ -67,8 +67,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             // Update position and trimesh
             fb_obj[nb]->update_position_3D(p,a,pgc,finalize);  //----> main time consumer
         }
-        else
+        else if (p->Y5>0)
         {
+            int m=0;
             if(p->mpirank==0)
             cout<<"CHRONO"<<endl;
             // Calculate forces
@@ -105,19 +106,19 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 chrono_obj->start(p->dt,fb_obj[0]->FpT);
                 fb_obj[0]->FpT.clear();
 
-                for(int n=0;n<chrono_obj->triangles.size();n++)
+                for(int n=0;n<chrono_obj->triangles[0].size();n++)
                 {
-                    fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][0];
-                    fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][0];
-                    fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][0];
+                    fb_obj[0]->tri_x[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][0];
+                    fb_obj[0]->tri_x[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][0];
+                    fb_obj[0]->tri_x[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][0];
 
-                    fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][1];
-                    fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][1];
-                    fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][1];
+                    fb_obj[0]->tri_y[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][1];
+                    fb_obj[0]->tri_y[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][1];
+                    fb_obj[0]->tri_y[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][1];
 
-                    fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[chrono_obj->triangles[n][0]][2];
-                    fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[chrono_obj->triangles[n][1]][2];
-                    fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[chrono_obj->triangles[n][2]][2];
+                    fb_obj[0]->tri_z[n][0]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][0]][2];
+                    fb_obj[0]->tri_z[n][1]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][1]][2];
+                    fb_obj[0]->tri_z[n][2]=chrono_obj->verticies[m][chrono_obj->triangles[m][n][2]][2];
                 }
             }
 
@@ -170,9 +171,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 broadcast = new double[count];
                 for(int n=0;n<chrono_obj->velocities.size();n++)
                 {
-                    broadcast[n*3+0] = chrono_obj->velocities[n][0];
-                    broadcast[n*3+1] = chrono_obj->velocities[n][1];
-                    broadcast[n*3+2] = chrono_obj->velocities[n][2];
+                    broadcast[n*3+0] = chrono_obj->velocities[m][n][0];
+                    broadcast[n*3+1] = chrono_obj->velocities[m][n][1];
+                    broadcast[n*3+2] = chrono_obj->velocities[m][n][2];
                 }
             }
             MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
@@ -192,9 +193,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 broadcast = new double[count];
                 for(int n=0;n<chrono_obj->verticies.size();n++)
                 {
-                    broadcast[n*3+0] = chrono_obj->verticies[n][0];
-                    broadcast[n*3+1] = chrono_obj->verticies[n][1];
-                    broadcast[n*3+2] = chrono_obj->verticies[n][2];
+                    broadcast[n*3+0] = chrono_obj->verticies[m][n][0];
+                    broadcast[n*3+1] = chrono_obj->verticies[m][n][1];
+                    broadcast[n*3+2] = chrono_obj->verticies[m][n][2];
                 }
             }
             MPI_Bcast(&count,1,MPI_INT,0,pgc->mpi_comm);
