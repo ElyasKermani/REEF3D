@@ -102,6 +102,8 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             int count;
             if(p->mpirank==0)
             {
+                // Forces need to be fixed
+
                 // Advance body in time
                 chrono_obj->start(p->dt,fb_obj[0]->FpT);
                 fb_obj[0]->FpT.clear();

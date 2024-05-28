@@ -86,7 +86,7 @@ void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double
         std::vector<Vector> vert_pos;
         std::vector<Vector> vert_vel;
         std::vector<ChVector<int>> triangles;
-        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+        load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
         sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
         
         Vector total_forces;
@@ -109,7 +109,7 @@ void chronoWrapper::start(double _timestep, std::vector<std::tuple<double,double
 
         // load->GetForceList().clear();
 
-        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+        load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
         
         _pos->at(m).clear();
         for(auto n=0;n<vert_pos.size();n++)
@@ -321,8 +321,8 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
 
         auto load_container = chrono_types::make_shared<ChLoadContainer>();
         sys.Add(load_container);
-        load = chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh);
-        load_container->Add(load);
+        load.push_back(chrono_types::make_shared<ChLoadBodyMesh>(body,*trimesh));
+        load_container->Add(load[m]);
 
         if (p->X102==1)
         body->SetPos_dt(Vector(p->X102_u,p->X102_v,p->X102_w));
@@ -333,7 +333,7 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
         std::vector<Vector> vert_pos;
         std::vector<Vector> vert_vel;
         std::vector<ChVector<int>> triangles;
-        load->OutputSimpleMesh(vert_pos,vert_vel,triangles);
+        load[m]->OutputSimpleMesh(vert_pos,vert_vel,triangles);
         std::vector<std::vector<double>> temp2;
         std::vector<std::vector<int>> temp3;
         _vel->push_back(temp2);

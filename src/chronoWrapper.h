@@ -17,7 +17,7 @@ public:
     void start(double _timestep, std::vector<std::tuple<double,double,double,int>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel, std::vector<std::vector<std::vector<int>>>*);
 private:
     ::chrono::ChSystemNSC sys;
-    std::shared_ptr<::chrono::ChLoadBodyMesh> load;
+    std::vector<std::shared_ptr<::chrono::ChLoadBodyMesh>> load;
     std::vector<unsigned int> floater_id;
     // std::shared_ptr<::chrono::irrlicht::ChVisualSystemIrrlicht> vis;
     enum {x,y,z};
