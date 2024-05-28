@@ -183,6 +183,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
             for(int n=0;n<count/3;n++)
             velocities.push_back({broadcast[n*3+0],broadcast[n*3+1],broadcast[n*3+2]});
+            delete[] broadcast;
 
             // vel broadcast
             if(p->mpirank==0)
@@ -204,6 +205,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
             for(int n=0;n<count/3;n++)
             verticies.push_back({broadcast[n*3+0],broadcast[n*3+1],broadcast[n*3+2]});
+            delete[] broadcast;
 
             // Update position and trimesh
             fb_obj[0]->ray_cast(p,a,pgc);

@@ -47,7 +47,7 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<double>>* _pos, std::v
     
     auto mesh_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 
-    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("./floating.stl");
+    auto trimesh = ChTriangleMeshConnected::CreateFromSTLFile("./floatingChrono.stl");
 
     // Scale needs to happen here
 

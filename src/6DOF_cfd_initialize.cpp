@@ -32,6 +32,7 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
     
     if(p->Y5==1)
     {
+        cout<<"CHRONO"<<endl;
         double* broadcast;
         int count;
         p->Iarray(fb_obj[0]->tstart,1);
@@ -98,24 +99,30 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
         }
         MPI_Bcast(broadcast,count,MPI_DOUBLE,0,pgc->mpi_comm);
         if(p->mpirank!=0)
-        for(int n=0;n<fb_obj[0]->tricount;n++)
         {
-            p->Darray(fb_obj[0]->tri_x,fb_obj[0]->tricount,3);
-            p->Darray(fb_obj[0]->tri_y,fb_obj[0]->tricount,3);
-            p->Darray(fb_obj[0]->tri_z,fb_obj[0]->tricount,3);
-            p->Darray(fb_obj[0]->tri_x0,fb_obj[0]->tricount,3);
-            p->Darray(fb_obj[0]->tri_y0,fb_obj[0]->tricount,3);
-            p->Darray(fb_obj[0]->tri_z0,fb_obj[0]->tricount,3);
+            for(n=0;n<fb_obj[0]->tricount;n++)
+            {
+                p->Darray(fb_obj[0]->tri_x,fb_obj[0]->tricount,3);
+                p->Darray(fb_obj[0]->tri_y,fb_obj[0]->tricount,3);
+                p->Darray(fb_obj[0]->tri_z,fb_obj[0]->tricount,3);
+                p->Darray(fb_obj[0]->tri_x0,fb_obj[0]->tricount,3);
+                p->Darray(fb_obj[0]->tri_y0,fb_obj[0]->tricount,3);
+                p->Darray(fb_obj[0]->tri_z0,fb_obj[0]->tricount,3);
+            }
+            for(n=0;n<fb_obj[0]->tricount;n++)
+            {
+                fb_obj[0]->tri_x[n][0] = broadcast[n*9+0];
+                fb_obj[0]->tri_x[n][1] = broadcast[n*9+1];
+                fb_obj[0]->tri_x[n][2] = broadcast[n*9+2];
 
-            fb_obj[0]->tri_x[n][0] = broadcast[n*9+0];
-            fb_obj[0]->tri_x[n][1] = broadcast[n*9+1];
-            fb_obj[0]->tri_x[n][2] = broadcast[n*9+2];
-            fb_obj[0]->tri_y[n][0] = broadcast[n*9+3];
-            fb_obj[0]->tri_y[n][1] = broadcast[n*9+4];
-            fb_obj[0]->tri_y[n][2] = broadcast[n*9+5];
-            fb_obj[0]->tri_z[n][0] = broadcast[n*9+6];
-            fb_obj[0]->tri_z[n][1] = broadcast[n*9+7];
-            fb_obj[0]->tri_z[n][2] = broadcast[n*9+8];
+                fb_obj[0]->tri_y[n][0] = broadcast[n*9+3];
+                fb_obj[0]->tri_y[n][1] = broadcast[n*9+4];
+                fb_obj[0]->tri_y[n][2] = broadcast[n*9+5];
+                
+                fb_obj[0]->tri_z[n][0] = broadcast[n*9+6];
+                fb_obj[0]->tri_z[n][1] = broadcast[n*9+7];
+                fb_obj[0]->tri_z[n][2] = broadcast[n*9+8];
+            }
         }
         delete[] broadcast;
         initialize_chrono(p,a,pgc,pnet);
