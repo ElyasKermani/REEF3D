@@ -419,6 +419,8 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
     A=0.0;
     Xe=Ye=Ze=Ke=Me=Ne=0.0;
     Xe_p=Ye_p=Ze_p=Xe_v=Ye_v=Ze_v=0.0;
+
+    FpT.clear();
     
     // Set new time
     curr_time += alpha[iter]*p->dt; 

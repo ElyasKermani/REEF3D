@@ -26,6 +26,8 @@ Authors: Tobias Martin, Hans Bihs
 #include"fdm.h"
 #include"ghostcell.h"
 #include"ddweno_f_nug.h"
+#include <tuple>
+#include <cstddef>
 
 sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
 {
@@ -78,11 +80,27 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         for (int nb=0; nb<number6DOF;++nb)
         {
             fb_obj[nb]->forces_stl2(p,a,pgc,uvel,vvel,wvel,iter);
-            // Gather .
+            // Gather
             int local_size = fb_obj[nb]->FpT.size();
         
             std::vector<int> sizes(p->M10);
             MPI_Gather(&local_size, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+            MPI_Datatype mpi_tuples_str;
+            const int nitems = 4;
+            int blocklengths[4];
+            blocklengths[0] = 1;
+            blocklengths[1] = 1;
+            blocklengths[2] = 1;
+            blocklengths[3] = 1;
+            MPI_Datatype types[4] = { MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT };
+            MPI_Aint offsets[4];
+            offsets[0] = 0;
+            offsets[1] = sizeof(double);
+            offsets[2] = 2*sizeof(double);
+            offsets[3] = 3*sizeof(double);
+            MPI_Type_create_struct( nitems, blocklengths, offsets, types, &mpi_tuples_str);
+            MPI_Type_commit( &mpi_tuples_str);
 
             if (p->mpirank == 0)
             {
@@ -94,13 +112,14 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 std::vector<std::tuple<double,double,double,int>> recv_data(total_size);
 
                 // Gather the data.
-                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, MPI_BYTE, recv_data.data(), sizes.data(), displs.data(), MPI_BYTE, 0, MPI_COMM_WORLD);
-                fb_obj[nb]->FpT.clear();
+                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_str, recv_data.data(), sizes.data(), displs.data(), mpi_tuples_str, 0, MPI_COMM_WORLD);
                 fb_obj[nb]->FpT=recv_data;
+                for(auto element:recv_data)
+                cout<<std::get<3>(element)<<":"<<std::get<0>(element)<<","<<std::get<1>(element)<<","<<std::get<2>(element)<<endl;
             }
             else
             {
-                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, 0, MPI_COMM_WORLD);
+                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_str, nullptr, nullptr, nullptr, mpi_tuples_str, 0, MPI_COMM_WORLD);
             }
         }
 
@@ -110,15 +129,14 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         {
             std::vector<std::vector<std::tuple<double,double,double,int>>> forces;
             for (int nb=0; nb<number6DOF;++nb)
-            forces.push_back(fb_obj[nb]->FpT);
-
+            {
+                forces.push_back(fb_obj[nb]->FpT);
+            }
             // Advance body in time
             chrono_obj->start(p->dt,forces);
 
             for (int nb=0; nb<number6DOF;++nb)
             {
-                fb_obj[nb]->FpT.clear();
-
                 for(int n=0;n<chrono_obj->triangles[0].size();n++)
                 {
                     fb_obj[nb]->tri_x[n][0]=chrono_obj->verticies[nb][chrono_obj->triangles[nb][n][0]][0];
@@ -242,8 +260,8 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         if(p->Y5==0)
         fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
         else if (p->Y5>0)
-        fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities[nb],verticies[nb]);
-        
+        // fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities[nb],verticies[nb]);
+        ;
         
         // Print
         if(finalize==true)

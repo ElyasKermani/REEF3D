@@ -90,7 +90,6 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
             sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
             
-            Vector total_forces;
             for(auto element : _forces[m])
             {
                 Vector triangle = {triangles[std::get<3>(element)]};
@@ -98,11 +97,8 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
                 (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
                 (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
                 sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
-                total_forces.x() += std::get<x>(element);
-                total_forces.y() += std::get<y>(element);
-                total_forces.z() += std::get<z>(element);
             }
-            std::cout<<"Chrono: total forces: "<<total_forces<<std::endl;
+            std::cout<<"Chrono: total forces: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_force()<<", total_tor: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_torque()<<std::endl;
 
             // load->InputSimpleForces(forces,_verticies);
 
@@ -192,7 +188,7 @@ void chronoWrapper::readDIVEControl()
             {	
                 switch(c)
                 {
-                    case 'S':
+                    case 'S': case 'O':
                         control>>numint;
                         switch(numint)
                         {
