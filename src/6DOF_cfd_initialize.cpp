@@ -45,8 +45,8 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
             {
                 chrono_obj->ini(p);
 
-                fb_obj[nb]->tricount=chrono_obj->triangles[0].size();
-                fb_obj[nb]->Mass_fb=chrono_obj->verticies[0][0][3];
+                fb_obj[nb]->tricount=chrono_obj->triangles[nb].size();
+                fb_obj[nb]->Mass_fb=chrono_obj->verticies[nb][0][3];
 
                 fb_obj[nb]->tstart[0] = 0;
                 fb_obj[nb]->tend[0] = fb_obj[nb]->tricount;
@@ -224,21 +224,4 @@ void sixdof_cfd::initialize_chrono(lexer *p, fdm *a, ghostcell *pgc, vector<net*
 
     // ghostcell update
     pgc->gcdf_update(p,a);
-
-    if(p->mpirank==0)
-    for(int n=0;n<fb_obj[nb]->tricount;n++)
-    {
-        cout
-        <<"----"<<n<<"----\n"
-        <<fb_obj[nb]->tri_x[n][0]<<","
-        <<fb_obj[nb]->tri_y[n][0]<<","
-        <<fb_obj[nb]->tri_z[n][0]<<"\n"
-        <<fb_obj[nb]->tri_x[n][1]<<","
-        <<fb_obj[nb]->tri_y[n][1]<<","
-        <<fb_obj[nb]->tri_z[n][1]<<"\n"
-        <<fb_obj[nb]->tri_x[n][2]<<","
-        <<fb_obj[nb]->tri_y[n][2]<<","
-        <<fb_obj[nb]->tri_z[n][2]<<
-        endl;
-    }
 }
