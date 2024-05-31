@@ -667,6 +667,8 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
             Fz = Fp_z + Fv_z;
 
             FpT.push_back(std::make_tuple(Fx,Fy,Fz,n));
+            // cout<<n<<":"<<Fx<<","<<Fy<<","<<Fz<<"\n"
+            // <<xc<<","<<yc<<","<<zc<<endl<<endl;
             
 			// Add forces to global forces
 			

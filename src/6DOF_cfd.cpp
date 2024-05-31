@@ -26,8 +26,6 @@ Authors: Tobias Martin, Hans Bihs
 #include"fdm.h"
 #include"ghostcell.h"
 #include"ddweno_f_nug.h"
-#include <tuple>
-#include <cstddef>
 
 sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
 {
@@ -41,7 +39,10 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj.push_back(new sixdof_obj(p,pgc,nb));
 
-    chrono_obj = new chronoWrapperOuter(p);
+    if(p->Y5>=1)
+    {
+        chrono_obj = new chronoWrapperOuter(p);
+    }
 }
     
 sixdof_cfd::~sixdof_cfd()
@@ -86,7 +87,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             std::vector<int> sizes(p->M10);
             MPI_Gather(&local_size, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-            MPI_Datatype mpi_tuples_str;
+            MPI_Datatype mpi_tuples_dddi;
             const int nitems = 4;
             int blocklengths[4];
             blocklengths[0] = 1;
@@ -99,8 +100,8 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             offsets[1] = sizeof(double);
             offsets[2] = 2*sizeof(double);
             offsets[3] = 3*sizeof(double);
-            MPI_Type_create_struct( nitems, blocklengths, offsets, types, &mpi_tuples_str);
-            MPI_Type_commit( &mpi_tuples_str);
+            MPI_Type_create_struct( nitems, blocklengths, offsets, types, &mpi_tuples_dddi);
+            MPI_Type_commit( &mpi_tuples_dddi);
 
             if (p->mpirank == 0)
             {
@@ -112,15 +113,16 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 std::vector<std::tuple<double,double,double,int>> recv_data(total_size);
 
                 // Gather the data.
-                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_str, recv_data.data(), sizes.data(), displs.data(), mpi_tuples_str, 0, MPI_COMM_WORLD);
+                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_dddi, recv_data.data(), sizes.data(), displs.data(), mpi_tuples_dddi, 0, MPI_COMM_WORLD);
                 fb_obj[nb]->FpT=recv_data;
-                for(auto element:recv_data)
-                cout<<std::get<3>(element)<<":"<<std::get<0>(element)<<","<<std::get<1>(element)<<","<<std::get<2>(element)<<endl;
+                // for(auto element:recv_data)
+                // cout<<std::get<3>(element)<<":"<<std::get<0>(element)<<","<<std::get<1>(element)<<","<<std::get<2>(element)<<endl;
             }
             else
             {
-                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_str, nullptr, nullptr, nullptr, mpi_tuples_str, 0, MPI_COMM_WORLD);
+                MPI_Gatherv(fb_obj[nb]->FpT.data(), local_size, mpi_tuples_dddi, nullptr, nullptr, nullptr, mpi_tuples_dddi, 0, MPI_COMM_WORLD);
             }
+            MPI_Type_free(&mpi_tuples_dddi);
         }
 
         double* broadcast;

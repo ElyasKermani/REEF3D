@@ -97,6 +97,7 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
                 (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
                 (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
                 sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
+                // std::cout<<Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)}<<"\n"<<center<<std::endl<<std::endl;;
             }
             std::cout<<"Chrono: total forces: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_force()<<", total_tor: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_torque()<<std::endl;
 
