@@ -371,9 +371,6 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     }
     
     }
-    
-    LOOP
-    a->test(i,j,k) = a->fbh4(i,j,k);
 
     // Construct solid heaviside function	
     if(p->X14>=2)
