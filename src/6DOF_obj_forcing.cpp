@@ -296,7 +296,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
 	double nx, ny, nz,norm ;
 	double psi, phival_fb;
     double dirac;
-    int closest_point;
+    //int closest_point;
     std::vector<double> interpolated_velocity;
     
     H=Ht=0.0;
@@ -332,7 +332,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         */
 
         interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[1];
+        vf = interpolated_velocity[1];
         
         if(vf!=vf)
         cout<<"VF "<<vf<<endl;
@@ -353,7 +353,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         */
 
         interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[2];
+        wf = interpolated_velocity[2];
         
         if(wf!=wf)
         cout<<"WF "<<wf<<endl;
@@ -452,7 +452,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         */
 
         interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[1];
+        vf = interpolated_velocity[1];
         
         if(vf!=vf)
         cout<<"VF "<<vf<<endl;
@@ -505,7 +505,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         */
 
         interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[2];
+        wf = interpolated_velocity[2];
         
         if(wf!=wf)
         cout<<"WF "<<wf<<endl;
@@ -587,6 +587,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     pgc->start3(p,fz,12);         
 };
 
+/*
 int sixdof_obj::closest_point(lexer* p, fdm *a, std::vector<std::vector<double>> verticies)
 {
     /// convert i,j,k to x,y,z and find closest point of tirangle mesh
@@ -609,6 +610,7 @@ int sixdof_obj::closest_point(lexer* p, fdm *a, std::vector<std::vector<double>>
     }
     return index;
 }
+*/
 
 
 std::vector<double> sixdof_obj::interpolated_velocity(lexer* p, fdm *a, std::vector<std::vector<double>> verticies, std::vector<std::vector<double>> velocities)
