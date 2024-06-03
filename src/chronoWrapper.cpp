@@ -97,38 +97,36 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
                 (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
                 (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
                 sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
-                // std::cout<<Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)}<<"\n"<<center<<std::endl<<std::endl;;
+                
+                std::cout<<Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)}<<std::endl<<std::endl;;
             }
-            std::cout<<"Chrono: total forces: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_force()<<", total_tor: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_torque()<<std::endl;
-
-            // load->InputSimpleForces(forces,_verticies);
 
             sys.DoStepDynamics(_timestep);
-
-            // load->GetForceList().clear();
+            std::cout<<"Chrono: total forces: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_force()<<", total_tor: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_torque()
+            <<"\naplied: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedForce()<<", torque: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedTorque()
+            <<"\nMass: "<<sys.Get_bodylist()[floater_id[m]]->GetMass()
+            <<"\nChrono vel: "<<sys.Get_bodylist()[floater_id[m]]->GetPos_dt()
+            <<" "<<sys.Get_bodylist()[floater_id[m]]->GetRot_dt()
+            <<std::endl;
 
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
             
             _pos->at(m).clear();
             for(auto n=0;n<vert_pos.size();n++)
             {
-                
-                std::vector<double> temp = {vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()};
-                _pos->at(m).push_back(temp);
+                _pos->at(m).push_back({vert_pos.at(n).x(),vert_pos.at(n).y(),vert_pos.at(n).z()});
             }
 
             _vel->at(m).clear();
             for(auto n=0;n<vert_vel.size();n++)
             {
-                std::vector<double> temp = {vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()};
-                _vel->at(m).push_back(temp);
+                _vel->at(m).push_back({vert_vel.at(n).x(),vert_vel.at(n).y(),vert_vel.at(n).z()});
             }
 
             _tri->at(m).clear();
             for(auto n=0;n<triangles.size();n++)
             {
-                std::vector<int> temp = {triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()};
-                _tri->at(m).push_back(temp);
+                _tri->at(m).push_back({triangles.at(n).x(),triangles.at(n).y(),triangles.at(n).z()});
             }
         }
 
