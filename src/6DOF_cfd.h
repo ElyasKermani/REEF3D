@@ -67,6 +67,7 @@ private:
    
     int number6DOF;
     chronoWrapperOuter* chrono_obj;
+    void setup_chrono(lexer*,fdm*,ghostcell*,vector<net*>&);
     double alpha[3],gamma[3],zeta[3];
     vector<sixdof_obj*> fb_obj;
 
