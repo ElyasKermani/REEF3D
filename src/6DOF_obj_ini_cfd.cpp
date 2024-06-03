@@ -210,23 +210,6 @@ void sixdof_obj::initialize_cfd(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& 
     
     // ghostcell update
     pgc->gcdf_update(p,a);
-
-    if(p->mpirank==0)
-    for(int n=0;n<tricount;n++)
-    {
-        cout
-        <<"----"<<n<<"----\n"
-        <<tri_x[n][0]<<","
-        <<tri_y[n][0]<<","
-        <<tri_z[n][0]<<"\n"
-        <<tri_x[n][1]<<","
-        <<tri_y[n][1]<<","
-        <<tri_z[n][1]<<"\n"
-        <<tri_x[n][2]<<","
-        <<tri_y[n][2]<<","
-        <<tri_z[n][2]<<
-        endl;
-    }
 }
 
 void sixdof_obj::ini_parallel(lexer *p, ghostcell *pgc)

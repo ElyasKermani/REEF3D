@@ -135,7 +135,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
                 forces.push_back(fb_obj[nb]->FpT);
             }
             // Advance body in time
-            chrono_obj->start(p->dt,forces);
+            chrono_obj->start(alphaChrono*p->dt,forces);
 
             for (int nb=0; nb<number6DOF;++nb)
             {
@@ -262,8 +262,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         if(p->Y5==0)
         fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
         else if (p->Y5>0)
-        // fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities[nb],verticies[nb]);
-        ;
+        fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities[nb],verticies[nb]);
         
         // Print
         if(finalize==true)
