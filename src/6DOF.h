@@ -58,6 +58,8 @@ public:
     
     virtual void isource2D(lexer*,fdm2D*,ghostcell*)=0;
     virtual void jsource2D(lexer*,fdm2D*,ghostcell*)=0;
+public:
+    double alphaChrono=0;
 };
 
 #endif
