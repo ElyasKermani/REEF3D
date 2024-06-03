@@ -2074,6 +2074,7 @@
         <VirtualDirectory Name="Chrono">
           <File Name="chronoWrapper.cpp"/>
           <File Name="6DOF_cfd_setup_chrono.cpp"/>
+          <File Name="6DOF_cfd_broadcast_chrono.cpp"/>
           <File Name="chronoWrapperOuter.cpp"/>
         </VirtualDirectory>
       </VirtualDirectory>
