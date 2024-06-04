@@ -363,6 +363,21 @@ void ghostcell::gcini(lexer* p)
 	p->colnum = new int[p->M10+1];
 	
 	pdens = new density_f(p);
+
+    const int nitems = 4;
+    int blocklengths[4];
+    blocklengths[0] = 1;
+    blocklengths[1] = 1;
+    blocklengths[2] = 1;
+    blocklengths[3] = 1;
+    MPI_Datatype types[4] = { MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT };
+    MPI_Aint offsets[4];
+    offsets[0] = 0;
+    offsets[1] = sizeof(double);
+    offsets[2] = 2*sizeof(double);
+    offsets[3] = 3*sizeof(double);
+    MPI_Type_create_struct( nitems, blocklengths, offsets, types, &mpi_tuples_dddi);
+    MPI_Type_commit( &mpi_tuples_dddi);
 }
 
 void ghostcell::fdm_update(fdm *aa)
@@ -382,5 +397,6 @@ void ghostcell::fdm_nhf_update(fdm_nhf *dd)
 
 void ghostcell::final()
 {
-       MPI_Finalize();
+    MPI_Type_free(&mpi_tuples_dddi);
+    MPI_Finalize();
 }

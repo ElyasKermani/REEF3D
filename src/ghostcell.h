@@ -167,7 +167,8 @@ public:
 // 6DOF update gcdf
 	void gcdf_update(lexer*,fdm*);
     void gcsldf_update(lexer*);
-    
+    // Chrono
+    void gc_gatherv_chrono(const void * send_data, int local_size, void * recv_data, int * sizes, int * displs);
 
 // IBM
     void flagfield(lexer*);
@@ -440,6 +441,7 @@ private:
 // 6DOF
 	int ***gcbfb,*gcbfb_count;
 	int ***gcxfb,*gcxfb_count;
+    MPI_Datatype mpi_tuples_dddi;
 // Solid pressure
     int ***gcbsd,*gcbsd_count;
     int ***gcxsd,*gcxsd_count;
