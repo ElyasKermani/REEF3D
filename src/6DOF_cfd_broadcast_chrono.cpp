@@ -115,4 +115,12 @@ void sixdof_cfd::broadcast_chrono(lexer *p, ghostcell *pgc, int nb, std::vector<
     temp.push_back({broadcast[n*3+0],broadcast[n*3+1],broadcast[n*3+2]});
     verticies.push_back(temp);
     delete[] broadcast;
+
+    p->ufbmax=p->vfbmax=p->wfbmax=0;
+    for(auto element:velocities.back())
+    {
+        p->ufbmax=max(p->ufbmax,fabs(element[0]));
+        p->vfbmax=max(p->vfbmax,fabs(element[1]));
+        p->wfbmax=max(p->wfbmax,fabs(element[2]));
+    }
 }
