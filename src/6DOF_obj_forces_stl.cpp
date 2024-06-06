@@ -667,9 +667,7 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
             Fz = Fp_z + Fv_z;
 
             FpT.push_back(std::make_tuple(Fx,Fy,Fz,n));
-            // cout<<n<<":"<<Fx<<","<<Fy<<","<<Fz<<"\n"
-            // <<xc<<","<<yc<<","<<zc<<endl<<endl;
-            
+
 			// Add forces to global forces
 			
 			Xe += Fx;
@@ -712,8 +710,8 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
 
 	// Add gravity force
 	
-    if(p->mpirank==0)
-    cout<<"Hydrodynamic Forces:  Fx_p: "<<Xe_p<<" Fy_p: "<<Ye_p<<" Fz_p: "<<Ze_p<<"  |  Fx_v: "<<Xe_v<<" Fy_v: "<<Ye_v<<" Fz_v: "<<Ze_v<<endl;
+    // if(p->mpirank==0)
+    // cout<<"Hydrodynamic Forces:  Fx_p: "<<Xe_p<<" Fy_p: "<<Ye_p<<" Fz_p: "<<Ze_p<<"  |  Fx_v: "<<Xe_v<<" Fy_v: "<<Ye_v<<" Fz_v: "<<Ze_v<<endl;
     
 	Xe += a->gi*Mass_fb;
 	Ye += a->gj*Mass_fb;
@@ -735,6 +733,6 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
         print.close();
     }
 
-	if (p->mpirank==0)
-	cout<<"Xe: "<<Xe<<" Ye: "<<Ye<<" Ze: "<<Ze<<" Ke: "<<Ke<<" Me: "<<Me<<" Ne: "<<Ne<<endl;
+	// if (p->mpirank==0)
+	// cout<<"Xe: "<<Xe<<" Ye: "<<Ye<<" Ze: "<<Ze<<" Ke: "<<Ke<<" Me: "<<Me<<" Ne: "<<Ne<<endl;
 }
