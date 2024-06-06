@@ -112,8 +112,10 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
             
             // Rotation might not yet be correctly represented
-            for(int n=0;n<vert_pos.size();n++)
-            vert_vel[n]=(centers[m]+(sys.Get_bodylist()[floater_id[m]]->GetPos()-vert_pos[n]))*angular_velocity+sys.Get_bodylist()[floater_id[m]]->GetPos_dt();
+            // for(int n=0;n<vert_pos.size();n++)
+            // vert_vel[n]=(centers[m]+(sys.Get_bodylist()[floater_id[m]]->GetPos()-vert_pos[n]))*angular_velocity+sys.Get_bodylist()[floater_id[m]]->GetPos_dt();
+            // for(auto element:vert_vel)
+            // cout<<element<<endl;
 
             _pos->at(m).clear();
             for(auto n=0;n<vert_pos.size();n++)
@@ -288,17 +290,14 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
         ChMatrix33<> intertia;
         trimesh->ComputeMassProperties(true,volume,center,intertia);
 
-        auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
-
-        // auto vis_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
-        // vis_shape->SetMesh(trimesh);
-
         auto body = chrono_types::make_shared<ChBody>();
         body->SetName(name.c_str());
         if(p->X22==1)
             body->SetMass(p->X22_m);
         else
             body->SetMass(p->X21_d*volume);
+
+        body->SetPos(center);
 
         if(p->X182==1)
         {
@@ -311,9 +310,16 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
 
         // if(p->X183==1)
         // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
+
+        trimesh->Transform(-center,ChMatrix33<double>{1});
+
+        auto colli_shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mesh_mat, trimesh, false, false, 0.005);
+
+        auto vis_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
+        vis_shape->SetMesh(trimesh);
         
         body->AddCollisionShape(colli_shape);
-        // body->AddVisualShape(vis_shape);
+        body->AddVisualShape(vis_shape);
         body->SetCollide(true);
         body->SyncCollisionModels();
 
