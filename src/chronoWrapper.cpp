@@ -79,6 +79,7 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<std::vector<double>>>*
 void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<double,double,double,int>>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel,  std::vector<std::vector<std::vector<int>>>* _tri)
 {
     using namespace ::chrono;
+    // std::cout<<setprecision(6);
 
     if(_timestep!=0)
     {
@@ -89,7 +90,7 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
             std::vector<ChVector<int>> triangles;
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
             sys.Get_bodylist()[floater_id[m]]->Empty_forces_accumulators();
-            
+
             for(auto element : _forces[m])
             {
                 Vector triangle = {triangles[std::get<3>(element)]};
@@ -97,20 +98,23 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
                 (vert_pos[triangle.x()].y()+vert_pos[triangle.y()].y()+vert_pos[triangle.z()].y())/3.0,
                 (vert_pos[triangle.x()].z()+vert_pos[triangle.y()].z()+vert_pos[triangle.z()].z())/3.0};
                 sys.Get_bodylist()[floater_id[m]]->Accumulate_force(Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)},center,false);
-                
-                std::cout<<Vector{std::get<x>(element),std::get<y>(element),std::get<z>(element)}<<std::endl<<std::endl;;
             }
 
             sys.DoStepDynamics(_timestep);
             std::cout<<"Chrono: total forces: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_force()<<", total_tor: "<<sys.Get_bodylist()[floater_id[m]]->Get_accumulated_torque()
-            <<"\naplied: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedForce()<<", torque: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedTorque()
-            <<"\nMass: "<<sys.Get_bodylist()[floater_id[m]]->GetMass()
+            <<"\napplied: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedForce()<<", torque: "<<sys.Get_bodylist()[floater_id[m]]->GetAppliedTorque()
             <<"\nChrono vel: "<<sys.Get_bodylist()[floater_id[m]]->GetPos_dt()
-            <<" "<<sys.Get_bodylist()[floater_id[m]]->GetRot_dt()
+            <<" rot: "<<sys.Get_bodylist()[floater_id[m]]->GetRot_dt()
             <<std::endl;
+
+            Vector angular_velocity = sys.Get_bodylist()[floater_id[m]]->GetWvel_loc();
 
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
             
+            // Rotation might not yet be correctly represented
+            for(int n=0;n<vert_pos.size();n++)
+            vert_vel[n]=(centers[m]+(sys.Get_bodylist()[floater_id[m]]->GetPos()-vert_pos[n]))*angular_velocity+sys.Get_bodylist()[floater_id[m]]->GetPos_dt();
+
             _pos->at(m).clear();
             for(auto n=0;n<vert_pos.size();n++)
             {
@@ -302,6 +306,8 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
             Vector mov = {p->X182_x,p->X182_y,p->X182_z};
             body->SetPos(pos+mov);
         }
+        
+        body->SetInertia(intertia*body->GetMass()/volume);
 
         // if(p->X183==1)
         // body->SetRot(ChVector<>(p->X181_x,p->X181_y,p->X181_z));
@@ -313,6 +319,7 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
 
         sys.Add(body);
         floater_id.push_back(body->GetId());
+        centers.push_back(center);
 
         auto cont_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
         cont_mat->SetFriction(0.2f);

@@ -1,6 +1,7 @@
 // class sixdof_df_object;
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChLoadBodyMesh.h"
+#include "chrono/core/ChVector.h"
 
 // #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
@@ -19,6 +20,7 @@ private:
     ::chrono::ChSystemNSC sys;
     std::vector<std::shared_ptr<::chrono::ChLoadBodyMesh>> load;
     std::vector<unsigned int> floater_id;
+    std::vector<::chrono::Vector> centers;
     // std::shared_ptr<::chrono::irrlicht::ChVisualSystemIrrlicht> vis;
     enum {x,y,z};
     void readDIVEControl();
