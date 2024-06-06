@@ -146,7 +146,7 @@ private:
     double Hsolidface(lexer*, fdm*, int,int,int);
 	double Hsolidface_t(lexer*, fdm*, int,int,int);
 
-    //int closest_point(lexer*, fdm*, std::vector<std::vector<double>>);
+    int closest_point(lexer*, fdm*, std::vector<std::vector<double>>);
     std::vector<double> interpolated_velocity(lexer*, fdm*, std::vector<std::vector<double>>, std::vector<std::vector<double>>);
 	
 	void geometry_parameters(lexer*, fdm*, ghostcell*);

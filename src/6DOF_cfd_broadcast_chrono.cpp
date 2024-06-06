@@ -71,9 +71,9 @@ void sixdof_cfd::broadcast_chrono(lexer *p, ghostcell *pgc, int nb, std::vector<
     // vel broadcast
     if(p->mpirank==0)
     {
-        count=chrono_obj->velocities.size()*3;
+        count=chrono_obj->velocities[nb].size()*3;
         broadcast = new double[count];
-        for(int n=0;n<chrono_obj->velocities.size();n++)
+        for(int n=0;n<chrono_obj->velocities[nb].size();n++)
         {
             broadcast[n*3+0] = chrono_obj->velocities[nb][n][0];
             broadcast[n*3+1] = chrono_obj->velocities[nb][n][1];

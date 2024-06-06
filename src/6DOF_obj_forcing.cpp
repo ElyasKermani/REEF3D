@@ -38,245 +38,242 @@ void sixdof_obj::update_forcing(lexer *p, fdm *a, ghostcell *pgc,field& uvel, fi
   
     if(p->X14==1)
     {
-    ULOOP
-    {
-        uf = u_fb(0) + u_fb(4)*(p->pos1_z() - c_(2)) - u_fb(5)*(p->pos1_y() - c_(1));
-        
-        if(uf!=uf)
+        ULOOP
         {
-        cout<<"UF "<<uf<<" "<<u_fb(0)<<" "<<u_fb(4)<<" "<<(p->pos1_z() - c_(2))<<" "<<u_fb(5)<<" "<<(p->pos1_y() - c_(1))<<endl;
+            uf = u_fb(0) + u_fb(4)*(p->pos1_z() - c_(2)) - u_fb(5)*(p->pos1_y() - c_(1));
+            
+            if(uf!=uf)
+            {
+            cout<<"UF "<<uf<<" "<<u_fb(0)<<" "<<u_fb(4)<<" "<<(p->pos1_z() - c_(2))<<" "<<u_fb(5)<<" "<<(p->pos1_y() - c_(1))<<endl;
+            }
+            
+            
+            H = Hsolidface(p,a,1,0,0);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
+        
+            fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);   
+            a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
+        }
+        VLOOP
+        {
+            vf = u_fb(1) + u_fb(5)*(p->pos2_x() - c_(0)) - u_fb(3)*(p->pos2_z() - c_(2));
+            
+            if(vf!=vf)
+            cout<<"VF "<<vf<<endl;
+            
+            H = Hsolidface(p,a,0,1,0);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
+        
+            fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H, 1.0); 
+        }
+        WLOOP
+        {
+            wf = u_fb(2) + u_fb(3)*(p->pos3_y() - c_(1)) - u_fb(4)*(p->pos3_x() - c_(0));
+            
+            if(wf!=wf)
+            cout<<"WF "<<wf<<endl;
+            
+            H = Hsolidface(p,a,0,0,1);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
+
+            fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+            a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H, 1.0); 
+        }
+        LOOP
+        {
+            H = Hsolidface(p,a,0,0,0);
+            a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
+        }
+            
+        psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
+
+        if (p->j_dir==0)
+        psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
+
+        LOOP
+        {
+            dirac = 0.0;
+            if(fabs(a->fb(i,j,k))<psi)
+            dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            
+            a->fbh5(i,j,k) = 1.0-MIN(dirac,1.0);
+        } 
+    }
+
+    // Construct solid heaviside function	
+    if(p->X14>=2)
+    { 
+        ULOOP
+        {
+            uf = u_fb(0) + u_fb(4)*(p->pos1_z() - c_(2)) - u_fb(5)*(p->pos1_y() - c_(1));
+            
+            if(uf!=uf)
+            cout<<"UF "<<uf<<endl;
+            
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
+
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
+
+            H = Hsolidface(p,a,1,0,0);
+            Ht = Hsolidface_t(p,a,1,0,0);
+        
+        //cout<<"Htx: "<<Ht<<endl;
+            
+            // Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i+1,j,k));	
+            
+            // Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+            if (phival_fb < 0)
+            {
+                fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fx(i,j,k) +=   fabs(nx)*H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fx(i,j,k) +=   (fabs(nx)*H + ((1.0-fabs(nx))*Ht))*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fx(i,j,k) += 0;
+            }
+        
+            a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
+        }
+        VLOOP
+        {
+            vf = u_fb(1) + u_fb(5)*(p->pos2_x() - c_(0)) - u_fb(3)*(p->pos2_z() - c_(2));
+            
+            if(vf!=vf)
+            cout<<"VF "<<vf<<endl;
+        
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
+
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
+
+            
+            H = Hsolidface(p,a,0,1,0);
+            Ht = Hsolidface_t(p,a,0,1,0);
+            
+        
+            //Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j+1,k));
+        
+            //Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+            if (phival_fb < 0)
+            {
+                fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fy(i,j,k) +=   fabs(ny)*H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fy(i,j,k) +=   (fabs(ny)*H + ((1.0-fabs(ny))*Ht))*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fy(i,j,k) += 0;
+            }
+        
+            a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H , 1.0); 
         }
         
-        H = Hsolidface(p,a,1,0,0);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
-       
-        fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);   
-        a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
-    }
-    VLOOP
-    {
-        vf = u_fb(1) + u_fb(5)*(p->pos2_x() - c_(0)) - u_fb(3)*(p->pos2_z() - c_(2));
-        
-        if(vf!=vf)
-        cout<<"VF "<<vf<<endl;
-        
-        H = Hsolidface(p,a,0,1,0);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
-       
-        fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
-        a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H, 1.0); 
-    }
-    WLOOP
-    {
-        wf = u_fb(2) + u_fb(3)*(p->pos3_y() - c_(1)) - u_fb(4)*(p->pos3_x() - c_(0));
-        
-        if(wf!=wf)
-        cout<<"WF "<<wf<<endl;
-        
-        H = Hsolidface(p,a,0,0,1);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
-
-        fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
-        a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H, 1.0); 
-    }
-    LOOP
-    {
-        H = Hsolidface(p,a,0,0,0);
-        a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
-    }
-    	
-    psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
-
-    if (p->j_dir==0)
-    psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
-
-    LOOP
-    {
-        dirac = 0.0;
-        if(fabs(a->fb(i,j,k))<psi)
-        dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
-        
-        a->fbh5(i,j,k) = 1.0-MIN(dirac,1.0);
-    }
-    
-    }
-
-
-// Construct solid heaviside function	
-    if(p->X14>=2)
-    {
-        
-    ULOOP
-    {
-        uf = u_fb(0) + u_fb(4)*(p->pos1_z() - c_(2)) - u_fb(5)*(p->pos1_y() - c_(1));
-        
-        if(uf!=uf)
-        cout<<"UF "<<uf<<endl;
-        
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
-
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
-
-		H = Hsolidface(p,a,1,0,0);
-	    Ht = Hsolidface_t(p,a,1,0,0);
-	
-	   //cout<<"Htx: "<<Ht<<endl;
-		
-		// Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i+1,j,k));	
-		
-		// Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-		if (phival_fb < 0)
-		{
-			fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-			fx(i,j,k) +=   fabs(nx)*H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+        WLOOP
+        {
+            wf = u_fb(2) + u_fb(3)*(p->pos3_y() - c_(1)) - u_fb(4)*(p->pos3_x() - c_(0));
             
-            if(p->X14==3)
-			fx(i,j,k) +=   (fabs(nx)*H + ((1.0-fabs(nx))*Ht))*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fx(i,j,k) += 0;
-		}
-	
-        a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
-    }
-    VLOOP
-    {
-        vf = u_fb(1) + u_fb(5)*(p->pos2_x() - c_(0)) - u_fb(3)*(p->pos2_z() - c_(2));
-        
-        if(vf!=vf)
-        cout<<"VF "<<vf<<endl;
-    
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
-
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
-
-        
-         H = Hsolidface(p,a,0,1,0);
-		Ht = Hsolidface_t(p,a,0,1,0);
-		
-      
-		//Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j+1,k));
-	  
-		//Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-	    if (phival_fb < 0)
-		{
-			fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-            fy(i,j,k) +=   fabs(ny)*H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            if(wf!=wf)
+            cout<<"WF "<<wf<<endl;
             
-            if(p->X14==3)
-            fy(i,j,k) +=   (fabs(ny)*H + ((1.0-fabs(ny))*Ht))*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fy(i,j,k) += 0;
-		}
-	  
-        a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H , 1.0); 
-    }
-	
-    WLOOP
-    {
-        wf = u_fb(2) + u_fb(3)*(p->pos3_y() - c_(1)) - u_fb(4)*(p->pos3_x() - c_(0));
-        
-        if(wf!=wf)
-        cout<<"WF "<<wf<<endl;
-        
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
 
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
 
-        
-         H = Hsolidface(p,a,0,0,1);
-		Ht = Hsolidface_t(p,a,0,0,1);
-
-
-		// Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j,k+1));
-		
-		// Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-
-		if (phival_fb < 0)
-		{
-			fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-            fz(i,j,k) +=   fabs(nz)*H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
             
-            if(p->X14==3)
-            fz(i,j,k) +=   (fabs(nz)*H + ((1.0-fabs(nz))*Ht))*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fz(i,j,k) += 0;
-		}
-	
-        a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H , 1.0); 
-    }
-    
-    LOOP
-    {
-        H = Hsolidface(p,a,0,0,0);
-		Ht = Hsolidface_t(p,a,0,0,0);
-        a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
-    }
-    
-    //double psi;
-	
-    psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
+            H = Hsolidface(p,a,0,0,1);
+            Ht = Hsolidface_t(p,a,0,0,1);
 
-    if (p->j_dir==0)
-    psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
 
-    
-    LOOP
-    {
-        dirac = 0.0;
-        if(fabs(a->fb(i,j,k))<psi)
-        dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            // Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j,k+1));
+            
+            // Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+
+            if (phival_fb < 0)
+            {
+                fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fz(i,j,k) +=   fabs(nz)*H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fz(i,j,k) +=   (fabs(nz)*H + ((1.0-fabs(nz))*Ht))*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fz(i,j,k) += 0;
+            }
         
-        a->fbh5(i,j,k) =   1.0-MIN(dirac,1.0);
-    }
-	
+            a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H , 1.0); 
+        }
+        
+        LOOP
+        {
+            H = Hsolidface(p,a,0,0,0);
+            Ht = Hsolidface_t(p,a,0,0,0);
+            a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
+        }
+        
+        //double psi;
+        
+        psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
+
+        if (p->j_dir==0)
+        psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
+
+        
+        LOOP
+        {
+            dirac = 0.0;
+            if(fabs(a->fb(i,j,k))<psi)
+            dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            
+            a->fbh5(i,j,k) =   1.0-MIN(dirac,1.0);
+        }
 	}
 
     pgc->start1(p,a->fbh1,10);
@@ -296,285 +293,279 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
 	double nx, ny, nz,norm ;
 	double psi, phival_fb;
     double dirac;
-    //int closest_point;
+    int closest_point;
     std::vector<double> interpolated_velocity;
     
     H=Ht=0.0;
       
     if(p->X14==1)
     {
-    ULOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        uf = velocities[closest_point][0];
-        */
+        ULOOP
+        {
+            
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            uf = velocities[closest_point][0];
+            
+            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            uf = interpolated_velocity[0];
 
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[0];
+            if(uf!=uf)
+            cout<<"UF "<<uf<<endl;
+            
+            H = Hsolidface(p,a,1,0,0);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
+        
+            fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);   
+            a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0);
+            a->test(i,j,k) = a->fbh1(i,j,k);
+        }
+        VLOOP
+        {
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            vf = velocities[closest_point][1];
 
-        if(uf!=uf)
-        cout<<"UF "<<uf<<endl;
+            // interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            // vf = interpolated_velocity[1];
+            
+            if(vf!=vf)
+            cout<<"VF "<<vf<<endl;
+            
+            H = Hsolidface(p,a,0,1,0);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
         
-        H = Hsolidface(p,a,1,0,0);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
-       
-        fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);   
-        a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
-    }
-    VLOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        vf = velocities[closest_point][1];
-        */
+            fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H, 1.0); 
+        }
+        WLOOP
+        {
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            wf = velocities[closest_point][2];
+            
 
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        vf = interpolated_velocity[1];
-        
-        if(vf!=vf)
-        cout<<"VF "<<vf<<endl;
-        
-        H = Hsolidface(p,a,0,1,0);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
-       
-        fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
-        a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H, 1.0); 
-    }
-    WLOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        wf = velocities[closest_point][2];
-        */
+            // interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            // wf = interpolated_velocity[2];
+            
+            if(wf!=wf)
+            cout<<"WF "<<wf<<endl;
+            
+            H = Hsolidface(p,a,0,0,1);
+            
+            if(H!=H)
+            cout<<"H "<<uf<<endl;
 
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        wf = interpolated_velocity[2];
-        
-        if(wf!=wf)
-        cout<<"WF "<<wf<<endl;
-        
-        H = Hsolidface(p,a,0,0,1);
-        
-        if(H!=H)
-        cout<<"H "<<uf<<endl;
+            fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+            a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H, 1.0); 
+        }
+        LOOP
+        {
+            H = Hsolidface(p,a,0,0,0);
+            a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
+        }
+            
+        psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
 
-        fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
-        a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H, 1.0); 
-    }
-    LOOP
-    {
-        H = Hsolidface(p,a,0,0,0);
-        a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
-    }
-    	
-    psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
+        if (p->j_dir==0)
+        psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
 
-    if (p->j_dir==0)
-    psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
-
-    LOOP
-    {
-        dirac = 0.0;
-        if(fabs(a->fb(i,j,k))<psi)
-        dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
-        
-        a->fbh5(i,j,k) = 1.0-MIN(dirac,1.0);
-    }
-    
+        LOOP
+        {
+            dirac = 0.0;
+            if(fabs(a->fb(i,j,k))<psi)
+            dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            
+            a->fbh5(i,j,k) = 1.0-MIN(dirac,1.0);
+        }
     }
 
     // Construct solid heaviside function	
     if(p->X14>=2)
-    {
-        
-    ULOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        uf = velocities[closest_point][0];
-        */
+    {   
+        ULOOP
+        {
+            /*
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            uf = velocities[closest_point][0];
+            */
 
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        uf = interpolated_velocity[0];
-        
-        if(uf!=uf)
-        cout<<"UF "<<uf<<endl;
-        
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
-
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
-
-		H = Hsolidface(p,a,1,0,0);
-	    Ht = Hsolidface_t(p,a,1,0,0);
-	
-	   //cout<<"Htx: "<<Ht<<endl;
-		
-		// Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i+1,j,k));	
-		
-		// Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-		if (phival_fb < 0)
-		{
-			fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-			fx(i,j,k) +=   fabs(nx)*H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            uf = interpolated_velocity[0];
             
-            if(p->X14==3)
-			fx(i,j,k) +=   (fabs(nx)*H + ((1.0-fabs(nx))*Ht))*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fx(i,j,k) += 0;
-		}
-	
-        a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
-    }
-    VLOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        vf = velocities[closest_point][1];
-        */
-
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        vf = interpolated_velocity[1];
-        
-        if(vf!=vf)
-        cout<<"VF "<<vf<<endl;
-    
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
-
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
-
-        
-         H = Hsolidface(p,a,0,1,0);
-		Ht = Hsolidface_t(p,a,0,1,0);
-		
-      
-		//Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j+1,k));
-	  
-		//Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-	    if (phival_fb < 0)
-		{
-			fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-            fy(i,j,k) +=   fabs(ny)*H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            if(uf!=uf)
+            cout<<"UF "<<uf<<endl;
             
-            if(p->X14==3)
-            fy(i,j,k) +=   (fabs(ny)*H + ((1.0-fabs(ny))*Ht))*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fy(i,j,k) += 0;
-		}
-	  
-        a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H , 1.0); 
-    }
-	
-    WLOOP
-    {
-        /*
-        closest_point=sixdof_obj::closest_point(p,a,verticies);
-        wf = velocities[closest_point][2];
-        */
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
 
-        interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-        wf = interpolated_velocity[2];
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
+
+            H = Hsolidface(p,a,1,0,0);
+            Ht = Hsolidface_t(p,a,1,0,0);
         
-        if(wf!=wf)
-        cout<<"WF "<<wf<<endl;
-        
-		// Normal vectors calculation 
-		nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
-		ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
-		nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
-
-		norm = sqrt(nx*nx + ny*ny + nz*nz);
-                
-		nx /= norm > 1.0e-20 ? norm : 1.0e20;
-		ny /= norm > 1.0e-20 ? norm : 1.0e20;
-		nz /= norm > 1.0e-20 ? norm : 1.0e20;
-
-        
-         H = Hsolidface(p,a,0,0,1);
-		Ht = Hsolidface_t(p,a,0,0,1);
-
-
-		// Level set function
-		phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j,k+1));
-		
-		// Construct the field around the solid body to adjust the tangential velocity and calculate forcing
-
-		if (phival_fb < 0)
-		{
-			fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt); 
-		}
-		else if (phival_fb >0 && phival_fb<psi )
-		{
-            if(p->X14==2)
-            fz(i,j,k) +=   fabs(nz)*H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+        //cout<<"Htx: "<<Ht<<endl;
             
-            if(p->X14==3)
-            fz(i,j,k) +=   (fabs(nz)*H + ((1.0-fabs(nz))*Ht))*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
-		}
-		else
-		{
-			fz(i,j,k) += 0;
-		}
-	
-        a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H , 1.0); 
-    }
-    
-    LOOP
-    {
-        H = Hsolidface(p,a,0,0,0);
-		Ht = Hsolidface_t(p,a,0,0,0);
-        a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
-    }
-    
-    //double psi;
-	
-    psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
-
-    if (p->j_dir==0)
-    psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
-
-    
-    LOOP
-    {
-        dirac = 0.0;
-        if(fabs(a->fb(i,j,k))<psi)
-        dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            // Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i+1,j,k));	
+            
+            // Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+            if (phival_fb < 0)
+            {
+                fx(i,j,k) += H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fx(i,j,k) +=   fabs(nx)*H*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fx(i,j,k) +=   (fabs(nx)*H + ((1.0-fabs(nx))*Ht))*(uf - uvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fx(i,j,k) += 0;
+            }
         
-        a->fbh5(i,j,k) =   1.0-MIN(dirac,1.0);
-    }
-	
+            a->fbh1(i,j,k) = min(a->fbh1(i,j,k) + H, 1.0); 
+        }
+        VLOOP
+        {
+            /*
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            vf = velocities[closest_point][1];
+            */
+
+            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            vf = interpolated_velocity[1];
+            
+            if(vf!=vf)
+            cout<<"VF "<<vf<<endl;
+        
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
+
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
+
+            
+            H = Hsolidface(p,a,0,1,0);
+            Ht = Hsolidface_t(p,a,0,1,0);
+            
+        
+            //Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j+1,k));
+        
+            //Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+            if (phival_fb < 0)
+            {
+                fy(i,j,k) += H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fy(i,j,k) +=   fabs(ny)*H*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fy(i,j,k) +=   (fabs(ny)*H + ((1.0-fabs(ny))*Ht))*(vf - vvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fy(i,j,k) += 0;
+            }
+        
+            a->fbh2(i,j,k) = min(a->fbh2(i,j,k) + H , 1.0); 
+        }
+        
+        WLOOP
+        {
+            /*
+            closest_point=sixdof_obj::closest_point(p,a,verticies);
+            wf = velocities[closest_point][2];
+            */
+
+            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
+            wf = interpolated_velocity[2];
+            
+            if(wf!=wf)
+            cout<<"WF "<<wf<<endl;
+            
+            // Normal vectors calculation 
+            nx = -(a->fb(i+1,j,k) - a->fb(i-1,j,k))/(2.0*p->DXN[IP]);
+            ny = -(a->fb(i,j+1,k) - a->fb(i,j-1,k))/(2.0*p->DYN[JP]);
+            nz = -(a->fb(i,j,k+1) - a->fb(i,j,k-1))/(2.0*p->DZN[KP]);
+
+            norm = sqrt(nx*nx + ny*ny + nz*nz);
+                    
+            nx /= norm > 1.0e-20 ? norm : 1.0e20;
+            ny /= norm > 1.0e-20 ? norm : 1.0e20;
+            nz /= norm > 1.0e-20 ? norm : 1.0e20;
+
+            
+            H = Hsolidface(p,a,0,0,1);
+            Ht = Hsolidface_t(p,a,0,0,1);
+
+
+            // Level set function
+            phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i,j,k+1));
+            
+            // Construct the field around the solid body to adjust the tangential velocity and calculate forcing
+
+            if (phival_fb < 0)
+            {
+                fz(i,j,k) += H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt); 
+            }
+            else if (phival_fb >0 && phival_fb<psi )
+            {
+                if(p->X14==2)
+                fz(i,j,k) +=   fabs(nz)*H*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+                
+                if(p->X14==3)
+                fz(i,j,k) +=   (fabs(nz)*H + ((1.0-fabs(nz))*Ht))*(wf - wvel(i,j,k))/(alpha[iter]*p->dt);
+            }
+            else
+            {
+                fz(i,j,k) += 0;
+            }
+        
+            a->fbh3(i,j,k) = min(a->fbh3(i,j,k) + H , 1.0); 
+        }
+        
+        LOOP
+        {
+            H = Hsolidface(p,a,0,0,0);
+            Ht = Hsolidface_t(p,a,0,0,0);
+            a->fbh4(i,j,k) = min(a->fbh4(i,j,k) + H, 1.0); 
+        }
+        
+        //double psi;
+        
+        psi = 1.1*(1.0/3.0)*(p->DXN[IP]+p->DYN[JP]+p->DZN[KP]);
+
+        if (p->j_dir==0)
+        psi = 1.1*(1.0/2.0)*(p->DXN[IP] + p->DZN[KP]); 
+
+        
+        LOOP
+        {
+            dirac = 0.0;
+            if(fabs(a->fb(i,j,k))<psi)
+            dirac = (0.5/psi)*(1.0 + cos((PI*(a->fb(i,j,k)))/psi));
+            
+            a->fbh5(i,j,k) =   1.0-MIN(dirac,1.0);
+        }
 	}
 
     pgc->start1(p,a->fbh1,10);
@@ -587,7 +578,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     pgc->start3(p,fz,12);         
 };
 
-/*
+
 int sixdof_obj::closest_point(lexer* p, fdm *a, std::vector<std::vector<double>> verticies)
 {
     /// convert i,j,k to x,y,z and find closest point of tirangle mesh
@@ -610,11 +601,22 @@ int sixdof_obj::closest_point(lexer* p, fdm *a, std::vector<std::vector<double>>
     }
     return index;
 }
-*/
+
 
 
 std::vector<double> sixdof_obj::interpolated_velocity(lexer* p, fdm *a, std::vector<std::vector<double>> verticies, std::vector<std::vector<double>> velocities)
 {
+    std::vector<double> bounds(6,0);
+    for(int n=1; n<verticies.size();n++)
+    {
+        bounds.at(0) = min(bounds.at(0),verticies.at(n).at(0));
+        bounds.at(1) = max(bounds.at(1),verticies.at(n).at(0));
+        bounds.at(2) = min(bounds.at(2),verticies.at(n).at(1));
+        bounds.at(3) = max(bounds.at(3),verticies.at(n).at(1));
+        bounds.at(4) = min(bounds.at(4),verticies.at(n).at(2));
+        bounds.at(5) = max(bounds.at(5),verticies.at(n).at(2));
+    }
+
     double x,y,z;
     x=p->XN[i]+0.5*p->DXN[i];
     y=p->YN[j]+0.5*p->DYN[j];

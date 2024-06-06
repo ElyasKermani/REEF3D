@@ -75,8 +75,6 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
     }
     else if (p->Y5>0)
     {
-        if(p->mpirank==0)
-        cout<<"CHRONO"<<endl;
         // Calculate forces
         for (int nb=0; nb<number6DOF;++nb)
         {
@@ -143,21 +141,22 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
             // Update position and trimesh
             fb_obj[nb]->ray_cast(p,a,pgc);
             fb_obj[nb]->reini_RK2(p,a,pgc,a->fb);
+            pgc->start4a(p,a->fb,50);
         }
-        pgc->start4a(p,a->fb,50); 
+        // pgc->start4a(p,a->fb,50); 
     }
 
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Save
         fb_obj[nb]->update_fbvel(p,pgc);
-        
+
         // Update forcing terms
         if(p->Y5==0)
         fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
         else if (p->Y5>0)
         fb_obj[nb]->update_forcing_chrono(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter,velocities[nb],verticies[nb]);
-        
+
         // Print
         if(finalize==true)
         {
@@ -173,6 +172,28 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         }
     }
     
+    // string buff;
+    // buff+="----"+to_string(p->mpirank)+"----\n";
+    // for (int nb=0; nb<number6DOF;++nb)
+    // {
+    //     buff+="----"+to_string(nb)+"----\n";
+    // for(int n=0;n<fb_obj[nb]->tricount;n++)
+    // {
+    //     buff+="----"+to_string(n)+"----\n";
+    //     buff+=to_string(fb_obj[nb]->tri_x[n][0])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_y[n][0])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_z[n][0])+"\n";
+    //     buff+=to_string(fb_obj[nb]->tri_x[n][1])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_y[n][1])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_z[n][1])+"\n";
+    //     buff+=to_string(fb_obj[nb]->tri_x[n][2])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_y[n][2])+",";
+    //     buff+=to_string(fb_obj[nb]->tri_z[n][2])+"\n";
+    // }
+    // }
+    // cout<<buff<<endl<<endl;
+    // Positions check out
+
     // ghostcell update
     pgc->gcdf_update(p,a);
 }
