@@ -294,7 +294,13 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
 	double psi, phival_fb;
     double dirac;
     int closest_point;
-    std::vector<double> interpolated_velocity;
+
+    field1 ufb(p);
+    field2 vfb(p);
+    field3 wfb(p);
+
+    interpolated_velocity(p,a,verticies,velocities,ufb,vfb,wfb);
+
     
     H=Ht=0.0;
       
@@ -302,12 +308,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     {
         ULOOP
         {
-            
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            uf = velocities[closest_point][0];
-            
-            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            uf = interpolated_velocity[0];
+            uf = ufb(i,j,k);
 
             if(uf!=uf)
             cout<<"UF "<<uf<<endl;
@@ -323,11 +324,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         }
         VLOOP
         {
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            vf = velocities[closest_point][1];
-
-            // interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            // vf = interpolated_velocity[1];
+            vf = vfb(i,j,k);
             
             if(vf!=vf)
             cout<<"VF "<<vf<<endl;
@@ -342,12 +339,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         }
         WLOOP
         {
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            wf = velocities[closest_point][2];
-            
-
-            // interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            // wf = interpolated_velocity[2];
+            wf = wfb(i,j,k);
             
             if(wf!=wf)
             cout<<"WF "<<wf<<endl;
@@ -386,13 +378,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     {   
         ULOOP
         {
-            /*
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            uf = velocities[closest_point][0];
-            */
-
-            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            uf = interpolated_velocity[0];
+            uf = ufb(i,j,k);
             
             if(uf!=uf)
             cout<<"UF "<<uf<<endl;
@@ -410,8 +396,6 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
 
             H = Hsolidface(p,a,1,0,0);
             Ht = Hsolidface_t(p,a,1,0,0);
-        
-        //cout<<"Htx: "<<Ht<<endl;
             
             // Level set function
             phival_fb = 0.5*(a->fb(i,j,k) + a->fb(i+1,j,k));	
@@ -438,13 +422,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         }
         VLOOP
         {
-            /*
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            vf = velocities[closest_point][1];
-            */
-
-            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            vf = interpolated_velocity[1];
+            vf = vfb(i,j,k);
             
             if(vf!=vf)
             cout<<"VF "<<vf<<endl;
@@ -491,13 +469,7 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
         
         WLOOP
         {
-            /*
-            closest_point=sixdof_obj::closest_point(p,a,verticies);
-            wf = velocities[closest_point][2];
-            */
-
-            interpolated_velocity = sixdof_obj::interpolated_velocity(p,a,verticies,velocities);
-            wf = interpolated_velocity[2];
+            wf = wfb(i,j,k);
             
             if(wf!=wf)
             cout<<"WF "<<wf<<endl;
@@ -578,74 +550,48 @@ void sixdof_obj::update_forcing_chrono(lexer *p, fdm *a, ghostcell *pgc,field& u
     pgc->start3(p,fz,12);         
 };
 
-
-int sixdof_obj::closest_point(lexer* p, fdm *a, std::vector<std::vector<double>> verticies)
+void sixdof_obj::interpolated_velocity(lexer* p, fdm *a, std::vector<std::vector<double>> verticies, std::vector<std::vector<double>> velocities, field1 &ufb, field2 &vfb, field3 &wfb)
 {
-    /// convert i,j,k to x,y,z and find closest point of tirangle mesh
-    /// ToDo interpolation
+    std::vector<std::vector<double>> result;
     double x,y,z;
-    x=p->XN[i]+0.5*p->DXN[i];
-    y=p->YN[j]+0.5*p->DYN[j];
-    z=p->ZN[k]+0.5*p->DZN[k];
-    double distance = INT_MAX;
+    double distance;
     double dist;
-    int index = -1;
-    for(int n=0;n<verticies.size();n++)
+    int index;
+
+    PLAINLOOP
     {
-        dist=sqrt(pow(verticies[n][0]-x,2)+pow(verticies[n][1]-y,2)+pow(verticies[n][2]-z,2));
-        if(dist<distance)
+
+        
+        x=p->XN[i]+0.5*p->DXN[i];
+        y=p->YN[j]+0.5*p->DYN[j];
+        z=p->ZN[k]+0.5*p->DZN[k];
+        distance = INT_MAX;
+        index = -1;
+        std::vector<double> interpolated_velocity(3, 0.0);
+        double total_weight = 0.0;
+        for(int n=0;n<verticies.size();n++)
         {
-            distance=dist;
-            index=n;
+            dist=sqrt(pow(verticies[n][0]-x,2)+pow(verticies[n][1]-y,2)+pow(verticies[n][2]-z,2));
+            if(dist<distance)
+            {
+                distance=dist;
+                index=n;
+            }
+            double weight = 1.0 / (dist + 1e-10); // no division by zero
+            total_weight += weight;
+            for(int d=0;d<3;d++)
+            {
+                interpolated_velocity[d] += velocities[n][d] * weight;
+            }
         }
-    }
-    return index;
-}
-
-
-
-std::vector<double> sixdof_obj::interpolated_velocity(lexer* p, fdm *a, std::vector<std::vector<double>> verticies, std::vector<std::vector<double>> velocities)
-{
-    std::vector<double> bounds(6,0);
-    for(int n=1; n<verticies.size();n++)
-    {
-        bounds.at(0) = min(bounds.at(0),verticies.at(n).at(0));
-        bounds.at(1) = max(bounds.at(1),verticies.at(n).at(0));
-        bounds.at(2) = min(bounds.at(2),verticies.at(n).at(1));
-        bounds.at(3) = max(bounds.at(3),verticies.at(n).at(1));
-        bounds.at(4) = min(bounds.at(4),verticies.at(n).at(2));
-        bounds.at(5) = max(bounds.at(5),verticies.at(n).at(2));
-    }
-
-    double x,y,z;
-    x=p->XN[i]+0.5*p->DXN[i];
-    y=p->YN[j]+0.5*p->DYN[j];
-    z=p->ZN[k]+0.5*p->DZN[k];
-    double distance = INT_MAX;
-    double dist;
-    int index = -1;
-    std::vector<double> interpolated_velocity(3, 0.0);
-    double total_weight = 0.0;
-    for(int n=0;n<verticies.size();n++)
-    {
-        dist=sqrt(pow(verticies[n][0]-x,2)+pow(verticies[n][1]-y,2)+pow(verticies[n][2]-z,2));
-        if(dist<distance)
-        {
-            distance=dist;
-            index=n;
-        }
-        double weight = 1.0 / (dist + 1e-10); // no division by zero
-        total_weight += weight;
         for(int d=0;d<3;d++)
         {
-            interpolated_velocity[d] += velocities[n][d] * weight;
+            interpolated_velocity[d] /= total_weight;
         }
+        ufb(i,j,k)=interpolated_velocity[0];
+        vfb(i,j,k)=interpolated_velocity[1];
+        wfb(i,j,k)=interpolated_velocity[2];
     }
-    for(int d=0;d<3;d++)
-    {
-        interpolated_velocity[d] /= total_weight;
-    }
-    return interpolated_velocity;
 }
 
 double sixdof_obj::Hsolidface(lexer *p, fdm *a, int aa, int bb, int cc)

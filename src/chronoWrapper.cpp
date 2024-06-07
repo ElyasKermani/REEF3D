@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <iostream>
-#include <sys/stat.h>
 
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChLoadContainer.h"
@@ -13,7 +12,6 @@
 chronoWrapper::chronoWrapper(lexer* p)
 {
     using namespace ::chrono;
-    mkdir("./REEF3D_Chrono",0777);
 
     ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
 	ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
@@ -49,13 +47,6 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<std::vector<double>>>*
 
     p->printcount_sixdof = 0;
 
-    // for(auto element:vert_pos)
-    //     std::cout<<element<<std::endl;
-    // for(auto element:triangles)
-    //     std::cout<<element<<std::endl;
-
-
-
     // Create the Irrlicht visualization system
     // SetChronoDataPath("/Users/alexander.hanke/Documents/Source/Project Chrono/data/");
     // vis = chrono_types::make_shared<irrlicht::ChVisualSystemIrrlicht>();
@@ -79,7 +70,6 @@ void chronoWrapper::ini(lexer* p, std::vector<std::vector<std::vector<double>>>*
 void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<double,double,double,int>>> _forces, std::vector<std::vector<std::vector<double>>>* _pos, std::vector<std::vector<std::vector<double>>>* _vel,  std::vector<std::vector<std::vector<int>>>* _tri)
 {
     using namespace ::chrono;
-    // std::cout<<setprecision(6);
 
     if(_timestep!=0)
     {
@@ -110,12 +100,6 @@ void chronoWrapper::start(double _timestep, std::vector<std::vector<std::tuple<d
             Vector angular_velocity = sys.Get_bodylist()[floater_id[m]]->GetWvel_loc();
 
             load.at(m)->OutputSimpleMesh(vert_pos,vert_vel,triangles);
-            
-            // Rotation might not yet be correctly represented
-            // for(int n=0;n<vert_pos.size();n++)
-            // vert_vel[n]=(centers[m]+(sys.Get_bodylist()[floater_id[m]]->GetPos()-vert_pos[n]))*angular_velocity+sys.Get_bodylist()[floater_id[m]]->GetPos_dt();
-            // for(auto element:vert_vel)
-            // cout<<element<<endl;
 
             _pos->at(m).clear();
             for(auto n=0;n<vert_pos.size();n++)
@@ -165,6 +149,7 @@ void chronoWrapper::readDIVEControl()
 
     std::vector<std::vector<double>> S51;
     std::vector<std::vector<double>> S52;
+
     // S61,62,63
 
     std::vector<std::vector<double>> S61;
@@ -274,7 +259,6 @@ void chronoWrapper::createBodies(lexer *p, std::vector<std::vector<std::vector<d
     using namespace ::chrono;
     using namespace ::chrono::geometry;
 
-    // "REEF3D_Chrono"
     string baseName = "floatingChrono";
     floater_id.clear();
     for(int m = 0;m<p->Y5;m++)
