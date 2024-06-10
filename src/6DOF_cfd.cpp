@@ -116,7 +116,7 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
 
             for (int nb=0; nb<number6DOF;++nb)
             {
-                for(int n=0;n<chrono_obj->triangles[0].size();n++)
+                for(int n=0;n<chrono_obj->triangles[nb].size();n++)
                 {
                     fb_obj[nb]->tri_x[n][0]=chrono_obj->verticies[nb][chrono_obj->triangles[nb][n][0]][0];
                     fb_obj[nb]->tri_x[n][1]=chrono_obj->verticies[nb][chrono_obj->triangles[nb][n][1]][0];
