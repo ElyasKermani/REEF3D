@@ -106,7 +106,7 @@ void sixdof_obj::ini_fbvel(lexer *p, ghostcell *pgc)
     Mfb_ << 0.0, 0.0, 0.0;
     
     // Printing
-	printtime = 0.0;
+	printtime = p->printtime + p->30>0.0?(-p->P30):0;
     printtimenormal = 0.0;
     p->printcount_sixdof = 0;
 }

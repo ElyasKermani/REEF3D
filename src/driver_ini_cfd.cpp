@@ -56,6 +56,13 @@ void driver::driver_ini_cfd()
 
     if(p->mpirank==0)
     cout<<"starting driver_ini"<<endl;
+
+    if(p->I40==1)
+    {
+	pini->stateini(p,a,pgc,pturb,psed);
+    if(p->printtime==0.0&&p->simtime!=0.0)
+    p->printtime=p->simtime;
+    }
     
     // 6DOF_df and FSI
     p6dof->initialize(p, a, pgc, pnet);
