@@ -3441,7 +3441,7 @@ void lexer::read_control()
 				switch(numint)
 				{
 
-                case 110: control>>X110_xs[countX110]>>X110_xe[countX110]>>X110_ys[countX110]>>X110_ye[countX110]>>X110_zs[countX110]>>X110_ze[countX110];
+                case 110: control>>X110_xs[countX110]>>X110_xe[countX110]>>X110_ys[countX110]>>X110_ye[countX110]>>X110_zs[countX110]>>X110_ze[countX110]>>X110_objID[countX110];
                         ++countX110;
 						 clear(c,numint);
 						 break;
