@@ -595,7 +595,7 @@ public:
 	double X102_u, X102_v, X102_w;
 	double X103_p, X103_q, X103_r;
 	double *X110_xs,*X110_xe,*X110_ys,*X110_ye,*X110_zs,*X110_ze;
-    int X110_objID;
+    int *X110_objID;
 	double X120_rad,X120_xc,X120_yc,X120_zc;
 	double X131_rad,X131_h,X131_xc,X131_yc,X131_zc;
 	double X132_rad,X132_h,X132_xc,X132_yc,X132_zc;
