@@ -2812,6 +2812,7 @@ void lexer::read_control()
 	Darray(X110_xe,X110);
 	Darray(X110_ye,X110);
 	Darray(X110_ze,X110);
+	Iarray(X110_objID,X110);
 
     Darray(X163_x1,X163);
     Darray(X163_y1,X163);
