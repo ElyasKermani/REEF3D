@@ -31,6 +31,8 @@ void initialize::topoini(lexer *p, fdm *a, ghostcell *pgc)
 
     ALOOP
 	a->topo(i,j,k)=1.0;
+    
+    p->topoforcing=1;
 
 
     if(p->S57>-1.0e20)
@@ -38,11 +40,8 @@ void initialize::topoini(lexer *p, fdm *a, ghostcell *pgc)
     ALOOP
     a->topo(i,j,k)=-p->S57+p->ZP[KP];
     
-    if(p->G3==1)
-    {
     p->toporead=1;
     p->topoforcing=1;
-    }
     
     if(p->S10==2)
     p->topoforcing=0;
