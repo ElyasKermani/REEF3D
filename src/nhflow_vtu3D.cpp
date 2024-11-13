@@ -40,6 +40,7 @@ Author: Hans Bihs
 #include"nhflow_vel_probe_theory.h"
 #include"nhflow_print_Hs.h"
 #include"nhflow_turbulence.h"
+#include"nhflow_force.h"
 #include<sys/stat.h>
 #include<sys/types.h>
 
@@ -98,6 +99,12 @@ nhflow_vtu3D::nhflow_vtu3D(lexer* p, fdm_nhf *d, ghostcell *pgc)
     
     if(p->P40>0)
 	pstate=new nhflow_state(p,d,pgc);
+    
+    if(p->P81>0)
+	pforce = new nhflow_force*[p->P81];
+    
+    for(n=0;n<p->P81;++n)
+	pforce[n]=new nhflow_force(p,d,pgc,n);
 /*
     if(p->P230>0)
     ppotentialfile = new potentialfile_out(p,d,pgc);
@@ -243,6 +250,15 @@ void nhflow_vtu3D::start(lexer* p, fdm_nhf* d, ghostcell* pgc, ioflow *pflow, nh
 
     p->stateprinttime+=p->P42;
     }
+    
+    // Force box
+    if((p->count==0 || p->count==p->count_statestart) && p->P81>0)
+	for(n=0;n<p->P81;++n)
+	pforce[n]->ini(p,d,pgc);
+
+	if(p->count>1 && p->P81>0)
+	for(n=0;n<p->P81;++n)
+	pforce[n]->start(p,d,pgc);
 
 /*
     if((p->simtime>p->probeprinttime && p->P55>0.0)  || (p->count==0 &&  p->P55>0.0))
@@ -301,6 +317,13 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     pgc->gcsl_start4(p,d->breaking_print,50);
     pgc->start4V(p,d->test,50);
     //pgc->start4(p,d->test,1);
+    
+    pgc->dgcslpol(p,d->WL,p->dgcsl4,p->dgcsl4_count,14);
+    pgc->dgcslpol(p,d->breaking_print,p->dgcsl4,p->dgcsl4_count,14);
+    pgc->dgcslpol(p,d->bed,p->dgcsl4,p->dgcsl4_count,14);
+
+    d->WL.ggcpol(p);
+    d->breaking_print.ggcpol(p);
 
     i=-1;
     j=-1;
@@ -363,7 +386,18 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
 	{
 	offset[n]=offset[n-1]+4*(p->pointnum)+4;
 	++n;
+    }
+    
+    if(p->P25==1 || p->P28==1)  
+	{
     offset[n]=offset[n-1]+4*(p->pointnum)+4;
+	++n;
+	}
+    
+    // floating
+    if(p->P28==1)
+	{
+	offset[n]=offset[n-1]+4*(p->pointnum)+4;
 	++n;
 	}
 
@@ -428,7 +462,17 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
 	{
     result<<"<DataArray type=\"Float32\" Name=\"solid\"  format=\"appended\" offset=\""<<offset[n]<<"\" />"<<endl;
     ++n;
+    }
+    
+    if(p->P25==1 || p->P28==1)
+	{
     result<<"<DataArray type=\"Float32\" Name=\"Heaviside\"  format=\"appended\" offset=\""<<offset[n]<<"\" />"<<endl;
+    ++n;
+	}
+    
+    if(p->P28==1)
+	{
+    result<<"<DataArray type=\"Float32\" Name=\"floating\"  format=\"appended\" offset=\""<<offset[n]<<"\" />"<<endl;
     ++n;
 	}
 	
@@ -615,17 +659,20 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     {
     jj=j;
     j=0;
-	ffn=float(0.5*(d->SOLID[IJK]+d->SOLID[IJKp1]));
+	ffn=float(0.25*(d->SOLID[IJK]+d->SOLID[Ip1JK]+d->SOLID[IJKp1]+d->SOLID[Ip1JKp1]));
     j=jj;
     }
     
     if(p->j_dir==1)
-	ffn=float(0.25*(d->SOLID[IJK]+d->SOLID[IJKp1]+d->SOLID[IJp1K]+d->SOLID[IJp1Kp1]));
+    ffn=float(0.125*(d->SOLID[IJK]+d->SOLID[Ip1JK]+d->SOLID[IJp1K]+d->SOLID[Ip1Jp1K]
+                  +  d->SOLID[IJKp1]+d->SOLID[Ip1JKp1]+d->SOLID[IJp1Kp1]+d->SOLID[Ip1Jp1Kp1]));
     
 	result.write((char*)&ffn, sizeof (float));
     }
+    }
     
-    
+    if(p->P25==1 || p->P28==1)
+	{
     iin=4*(p->pointnum);
     result.write((char*)&iin, sizeof (int));
 	TPLOOP
@@ -634,15 +681,40 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     {
     jj=j;
     j=0;
-	ffn=float(0.5*(d->FHB[IJK]+d->FHB[IJKp1]));
+	ffn=float(0.25*(d->FHB[IJK]+d->FHB[Ip1JK]+d->FHB[IJKp1]+d->FHB[Ip1JKp1]));
     j=jj;
     }
     
     if(p->j_dir==1)
-	ffn=float(0.25*(d->FHB[IJK]+d->FHB[IJKp1]+d->FHB[IJp1K]+d->FHB[IJp1Kp1]));
+	ffn=float(0.125*(d->FHB[IJK]+d->FHB[Ip1JK]+d->FHB[IJp1K]+d->FHB[Ip1Jp1K]
+                  +  d->FHB[IJKp1]+d->FHB[Ip1JKp1]+d->FHB[IJp1Kp1]+d->FHB[Ip1Jp1Kp1]));
     
 	result.write((char*)&ffn, sizeof (float));
 	}
+	}
+    
+//  floating
+    if(p->P28==1)
+	{
+    iin=4*(p->pointnum);
+    result.write((char*)&iin, sizeof (int));
+	TPLOOP
+	{
+	if(p->j_dir==0)
+    {
+    jj=j;
+    j=0;
+	ffn=float(0.25*(d->FB[IJK]+d->FB[Ip1JK]+d->FB[IJKp1]+d->FB[Ip1JKp1]));
+    j=jj;
+    }
+    
+    if(p->j_dir==1)
+    ffn=float(0.125*(d->FB[IJK]+d->FB[Ip1JK]+d->FB[IJp1K]+d->FB[Ip1Jp1K]
+                  +  d->FB[IJKp1]+d->FB[Ip1JKp1]+d->FB[IJp1Kp1]+d->FB[Ip1Jp1Kp1]));
+    
+	result.write((char*)&ffn, sizeof (float));
+    }
+    
 	}
 
 //  XYZ

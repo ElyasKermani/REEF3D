@@ -19,7 +19,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
 Author: Hans Bihs
 --------------------------------------------------------------------*/
-#include"potential_v.h"
+
+#include"potential_v.h"
 
 potential_v::potential_v()
 {

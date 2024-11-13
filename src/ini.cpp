@@ -27,6 +27,7 @@ void lexer::ini_default()
     // Hydrodynamic Models
     A10=6;       // int turn on wave models
     
+    // SFLOW
     A209=1;      // int interpolation sweeps for bed
     A210=3;		  // int time scheme for SFLOW velocities
     A211=4;		  // int convection scheme for SLOW velocities
@@ -59,6 +60,7 @@ void lexer::ini_default()
     A261=0.267;  // double length scale factor
     A262=0.0667; // double parabolic turbulence model factor
 
+    // FNPF
     A310=3;		  // int time scheme for FNPF velocities
     A311=5;		  // int convection scheme for FNPF velocities
     A312=2;      // int discretization for second-order gradient
@@ -94,10 +96,13 @@ void lexer::ini_default()
     A365=1.86;   // double viscosity breaking wave
     A368=0;      // int breaking waves in numerical beach
 
-
+    
+    // PTF
     A410=1;      // int scheme eta
     A440=1.6;    // double epsi for depth integration
     
+    
+    // NHFLOW
     A501=1;      // int nhf mode
     A509=1;      // int interpolation sweeps for bed
     A510=2;      // int NFHLOW time scheme
@@ -136,7 +141,22 @@ void lexer::ini_default()
     
     A580=0;      // int block eta
     A581=0;      // int solid box
-    A584=0;      // int solid vertical cylinder
+    A583=0;      // int solid cylinder y
+    A584=0;      // int solid cylinder z
+    A585=0;      // int solid cylinder jacket member
+    A586=0;      // int solid sphere
+    A587=0;      // int solid wedge x
+    A588=0;      // int solid wedge y
+    A589=0;      // int solid wedge z
+    
+    A590=0;      // int STL
+    A591_x=A591_y=A591_z=1.0;  // double scaling of stl geometry
+    A592=0;     // int translation on/off
+    A592_x=A592_y=A592_z=0.0;  // double translation of stl geometry
+    A593=0;
+    A593_x=A593_y=A593_z=A593_phi=A593_theta=A593_psi=0.0;
+    A594=0;     // int invert STL
+    
 
     // Boundary Conditions
 	B10=0;			// int wall laws velocities on/off
@@ -762,7 +782,6 @@ void lexer::ini_default()
 	X11_u=X11_v=X11_w=X11_p=X11_q=X11_r=1;		// int turn on degrees of freedom
     X12=1;      // int turn force calculation on
     X14=1;      // int tangential velocity 
-    X15=2;      // int density treatment for direct forcing
 	X19=1;		// int print out interval 6DOF log files
 	X21=1;		// int presribe homogeneous density floating body
 	X21_d=900.0;		// double presribe homogeneous density floating body

@@ -25,7 +25,6 @@ Author: Hans Bihs
 #include"fdm.h"
 #include"ghostcell.h"
 
-
 void force::triangulation(lexer *p,fdm* a, ghostcell *pgc, field& f)
 {
 	int negcount, poscount;

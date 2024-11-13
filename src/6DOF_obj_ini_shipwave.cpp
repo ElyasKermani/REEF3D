@@ -17,16 +17,66 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
-Author: Hans Bihs
+Author: Tobias Martin
 --------------------------------------------------------------------*/
 
-#include"6DOF_sflow.h"
+#include"6DOF_obj.h"
 #include"lexer.h"
-#include"fdm.h"
+#include"momentum.h"
 #include"ghostcell.h"
-#include"vrans.h"
+#include<sys/stat.h>
 
-double sixdof_sflow::ramp_vel(lexer *p)
+
+void sixdof_obj::initialize_shipwave(lexer *p, ghostcell *pgc)
+{
+    if(p->mpirank==0)
+    cout<<"6DOF_obj_ini "<<endl;
+    
+    // Initialise folder structure
+    if(p->X50==1)
+	print_ini_vtp(p,pgc);
+    
+    if(p->X50==2)
+    print_ini_stl(p,pgc);
+    
+    // Initialise processor boundaries
+    ini_parallel(p,pgc);
+    
+    // Initialise objects
+	objects_create(p,pgc);
+    
+    // Initialise fbvel
+	ini_fbvel(p,pgc);
+    
+    // Raycast
+    ray_cast_2D(p,pgc);
+	reini_2D(p,pgc,fs);
+    pgc->gcsl_start4(p,fs,50);
+    
+    // Calculate geometrical properties
+    geometry_parameters_2D(p,pgc);
+    
+    // Initialise position of bodies
+    iniPosition_RBM(p,pgc);
+    
+    // Raycast
+    ray_cast_2D(p,pgc);
+	reini_2D(p,pgc,fs);
+    pgc->gcsl_start4(p,fs,50);
+    
+    // Initialise global variables
+	update_fbvel(p,pgc);
+    
+    
+    // Print initial body 
+    if(p->X50==1)
+    print_vtp(p,pgc);
+    
+    if(p->X50==2)
+    print_stl(p,pgc);
+}
+
+double sixdof_obj::ramp_vel(lexer *p)
 {
     double f=1.0;
     
@@ -42,11 +92,11 @@ double sixdof_sflow::ramp_vel(lexer *p)
     
     if(p->X206==1 && p->simtime<p->X206_ts)
     f=0.0;
-
+    
     return f;
 }
 
-double sixdof_sflow::ramp_draft(lexer *p)
+double sixdof_obj::ramp_draft(lexer *p)
 {
     double f=1.0;
     

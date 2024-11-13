@@ -257,6 +257,9 @@
           <File Name="nhflow_convection.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Force">
+            <File Name="nhflow_force.h"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Hs">
             <File Name="nhflow_print_Hs.h"/>
           </VirtualDirectory>
@@ -292,6 +295,11 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="FDM">
+          <VirtualDirectory Name="Potential Flow">
+            <File Name="nhflow_potential_v.h"/>
+            <File Name="nhflow_potential_f.h"/>
+            <File Name="nhflow_potential.h"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Reinitialization">
             <File Name="nhflow_reinidisc_fsf.h"/>
           </VirtualDirectory>
@@ -1314,18 +1322,28 @@
       </VirtualDirectory>
       <VirtualDirectory Name="NHFLOW">
         <VirtualDirectory Name="Forcing">
+          <File Name="nhflow_forcing_solid.cpp"/>
           <File Name="nhflow_forcing_interface.cpp"/>
           <VirtualDirectory Name="Geometry">
-            <File Name="nhflow_forcing_raycast_y.cpp"/>
-            <File Name="nhflow_forcing_raycast_x.cpp"/>
-            <File Name="nhflow_forcing_raycast_z.cpp"/>
+            <File Name="nhflow_forcing_rotation.cpp"/>
+            <File Name="nhflow_jacketmember.cpp"/>
+            <File Name="nhflow_forcing_sphere.cpp"/>
+            <File Name="nhflow_forcing_stl.cpp"/>
+            <File Name="nhflow_forcing_wedge_z.cpp"/>
+            <File Name="nhflow_forcing_wedge_y.cpp"/>
+            <File Name="nhflow_forcing_wedge_x.cpp"/>
+            <File Name="nhflow_forcing_cylinder_y.cpp"/>
+            <VirtualDirectory Name="Ray Casting">
+              <File Name="nhflow_forcing_raycast_x.cpp"/>
+              <File Name="nhflow_forcing_reini_RK2.cpp"/>
+              <File Name="nhflow_forcing_raycast_y.cpp"/>
+              <File Name="nhflow_forcing_raycast_io.cpp"/>
+              <File Name="nhflow_forcing_raycast_direct.cpp"/>
+              <File Name="nhflow_forcing_raycast.cpp"/>
+              <File Name="nhflow_forcing_raycast_z.cpp"/>
+            </VirtualDirectory>
             <File Name="nhflow_forcing_refinement.cpp"/>
-            <File Name="nhflow_forcing_reini_RK2.cpp"/>
-            <File Name="nhflow_forcing_raycast_io.cpp"/>
-            <File Name="nhflow_forcing_raycast_direct.cpp"/>
             <File Name="nhflow_forcing_objects.cpp"/>
-            <File Name="nhflow_forcing_distance.cpp"/>
-            <File Name="nhflow_forcing_raycast.cpp"/>
             <File Name="nhflow_forcing_cylinder_z.cpp"/>
             <File Name="nhflow_forcing_box.cpp"/>
           </VirtualDirectory>
@@ -1371,6 +1389,19 @@
           <File Name="nhflow_HLL.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Force">
+            <File Name="nhflow_force_allocate.cpp"/>
+            <File Name="nhflow_force_print.cpp"/>
+            <VirtualDirectory Name="Print VTP">
+              <File Name="nhflow_force_header.cpp"/>
+              <File Name="nhflow_force_vtp.cpp"/>
+              <File Name="nhflow_force_pvtp.cpp"/>
+            </VirtualDirectory>
+            <File Name="nhflow_force_forcecalc.cpp"/>
+            <File Name="nhflow_force_triangulate.cpp"/>
+            <File Name="nhflow_force_reconstruct.cpp"/>
+            <File Name="nhflow_force.cpp"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Hs">
             <File Name="nhflow_print_Hs.cpp"/>
           </VirtualDirectory>
@@ -1417,6 +1448,7 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="FDM">
+          <VirtualDirectory Name="Potential Flow"/>
           <VirtualDirectory Name="Reinitialization">
             <File Name="nhflow_reinidisc_fsf.cpp"/>
           </VirtualDirectory>
@@ -1844,11 +1876,13 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Interface NHFLOW">
+          <File Name="6DOF_nhflow_velsource.cpp"/>
+          <File Name="6DOF_nhflow_initialize.cpp"/>
           <File Name="6DOF_nhflow.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Interface CFD">
+          <File Name="6DOF_cfd_initialize.cpp"/>
           <File Name="6DOF_cfd_velsource.cpp"/>
-          <File Name="6DOF_cfd_setup.cpp"/>
           <File Name="6DOF_cfd.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Void">
@@ -1856,22 +1890,17 @@
         </VirtualDirectory>
         <VirtualDirectory Name="Interface SFLOW">
           <File Name="6DOF_sflow_velsource.cpp"/>
-          <File Name="6DOF_sflow_motion.cpp"/>
-          <VirtualDirectory Name="Print">
-            <File Name="6DOF_sflow_print_stl.cpp"/>
-            <File Name="6DOF_sflow_print_vtp.cpp"/>
-          </VirtualDirectory>
-          <VirtualDirectory Name="RayCast"/>
-          <VirtualDirectory Name="Objects">
-            <File Name="6DOF_sflow_cylinder.cpp"/>
-            <File Name="6DOF_sflow_box.cpp"/>
-            <File Name="6DOF_sflow_STL_read.cpp"/>
-          </VirtualDirectory>
-          <File Name="6DOF_sflow_rotation.cpp"/>
           <File Name="6DOF_sflow_initialize.cpp"/>
           <File Name="6DOF_sflow.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="6DOF Object">
+          <File Name="6DOF_obj_update_pos_nhflow.cpp"/>
+          <File Name="6DOF_obj_forcing_nhflow.cpp"/>
+          <VirtualDirectory Name="Forces NHFLOW">
+            <File Name="6DOF_obj_nhflow_forces_reconstruction.cpp"/>
+            <File Name="6DOF_obj_nhflow_forces_triangulation.cpp"/>
+            <File Name="6DOF_obj_nhflow_forces.cpp"/>
+          </VirtualDirectory>
           <File Name="6DOF_obj_forcing_2D.cpp"/>
           <File Name="6DOF_obj_update_pos_2D.cpp"/>
           <File Name="6DOF_obj_trans_matrices.cpp"/>
@@ -1882,7 +1911,8 @@
           <File Name="6DOF_obj_rotation.cpp"/>
           <File Name="6DOF_obj_forcing.cpp"/>
           <VirtualDirectory Name="Initialize">
-            <File Name="6DOF_obj_ini_sflow.cpp"/>
+            <File Name="6DOF_obj_ini_nhflow.cpp"/>
+            <File Name="6DOF_obj_ini_shipwave.cpp"/>
             <File Name="6DOF_obj_ini_cfd.cpp"/>
             <File Name="6DOF_obj_ini_position.cpp"/>
             <File Name="6DOF_obj_ini_parameters.cpp"/>
@@ -1894,7 +1924,7 @@
             <File Name="6DOF_obj_print_normals_vtp.cpp"/>
             <File Name="6DOF_obj_print_ini.cpp"/>
           </VirtualDirectory>
-          <VirtualDirectory Name="Forces">
+          <VirtualDirectory Name="Forces CFD">
             <File Name="6DOF_obj_forces_lsm_triangulation.cpp"/>
             <VirtualDirectory Name="VTP">
               <File Name="6DOF_obj_forces_lsm_pvtp.cpp"/>
@@ -1907,6 +1937,16 @@
             <File Name="6DOF_obj_forces.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Geometry">
+            <VirtualDirectory Name="Reini NHFLOW">
+              <File Name="6DOF_obj_nhflow_reini_RK2.cpp"/>
+            </VirtualDirectory>
+            <VirtualDirectory Name="Ray Cast NHFLOW">
+              <File Name="6DOF_nhflow_forcing_raycast_io.cpp"/>
+              <File Name="6DOF_nhflow_forcing_raycast_z.cpp"/>
+              <File Name="6DOF_nhflow_forcing_raycast_y.cpp"/>
+              <File Name="6DOF_nhflow_forcing_raycast_x.cpp"/>
+              <File Name="6DOF_nhflow_forcing_raycast.cpp"/>
+            </VirtualDirectory>
             <File Name="6DOF_obj_refinement.cpp"/>
             <File Name="6DOF_obj_geometry_parameters.cpp"/>
             <VirtualDirectory Name="Reini 2D">

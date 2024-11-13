@@ -17,7 +17,7 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
-Author: Tobias Martin
+Authors: Tobias Martin, Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"6DOF_cfd.h"
@@ -29,6 +29,10 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
 {
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
+}
+
+void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)
+{
 }
 
 void sixdof_cfd::ini(lexer *p, ghostcell *pgc)

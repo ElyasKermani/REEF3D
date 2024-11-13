@@ -38,8 +38,10 @@ Author: Hans Bihs, Tobias Martin
 class lexer;
 class fdm;
 class fdm2D;
+class fdm_nhf;
 class ghostcell;
 class reinidisc;
+class nhflow_reinidisc_fsf;
 class mooring;
 class net;
 class vrans;
@@ -62,21 +64,30 @@ public:
 	virtual void solve_eqmotion(lexer*,fdm*,ghostcell*,int,vrans*,vector<net*>&);
     
 	void initialize_cfd(lexer*,fdm*,ghostcell*,vector<net*>&);
-    
-    void initialize_sflow(lexer*,ghostcell*);
+    void initialize_nhflow(lexer*,fdm_nhf*,ghostcell*,vector<net*>&);
+    void initialize_shipwave(lexer*,ghostcell*);
     
 	// Additional functions
     void transform(lexer*, fdm*, ghostcell*, bool);
     void update_forcing(lexer*, fdm*, ghostcell*,field&,field&,field&,field&,field&,field&,int);
-    void hydrodynamic_forces(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
+    void hydrodynamic_forces_cfd(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
+    void hydrodynamic_forces_nhflow(lexer*, fdm_nhf*, ghostcell*);
 	
     void quat_matrices();
     void update_position_3D(lexer*, fdm*, ghostcell*, bool);
-    
+    void update_position_nhflow(lexer*, fdm_nhf*, ghostcell*,slice&, bool);
     void update_position_2D(lexer*, ghostcell*,slice&);
     
-    void solve_eqmotion_oneway(lexer*,ghostcell*);
+    void solve_eqmotion_oneway_onestep(lexer*,ghostcell*);
     
+    // NHFLOW
+    virtual void solve_eqmotion_nhflow(lexer*,fdm_nhf*,ghostcell*,int,vrans*,vector<net*>&);
+    void solve_eqmotion_oneway(lexer*,ghostcell*,int);
+    void update_forcing_nhflow(lexer*, fdm_nhf*, ghostcell*, double*, double*, double*, double*, double*, double*, slice&, slice&, int);
+    
+    double Hsolidface_nhflow(lexer*, fdm_nhf*, int,int,int);
+    
+    // print
     void saveTimeStep(lexer*,int);
     void print_parameter(lexer*,ghostcell*);
     void print_ini_vtp(lexer*,ghostcell*);
@@ -101,6 +112,7 @@ private:
     void maxvel(lexer*, ghostcell*);
     
     void externalForces(lexer*, fdm*, ghostcell*, double, vrans*, vector<net*>&);
+    void externalForces_nhflow(lexer*, fdm_nhf*, ghostcell*, double, vrans*, vector<net*>&);
     void mooringForces(lexer*,  ghostcell*, double);
     void netForces(lexer*, fdm*, ghostcell*, double, vrans*, vector<net*>&);
     void update_forces(lexer*);
@@ -127,12 +139,15 @@ private:
     
     double Hsolidface(lexer*, fdm*, int,int,int);
 	double Hsolidface_t(lexer*, fdm*, int,int,int);
+    
 	
 	void geometry_parameters(lexer*, fdm*, ghostcell*);
+    void geometry_parameters_nhflow(lexer*, fdm_nhf*, ghostcell*);
     void geometry_parameters_2D(lexer*, ghostcell*);
     void geometry_stl(lexer*, ghostcell*);
 	void geometry_f(double&,double&,double&,double&,double&,double&,double&,double&,double&);
     void geometry_ls(lexer*, fdm*, ghostcell*);
+    void geometry_ls_nhflow(lexer*, fdm_nhf*, ghostcell*);
     
     // force
     void forces_stl(lexer*, fdm*, ghostcell*,field&,field&,field&,int,bool);
@@ -155,6 +170,7 @@ private:
     void iniPosition_RBM(lexer*, ghostcell*);
     void update_Euler_angles(lexer*, ghostcell*);
     void update_trimesh_3D(lexer*, fdm*, ghostcell*, bool);
+    void update_trimesh_nhflow(lexer*, fdm_nhf*, ghostcell*, bool);
     void update_trimesh_2D(lexer*, ghostcell*);
     void motionext_trans(lexer*, ghostcell*, Eigen::Vector3d&, Eigen::Vector3d&);
     void motionext_rot(lexer*, Eigen::Vector3d&, Eigen::Vector3d&, Eigen::Vector4d&);
@@ -198,10 +214,39 @@ private:
     double epsifb;
     const double epsi; 
     
-    // Reini
     reinidisc *prdisc;
 	field4a f, frk1, L, dt; 
     int reiniter;
+    
+    // ray cast NHFLOW
+    void ray_cast(lexer*, fdm_nhf*, ghostcell*);
+    void ray_cast_io(lexer*, fdm_nhf*, ghostcell*,int,int);
+    void ray_cast_x(lexer*, fdm_nhf*, ghostcell*,int,int);
+    void ray_cast_y(lexer*, fdm_nhf*, ghostcell*,int,int);
+    void ray_cast_z(lexer*, fdm_nhf*, ghostcell*,int,int);
+    
+    double zmin,zmax;
+    
+    // Reini NHFLOW
+    void nhflow_reini_RK2(lexer*, fdm_nhf*, ghostcell*, double*);
+    nhflow_reinidisc_fsf *pnhfrdisc;
+    int *IO,*CR,*CL;
+    double *FRK1,*DTT,*LL;
+    
+    // Forces NHFLOW
+    void allocate(lexer*,fdm_nhf*,ghostcell*);
+    void deallocate(lexer*,fdm_nhf*,ghostcell*);
+    void print_force(lexer*,fdm_nhf*,ghostcell*);
+    int *vert, *nflag;
+    double *fsf;
+    double A,Ax,Ay,Az;
+    double Fx,Fy,Fz;
+    
+    double xp1,xp2,yp1,yp2,zp1,zp2;
+    double sgnx,sgny,sgnz;
+    double xloc,yloc,zloc;
+	double xlocvel,ylocvel,zlocvel;
+    double etaval,hspval;
     
     // -----
     // ray cast 2D
@@ -218,7 +263,13 @@ private:
     slice4 press,lrk1,lrk2,K,dts,fs,Ls,Bs,Rxmin,Rxmax,Rymin,Rymax,draft;
     sliceint5 cl,cr,fsio;
 
-    
+    // Force NHFLOW
+    void forces_nhflow(lexer*, fdm_nhf*, ghostcell*);
+    void force_calc(lexer*, fdm_nhf*, ghostcell*);
+    void triangulation(lexer*, fdm_nhf*, ghostcell*);
+	void reconstruct(lexer*, fdm_nhf*);
+	void addpoint(lexer*,fdm_nhf*,int,int);
+	void finalize(lexer*,fdm_nhf*);
     
     // -----
     
@@ -274,11 +325,8 @@ private:
     double at,bt,ct,st;
     char name[100],pname[100];
 	
-
 	fieldint5 vertice, nodeflag;
     field5 eta;
-
-    
     
     
     // Parallel	

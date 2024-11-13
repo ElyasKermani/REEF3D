@@ -17,7 +17,7 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
-Authors: Tobias Martin, Hans Bihs
+Authors: Hans Bihs, Tobias Martin
 --------------------------------------------------------------------*/
 
 #include"6DOF_sflow.h"
@@ -27,16 +27,8 @@ Authors: Tobias Martin, Hans Bihs
 #include"ghostcell.h"
 #include"vrans.h"
    
-sixdof_sflow::sixdof_sflow(lexer *p, ghostcell *pgc):press(p),ddweno_f_nug(p),frk1(p),frk2(p),L(p),dt(p),
-                                                              fb(p),fbio(p),cutr(p),cutl(p),Ls(p),Bs(p),
-                                                              Rxmin(p),Rxmax(p),Rymin(p),Rymax(p),draft(p),epsi(1.6*p->DXM)
+sixdof_sflow::sixdof_sflow(lexer *p, ghostcell *pgc) : press(p)
 {
-    trisum=1;
-    p->Darray(tri_xn,trisum,3);
-	p->Darray(tri_yn,trisum,3);
-	p->Darray(tri_zn,trisum,3);
-    
-    
     if(p->mpirank==0)
     cout<<"6DOF startup ..."<<endl;
     
@@ -50,13 +42,13 @@ sixdof_sflow::~sixdof_sflow()
 {
 }
 
-void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, slice &fsglobal)
+void sixdof_sflow::start_sflow(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice&Q, slice &fx, slice &fy, bool finalize)
 {
     
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Advance body in time
-        fb_obj[nb]->solve_eqmotion_oneway(p,pgc);
+        fb_obj[nb]->solve_eqmotion_oneway_onestep(p,pgc);
         
         // Update transformation matrices
         fb_obj[nb]->quat_matrices();
@@ -89,6 +81,4 @@ void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, slice &fsglobal)
             fb_obj[nb]->print_parameter(p,pgc);
         
     }
-    
-    
 }
