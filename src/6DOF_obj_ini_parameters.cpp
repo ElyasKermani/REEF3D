@@ -71,7 +71,7 @@ void sixdof_obj::ini_fbvel(lexer *p, ghostcell *pgc)
 	} 
 */  for(int qn=0;qn<p->X102;++qn)
     {
-    if(p->X102==1 && p->X110_objID[qn]==n6DOF)
+    if(p->X102 > 0 && p->X110_objID[qn]==n6DOF)
     {
         p_(0) += p->X102_u[n6DOF]*Mass_fb;
 		p_(1) += p->X102_v[n6DOF]*Mass_fb;
