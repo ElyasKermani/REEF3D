@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2023 Hans Bihs
+Copyright 2008-2024 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -28,9 +28,6 @@ Author: Hans Bihs
 
 void patchBC::patchBC_ioflow(lexer *p, fdm *a, ghostcell *pgc, field &u, field &v, field &w)
 {
-	double delta,etta;
-	
-	delta = 1750.0/1500.0;
     
     // Uio
     for(qq=0;qq<obj_count;++qq)
@@ -245,24 +242,11 @@ void patchBC::patchBC_ioflow(lexer *p, fdm *a, ghostcell *pgc, field &u, field &
     j=patch[qq]->gcb[n][1];
     k=patch[qq]->gcb[n][2];
     
-    etta = p->YP[JP]/delta;
-    
-//    cout<<"cordinate :"<<i<<" "<<j<<" "<<k<<" "<<p->YP[JP]<<endl;
-    
         if(patch[qq]->gcb[n][3]==1)
         {
-			if(p->YP[JP]>delta)
-			{
-			u(i-1,j,k) =  patch[qq]->U;
-			u(i-2,j,k) =  patch[qq]->U;
-			u(i-3,j,k) =  patch[qq]->U;
-			}
-			else
-			{
-			u(i-1,j,k) =  patch[qq]->U*(2*(etta) - 2*(pow(etta,3.0)) + pow(etta,4.0));
-			u(i-2,j,k) =  patch[qq]->U*(2*(etta) - 2*(pow(etta,3.0)) + pow(etta,4.0));
-			u(i-3,j,k) =  patch[qq]->U*(2*(etta) - 2*(pow(etta,3.0)) + pow(etta,4.0));
-			}
+        u(i-1,j,k) =  patch[qq]->U;
+        u(i-2,j,k) =  patch[qq]->U;
+        u(i-3,j,k) =  patch[qq]->U;
         
         v(i,j,k)   =  patch[qq]->V;
         v(i-1,j,k) =  patch[qq]->V;
