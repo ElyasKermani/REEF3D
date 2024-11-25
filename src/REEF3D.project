@@ -330,6 +330,7 @@
           <File Name="nhflow_pressure.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
+          <File Name="nhflow_momentum_FS2.h"/>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.h"/>
           </VirtualDirectory>
@@ -589,6 +590,7 @@
       </VirtualDirectory>
       <VirtualDirectory Name="6DOF">
         <VirtualDirectory Name="External Motion">
+          <File Name="6DOF_motionext_wavemaker.h"/>
           <File Name="6DOF_motionext_CoG.h"/>
           <File Name="6DOF_motionext_void.h"/>
           <File Name="6DOF_motionext_file.h"/>
@@ -1486,6 +1488,7 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
+          <File Name="nhflow_momentum_FS2.cpp"/>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.cpp"/>
           </VirtualDirectory>
@@ -1861,6 +1864,10 @@
       </VirtualDirectory>
       <VirtualDirectory Name="6DOF">
         <VirtualDirectory Name="External Motion">
+          <VirtualDirectory Name="Motion Wavemaker">
+            <File Name="6DOF_motionext_wavemaker_read.cpp"/>
+            <File Name="6DOF_motionext_wavemaker.cpp"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Motion File CoG">
             <File Name="6DOF_motion-file_CoG_read.cpp"/>
             <File Name="6DOF_motion-file_CoG.cpp"/>
@@ -1897,9 +1904,10 @@
           <File Name="6DOF_obj_update_pos_nhflow.cpp"/>
           <File Name="6DOF_obj_forcing_nhflow.cpp"/>
           <VirtualDirectory Name="Forces NHFLOW">
+            <File Name="6DOF_obj_nhflow_forces_lsm.cpp"/>
+            <File Name="6DOF_obj_nhflow_forces_stl.cpp"/>
             <File Name="6DOF_obj_nhflow_forces_reconstruction.cpp"/>
             <File Name="6DOF_obj_nhflow_forces_triangulation.cpp"/>
-            <File Name="6DOF_obj_nhflow_forces.cpp"/>
           </VirtualDirectory>
           <File Name="6DOF_obj_forcing_2D.cpp"/>
           <File Name="6DOF_obj_update_pos_2D.cpp"/>

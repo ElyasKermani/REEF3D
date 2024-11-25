@@ -120,12 +120,15 @@ void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof
         /*if(p->count<10)
         d->maxH = MAX(fabs(alpha*CPORNH*d->FZ[IJK]), d->maxH);
         
-        p->fbmax = MAX(fabs(alpha*CPORNH*d->FZ[IJK]), p->fbmax);*/
+        p->fbmax = MAX(fabs(alpha*CPORNH*d FZ[IJK]), p->fbmax);*/
     }
     
     SLICELOOP4
     WL(i,j) += alpha*p->dt*CPORNH*fe(i,j);
     
+    
+    SLICELOOP4
+    d->eta(i,j) = WL(i,j) - d->depth(i,j);
     }
 }
 
@@ -143,10 +146,12 @@ void nhflow_forcing::forcing_ini(lexer *p, fdm_nhf *d, ghostcell *pgc)
     
     objects_create(p, pgc);
     
-    //geometry_refinement(p,pgc);
-    
     ray_cast(p, d, pgc);
     
     reini_RK2(p, d, pgc, d->SOLID);
+    
+    
+    SLICELOOP4
+	d->depth(i,j) = p->wd - d->bed(i,j);
     }
 }

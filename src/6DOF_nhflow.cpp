@@ -61,7 +61,7 @@ void sixdof_nhflow::start_twoway(lexer *p, fdm_nhf *d, ghostcell *pgc, vrans* pv
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Calculate forces
-        fb_obj[nb]->hydrodynamic_forces_nhflow(p,d,pgc);
+        fb_obj[nb]->hydrodynamic_forces_nhflow(p,d,pgc,finalize);
         
         // Advance body in time
         fb_obj[nb]->solve_eqmotion_nhflow(p,d,pgc,iter,pvrans,pnet);
@@ -78,7 +78,6 @@ void sixdof_nhflow::start_twoway(lexer *p, fdm_nhf *d, ghostcell *pgc, vrans* pv
         // Update forcing terms
         fb_obj[nb]->update_forcing_nhflow(p,d,pgc,d->U,d->V,d->W,FX,FY,FZ,WL,fe,iter);
         
-            
         // Print
         if(finalize==true)
         {
@@ -114,7 +113,12 @@ void sixdof_nhflow::start_oneway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter,
         // Update forcing terms
         fb_obj[nb]->update_forcing_nhflow(p,d,pgc,d->U,d->V,d->W,FX,FY,FZ,WL,fe,iter);
         
-
+        
+        // Print
+        if(finalize==true)
+        {
+            fb_obj[nb]->saveTimeStep(p,iter);
+            
             // Print
             if(p->X50==1)
             fb_obj[nb]->print_vtp(p,pgc);
@@ -123,6 +127,7 @@ void sixdof_nhflow::start_oneway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter,
             fb_obj[nb]->print_stl(p,pgc);
             
             fb_obj[nb]->print_parameter(p,pgc);
+        }
     }
 }
 
@@ -152,7 +157,6 @@ void sixdof_nhflow::start_shipwave(lexer *p, fdm_nhf *d, ghostcell *pgc, bool fi
         
         else if (p->X400==10)
         fb_obj[nb]->updateForcing_stl(p,pgc,press);
-        
         
             // Print
             if(p->X50==1)

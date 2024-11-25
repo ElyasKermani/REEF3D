@@ -29,17 +29,24 @@ Author: Hans Bihs
 #include<sys/stat.h>
 #include<sys/types.h>
 
-void sixdof_obj::hydrodynamic_forces_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
+void sixdof_obj::hydrodynamic_forces_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, bool finalize)
 {
 	// forcecalc
+    if(p->X60==1)
+    force_calc_stl(p,d,pgc,finalize);
+        
+    
+    if(p->X60==2)
+    {
     triangulation(p,d,pgc);
 	reconstruct(p,d);
-    force_calc(p,d,pgc);
+    force_calc_lsm(p,d,pgc);
         
     deallocate(p,d,pgc);
+    }
 } 
 
-void sixdof_obj::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
+void sixdof_obj::force_calc_lsm(lexer* p, fdm_nhf *d, ghostcell *pgc)
 {  
     Ax=0.0;
     Ay=0.0;
@@ -47,6 +54,9 @@ void sixdof_obj::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
     
     Fx=Fy=Fz=0.0;
     Xe=Ye=Ze=Ke=Me=Ne=0.0;
+    
+    //LOOP
+    //Ze += p->DXN[IP]*p->DYN[JP]*p->DZN[KP]*d->WL(i,j)*d->FHB[IJK]*p->W1*fabs(p->W22);
     
     for(n=0;n<polygon_num;++n)
     { 
@@ -147,7 +157,7 @@ void sixdof_obj::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
             
             sgnx = (d->FB[Ip1JK] - d->FB[Im1JK])/(p->DXP[IM1] + p->DXP[IP]);
             sgny = (d->FB[IJp1K] - d->FB[IJm1K])/(p->DYP[JM1] + p->DYP[JP]);
-            sgnz = (d->FB[IJKp1] - d->FB[IJKm1])/(p->DZP[KM1] + p->DZP[KP])*p->sigz[IJ];
+            sgnz = (d->FB[IJKp1] - d->FB[IJKm1])/((p->DZP[KM1] + p->DZP[KP])*d->WL(i,j));
             
             nx = nx*sgnx/fabs(fabs(sgnx)>1.0e-20?sgnx:1.0e20);
             ny = ny*sgny/fabs(fabs(sgny)>1.0e-20?sgny:1.0e20);
@@ -175,36 +185,35 @@ void sixdof_obj::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
             viscosity += p->ccipol4V(d->EV, d->WL, d->bed,xloc,yloc,zloc);
             
             // pressure
-            pval   = p->ccipol4V(d->P, d->WL, d->bed,xloc,yloc,zloc);// - p->pressgage;
-            etaval = p->ccslipol4(d->eta,xloc,yloc);  
-            hspval = (p->wd + etaval - zloc)*p->W1*fabs(p->W22);
-            
-            /*pval   = p->ccipol4V(d->P, d->WL, d->bed,xc,yc,zc);// - p->pressgage;
-            etaval = p->ccslipol4(d->eta,xc,yc);    
-            hspval = (p->wd + etaval - zc)*p->W1*fabs(p->W22);*/
+            pval   = p->ccipol7P(d->P, d->WL, d->bed, xc, yc, zc);// - p->pressgage;
+            etaval = p->ccslipol4(d->eta,xc,yc);  
+            hspval = (p->wd + etaval - zc)*p->W1*fabs(p->W22);
+    
             
             // Force
             Fx = -(pval + hspval)*A*nx;
                        //+ 0.0*density*viscosity*A*(du*ny+du*nz);
                        
+            if(p->j_dir==1)
             Fy = -(pval + hspval)*A*ny;
                       // + 0.0*density*viscosity*A*(dv*nx+dv*nz);
                     
             Fz = -(pval + hspval)*A*nz;
                       // + 0.0*density*viscosity*A*(dw*nx+dw*ny); 
                       
+                      
             Ax+=A*nx;    
             Ay+=A*ny;
             Az+=A*nz;
     
     
-             Xe += Fx;
-			Ye += Fy;
-			Ze += Fz;
+            Xe += Fx;
+            Ye += Fy;
+            Ze += Fz;
 
-			Ke += (yc - c_(1))*Fz - (zc - c_(2))*Fy;
-			Me += (zc - c_(2))*Fx - (xc - c_(0))*Fz;
-			Ne += (xc - c_(0))*Fy - (yc - c_(1))*Fx;
+            Ke += (yc - c_(1))*Fz - (zc - c_(2))*Fy;
+            Me += (zc - c_(2))*Fx - (xc - c_(0))*Fz;
+            Ne += (xc - c_(0))*Fy - (yc - c_(1))*Fx;
     }
     
     Xe = pgc->globalsum(Xe);
@@ -232,6 +241,14 @@ void sixdof_obj::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
     cout<<"Fx: "<<Fx<<" Fy: "<<Fy<<" Fz: "<<Fz<<endl;
     cout<<"Xe: "<<Xe<<" Ye: "<<Ye<<" Ze: "<<Ze<<" Ke: "<<Ke<<" Me: "<<Me<<" Ne: "<<Ne<<endl;
     }
+    
+    /*
+    // Print results	
+    if (p->mpirank==0 && finalize==1) 
+    {
+        printforce<<curr_time<<" \t "<<Xe<<" \t "<<Ye<<" \t "<<Ze<<" \t "<<Ke
+        <<" \t "<<Me<<" \t "<<Ne<<" \t "<<Xe_p<<" \t "<<Ye_p<<" \t "<<Ze_p<<" \t "<<Xe_v<<" \t "<<Ye_v<<" \t "<<Ze_v<<endl;   
+    }*/
 }
 
 void sixdof_obj::allocate(lexer* p, fdm_nhf *d, ghostcell *pgc)

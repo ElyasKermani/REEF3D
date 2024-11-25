@@ -25,7 +25,6 @@ Author: Hans Bihs
 
 class density;
 class solver;
-class nhflow_poisson;
 class patchBC_interface;
 
 using namespace std;

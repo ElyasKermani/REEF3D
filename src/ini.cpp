@@ -116,7 +116,7 @@ void lexer::ini_default()
     A518=2;      // int NHFLOW bed BC
     A519=0;      // int turn on bed roughness
     A520=2;		// int NFHLOW non-hydrostatic pressure scheme
-    A521=1;		// int
+    A521=0;		// int
     A522=4.0;    // double p_alpha
     A523=1.0;    // double p_gamma
     A531=3.0;    // double Froude number limiter
@@ -856,11 +856,13 @@ void lexer::ini_default()
     X242_y=0.0;     // double delta x for motion file
     X242_z=0.0;     // double delta x for motion file
     X243=0.0;     // double delta CoG for motion file
+    X310=0;     // int mooring model
     X311=0;     // int number of simple taut mooring lines
     X312=0;     // int number of springs
     X313=0;     // int initial rotation of mooring end points with 6DOF body
     X314=0;     // int breaking mooring lines due to tension
     X315=0;     // int breaking mooring lines due to time
+    X320=0;     // int net model
     X321=0;     // int number of nets
     X323_m=X323_d=X323_l=0.0;   // double dynamic net sinker properties
     X325_dt=0.001;   // double dynamic net time step

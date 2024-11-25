@@ -140,9 +140,9 @@ void nhflow_force::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
             ny = ny*sgny/fabs(fabs(sgny)>1.0e-20?sgny:1.0e20);
             nz = nz*sgnz/fabs(fabs(sgnz)>1.0e-20?sgnz:1.0e20);
             
-            xloc = xc - nx*p->DXP[IP]*p->P91;
-            yloc = yc - ny*p->DYP[JP]*p->P91;
-            zloc = zc - nz*p->DZP[KP]*d->WL(i,j)*p->P91;
+            xloc = xc + nx*p->DXP[IP]*p->P91;
+            yloc = yc + ny*p->DYP[JP]*p->P91;
+            zloc = zc + nz*p->DZP[KP]*d->WL(i,j)*p->P91;
             
             xlocvel = xc + nx*p->DXP[IP];
             ylocvel = yc + ny*p->DYP[JP];
@@ -162,9 +162,10 @@ void nhflow_force::force_calc(lexer* p, fdm_nhf *d, ghostcell *pgc)
             viscosity += p->ccipol4V(d->EV, d->WL, d->bed,xloc,yloc,zloc);
             
             // pressure
-            pval   = p->ccipol4V(d->P, d->WL, d->bed,xloc,yloc,zloc);// - p->pressgage;
-            etaval = p->ccslipol4(d->eta,xloc,yloc);  
-            hspval = (p->wd + etaval - zloc)*p->W1*fabs(p->W22);
+            pval   = p->ccipol7V(d->P, d->WL, d->bed, xc, yc, zc);// - p->pressgage;
+            etaval = p->ccslipol4(d->eta,xc,yc);  
+            hspval = (p->wd + etaval - zc)*p->W1*fabs(p->W22);
+            
             
             /*pval   = p->ccipol4V(d->P, d->WL, d->bed,xc,yc,zc);// - p->pressgage;
             etaval = p->ccslipol4(d->eta,xc,yc);    

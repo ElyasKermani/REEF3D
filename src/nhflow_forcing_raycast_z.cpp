@@ -188,7 +188,7 @@ void nhflow_forcing::ray_cast_z(lexer *p, fdm_nhf *d, ghostcell *pgc, int ts, in
             for(k=0;k<p->knoz;++k)
             d->SOLID[IJK]=MIN(fabs(Rz-p->ZSP[IJK]),d->SOLID[IJK]);
             }
-		
+            
 		}
 	}
     }
