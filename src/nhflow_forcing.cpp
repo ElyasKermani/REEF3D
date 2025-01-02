@@ -30,12 +30,20 @@ Author: Hans Bihs
 nhflow_forcing::nhflow_forcing(lexer *p) : epsi(1.6), fe(p)
 {
     forcing_flag=0;
+    solid_flag=0;
+    floating_flag=0;
     
     if(p->A581>0 || p->A583>0 || p->A584>0   || p->A585>0  || p->A586>0 || p->A587>0 || p->A588>0 || p->A589>0 || p->A590>0)
+    {
     forcing_flag=1;
+    solid_flag=1;
+    }
     
     if(p->X10>0)
+    {
     forcing_flag=1;
+    floating_flag=1;
+    }
         
     if(forcing_flag==1)
     {
@@ -62,30 +70,26 @@ nhflow_forcing::~nhflow_forcing()
 void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof, vrans* pvrans, vector<net*>& pnet, 
                              int iter, double alpha, double *UH, double *VH, double *WH, slice &WL, bool finalize)
 {
-    if(forcing_flag==1)
+    // ini forcing terms
+    reset(p,d,pgc);
+    
+    
+    if(solid_flag==1)
     {
     // update direct forcing function
     ray_cast(p, d, pgc);
     reini_RK2(p, d, pgc, d->SOLID);
     
-    // ini forcing terms
-    LOOP
-    {
-    FX[IJK] = 0.0;   
-    FY[IJK] = 0.0;   
-    FZ[IJK] = 0.0;   
-    d->FHB[IJK] = 0.0;
-    }
-    
-    SLICELOOP4
-    fe(i,j) = 0.0;
-    
     // solid forcing
     solid_forcing(p,d,pgc,alpha,d->U,d->V,d->W,WL);
+    }
     
     // 6DOF forcing
     p6dof->start_nhflow(p,d,pgc,pvrans,pnet,iter,d->U,d->V,d->W,FX,FY,FZ,WL,fe,finalize);
 
+
+    if(forcing_flag==1)
+    {
     // add forcing term to RHS
     LOOP
     {
@@ -126,15 +130,49 @@ void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof
     SLICELOOP4
     WL(i,j) += alpha*p->dt*CPORNH*fe(i,j);
     
-    
     SLICELOOP4
     d->eta(i,j) = WL(i,j) - d->depth(i,j);
+    
+    // DF
+    LOOP
+    p->DF[IJK]=1;
+    
+    if(solid_flag==1)
+    LOOP
+    if(d->SOLID[IJK]<0.0)
+    p->DF[IJK]=0;
+
+    if(floating_flag==1)
+    LOOP
+    if(d->FB[IJK]<0.0)
+    p->DF[IJK]=0;
+        
     }
+    
+    pgc->gciobc_update(p,d);
+}
+
+void nhflow_forcing::reset(lexer *p, fdm_nhf *d, ghostcell *pgc)
+{
+    if(forcing_flag==1)
+    {
+    LOOP
+    {
+    FX[IJK] = 0.0;   
+    FY[IJK] = 0.0;   
+    FZ[IJK] = 0.0;   
+    d->FHB[IJK] = 0.0;
+    }
+
+    SLICELOOP4
+    fe(i,j) = 0.0;
+    }
+    
 }
 
 void nhflow_forcing::forcing_ini(lexer *p, fdm_nhf *d, ghostcell *pgc)
 {
-    if(forcing_flag==1)
+    if(solid_flag==1)
     {
     if(p->mpirank==0)
     cout<<"Forcing ini "<<endl;

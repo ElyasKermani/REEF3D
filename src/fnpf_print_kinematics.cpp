@@ -20,7 +20,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#include"force_ale.h"
+#include"fnpf_print_kinematics.h"
 #include"gradient.h"
 #include"lexer.h"
 #include"fdm_fnpf.h"
@@ -29,66 +29,56 @@ Author: Hans Bihs
 #include<sys/stat.h>
 #include<sys/types.h>
 
-force_ale::force_ale(lexer* p, fdm_fnpf *c, ghostcell *pgc, int qn) : ID(qn){}
-
-force_ale::~force_ale(){}
-
-void force_ale::ini(lexer *p, fdm_fnpf *c, ghostcell *pgc)
+fnpf_print_kinematics::fnpf_print_kinematics(lexer* p, fdm_fnpf *c, ghostcell *pgc, int qn) : ID(qn)
 {
-    force_aleprintcount=0;
+    // Create Folder
+	if(p->mpirank==0)
+	mkdir("./REEF3D_FNPF_Kinematics",0777);
+}
 
-    // Read cylinder force input - xc,yc,rc,cd,cm
-    xc = p->P85_x[ID];
-	yc = p->P85_y[ID];
-    rc = p->P85_r[ID];
-	cd = p->P85_cd[ID];
-	cm = p->P85_cm[ID];
+fnpf_print_kinematics::~fnpf_print_kinematics()
+{
+}
 
-    // Open files
-    print_ini(p,c,pgc);
-
-    // Ini arrays
-	p->Darray(un, p->knoz);
-	//p->Darray(u2n, p->knoz);
-	p->Darray(vn, p->knoz);
-
-    // Ini eta
-	etan=p->wd;
-	//eta2n=p->wd;
-
-    // Ini time
-    //dtn=0;
-
+void fnpf_print_kinematics::ini(lexer *p, fdm_fnpf *c, ghostcell *pgc)
+{
+    fnpf_print_kinematicsprintcount=0;
+    
     // Ini processor boundaries
 	xstart = p->originx;
 	ystart = p->originy;
 	xend = p->endx;
 	yend = p->endy;
 
+    // Read cylinder force input - xc,yc,rc,cd,cm
+    xc = p->P88_x[ID];
+	yc = p->P88_y[ID];
+
+    // Open files
+    if (xc >= xstart && xc < xend && yc >= ystart && yc < yend) 
+    print_ini(p,c,pgc);
+
+    // Ini arrays
+	p->Darray(un, p->knoz+1);
+	p->Darray(vn, p->knoz+1);
+    p->Darray(ax, p->knoz+1);
+	p->Darray(ay, p->knoz+1);
+
+    // Ini eta
+	etan=p->wd;
 }
 
-void force_ale::start(lexer *p, fdm_fnpf *c, ghostcell *pgc)
+void fnpf_print_kinematics::start(lexer *p, fdm_fnpf *c, ghostcell *pgc)
 {
-    if (xc >= xstart && xc < xend && yc >= ystart && yc < yend) // cylinder in processor
+    if (xc >= xstart && xc < xend && yc >= ystart && yc < yend) 
     {
         i = p->posc_i(xc);
         j = p->posc_j(yc);
 
-        // Calculate force
-        force_ale_force(p,c,pgc);
-    }
-    else
-    {
-        Fx = Fy = 0.0;
-    }
-
-    // Sum up to distribute forces
-    Fx = pgc->globalsum(Fx);
-    Fy = pgc->globalsum(Fy);
-
-    // Print
-    if(p->mpirank==0)
-    {
-        print_force_ale(p,c,pgc);
+        // calculate kinematics
+        kinematics_calc(p,c,pgc);
+        
+        // print kinematics
+        print_kinematics(p,c,pgc);
     }
 }

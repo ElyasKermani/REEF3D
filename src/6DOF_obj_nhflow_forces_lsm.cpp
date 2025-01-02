@@ -55,9 +55,7 @@ void sixdof_obj::force_calc_lsm(lexer* p, fdm_nhf *d, ghostcell *pgc)
     Fx=Fy=Fz=0.0;
     Xe=Ye=Ze=Ke=Me=Ne=0.0;
     
-    //LOOP
-    //Ze += p->DXN[IP]*p->DYN[JP]*p->DZN[KP]*d->WL(i,j)*d->FHB[IJK]*p->W1*fabs(p->W22);
-    
+
     for(n=0;n<polygon_num;++n)
     { 
             // triangle
@@ -153,7 +151,7 @@ void sixdof_obj::force_calc_lsm(lexer* p, fdm_nhf *d, ghostcell *pgc)
             
             i = p->posc_i(xc);
             j = p->posc_j(yc);
-            k = p->posc_k(zc);
+            k = p->posc_sig(i,j,zc);
             
             sgnx = (d->FB[Ip1JK] - d->FB[Im1JK])/(p->DXP[IM1] + p->DXP[IP]);
             sgny = (d->FB[IJp1K] - d->FB[IJm1K])/(p->DYP[JM1] + p->DYP[JP]);

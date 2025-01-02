@@ -35,7 +35,6 @@ class potential
 public:
 	virtual void start(lexer*,fdm*, solver*, ghostcell* pgc)=0;
 
-
 };
 
 #endif

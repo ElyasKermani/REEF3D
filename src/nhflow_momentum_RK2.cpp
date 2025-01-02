@@ -52,9 +52,9 @@ nhflow_momentum_RK2::nhflow_momentum_RK2(lexer *p, fdm_nhf *d, ghostcell *pgc, s
 	gcval_v=11;
 	gcval_w=12;
     
-    gcval_uh=20;
-	gcval_vh=21;
-	gcval_wh=22;
+    gcval_uh=14;
+	gcval_vh=15;
+	gcval_wh=16;
     
     p->Darray(UHRK1,p->imax*p->jmax*(p->kmax+2));
     p->Darray(VHRK1,p->imax*p->jmax*(p->kmax+2));
@@ -85,7 +85,8 @@ nhflow_momentum_RK2::~nhflow_momentum_RK2()
 
 void nhflow_momentum_RK2::start(lexer *p, fdm_nhf *d, ghostcell *pgc, ioflow *pflow, nhflow_signal_speed *pss, 
                                      nhflow_reconstruct *precon, nhflow_convection *pconvec, nhflow_diffusion *pnhfdiff, 
-                                     nhflow_pressure *ppress, solver *ppoissonsolv, solver *psolv, nhflow *pnhf, nhflow_fsf *pfsf, nhflow_turbulence *pnhfturb, vrans *pvrans)
+                                     nhflow_pressure *ppress, solver *ppoissonsolv, solver *psolv, nhflow *pnhf, nhflow_fsf *pfsf,
+                                     nhflow_turbulence *pnhfturb, vrans *pvrans)
 {			
 //Step 1
 //--------------------------------------------------------
@@ -161,16 +162,14 @@ void nhflow_momentum_RK2::start(lexer *p, fdm_nhf *d, ghostcell *pgc, ioflow *pf
 				+ p->dt*CPORNH*d->H[IJK];
 	
     p->wtime=pgc->timer()-starttime;
-
+    
     velcalc(p,d,pgc,UHRK1,VHRK1,WHRK1,WLRK1);
     
     pnhfdf->forcing(p, d, pgc, p6dof, pvrans, pnet, 0, 1.0, UHRK1, VHRK1, WHRK1, WLRK1, 0);
     
 	ppress->start(p,d,ppoissonsolv,pgc,pflow,WLRK1,UHRK1,VHRK1,WHRK1,1.0);
     velcalc(p,d,pgc,UHRK1,VHRK1,WHRK1,WLRK1);
-    
-    //pnhfdf->forcing(p, d, pgc, p6dof, pvrans, pnet, 0, 1.0, UHRK1, VHRK1, WHRK1, WLRK1, 0);
-    
+
     pflow->U_relax(p,pgc,d->U,UHRK1);
     pflow->V_relax(p,pgc,d->V,VHRK1);
     pflow->W_relax(p,pgc,d->W,WHRK1);
@@ -264,8 +263,6 @@ void nhflow_momentum_RK2::start(lexer *p, fdm_nhf *d, ghostcell *pgc, ioflow *pf
     
     ppress->start(p,d,ppoissonsolv,pgc,pflow,d->WL,d->UH,d->VH,d->WH,0.5);
     velcalc(p,d,pgc,d->UH,d->VH,d->WH,d->WL);
-    
-    //pnhfdf->forcing(p, d, pgc, p6dof, pvrans, pnet, 1, 0.5, d->UH, d->VH, d->WH, d->WL, 1);
 
 	pflow->U_relax(p,pgc,d->U,d->UH);
     pflow->V_relax(p,pgc,d->V,d->VH);

@@ -37,17 +37,45 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
     LOOP
     {
         H = Hsolidface(p,d,0,0,0);
-        d->FHB[IJK] = min(d->FHB[IJK] + H, 1.0); 
         
+        
+        efc = 0.0;
+        
+        if(d->SOLID[IJK]<0.0)
+        {
+            efc = 0.0;
+            
+            if(d->SOLID[Im1JK]>0.0)   
+            efc+=1.0;
+            
+            if(d->SOLID[Ip1JK]>0.0)    
+            efc+=1.0;
+
+            if(d->SOLID[IJm1K]>0.0 && p->j_dir==1) 
+            efc+=1.0;
+            
+            if(d->SOLID[IJp1K]>0.0 && p->j_dir==1)    
+            efc+=1.0;
+            
+            if(d->SOLID[IJKm1]>0.0)   
+            efc+=1.0;
+            
+            if(d->SOLID[IJKp1]>0.0)    
+            efc+=1.0;
+        }
+        
+        if(efc>0.1)
+        {
         FX[IJK] += H*(uf - U[IJK])/(alpha*p->dt);
         FY[IJK] += H*(vf - V[IJK])/(alpha*p->dt);
         FZ[IJK] += H*(wf - W[IJK])/(alpha*p->dt);
+        
+        d->FHB[IJK] = min(d->FHB[IJK] + H, 1.0); 
+        }
     }
     
-    pgc->start5V(p,d->FHB,1);
+    pgc->start5V(p,d->FHB,50);
     
-    
-    ef = d->bed(i,j) + d->depth(i,j);
     
     k=p->knoz-1;
      
@@ -55,8 +83,7 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
     {
     H = Hsolidface(p,d,0,0,0);
     
-    ef = d->bed(i,j) + d->depth(i,j);
-    
+    ef = d->depth(i,j);
     
     if(d->SOLID[IJK]<0.0)
     {
@@ -75,13 +102,13 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
         efc+=1.0;
         }
 
-        if(d->SOLID[IJm1K]>0.0) 
+        if(d->SOLID[IJm1K]>0.0 && p->j_dir==1) 
         {
         ef += WL(i,j-1);
         efc+=1.0;
         }
         
-        if(d->SOLID[IJp1K]>0.0)    
+        if(d->SOLID[IJp1K]>0.0 && p->j_dir==1)    
         {
         ef += WL(i,j+1);
         efc+=1.0;
@@ -91,10 +118,11 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
     ef = ef/efc;
     
     if(efc<0.1)
-    ef = d->bed(i,j) + d->depth(i,j);
+    ef = d->depth(i,j);
     
     }
     
+    if(efc>0.1 && d->SOLID[IJK]<0.0)
     fe(i,j) += H*(ef - WL(i,j))/(alpha*p->dt);
     
     }

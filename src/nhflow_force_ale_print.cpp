@@ -20,31 +20,29 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#include"force_ale.h"
+#include"nhflow_force_ale.h"
 #include"lexer.h"
-#include"fdm_fnpf.h"
+#include"fdm_nhf.h"
 #include"ghostcell.h"
 #include<sys/stat.h>
 #include<sys/types.h>
 
-void force_ale::print_force_ale(lexer* p, fdm_fnpf *c, ghostcell *pgc)
+void nhflow_force_ale::print_force_ale(lexer* p, fdm_nhf *d, ghostcell *pgc)
 {
-    //cout<<"Fx"<<ID + 1<<": "<<Fx<<" Fy"<<ID + 1<<": "<<Fy<<endl;
-    
     // write to force file
     fout<<p->count<<" \t "<<setprecision(9)<<p->simtime<<" \t "<<Fx<<" \t "<<Fy<<endl;
 }
 
-void force_ale::print_ini(lexer* p, fdm_fnpf *c, ghostcell *pgc)
+void nhflow_force_ale::print_ini(lexer* p, fdm_nhf *d, ghostcell *pgc)
 {
     // Create Folder
 	if(p->mpirank==0)
-	mkdir("./REEF3D_FNPF_Force_ALE",0777);
+	mkdir("./REEF3D_NHFLOW_Force_ALE",0777);
 	
     if(p->mpirank==0)
     {
         // open force_ale file
-        sprintf(name,"./REEF3D_FNPF_Force_ALE/REEF3D_ALE_Force-%i.dat",ID+1);
+        sprintf(name,"./REEF3D_NHFLOW_Force_ALE/REEF3D_NHFLOW_ALE_Force-%i.dat",ID+1);
         
         fout.open(name);
 

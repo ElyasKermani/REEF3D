@@ -107,7 +107,11 @@ public:
 	int *flag1,*flag2,*flag3,*flag4,*flag5,*flag7,*flag;
     int *flagsf1,*flagsf2,*flagsf3,*flagsf4;
     
+    // boundary conditions
     int *IO;
+    int *DF;
+    
+    // flag
 	int*mgflag;
     double *flag_solid,*flag_topo;
     double *data;
@@ -250,6 +254,7 @@ public:
     // flow parameters
     const double cmu;
     double deltax,sigT,Ui,Ua,Uo;
+    double Ho,Hi;
 
     // Hydrodynamics Models
     int A10;
@@ -463,6 +468,7 @@ public:
 
 	// Numerical Options
 	int N10,N11,N18,N40,N45,N46,N48,N60;
+    int N20,N22,N23,N24,N25,N26;
 	double N41,N43,N44,N47,N49,N50,N61;
 
 	// MPI Options
@@ -470,7 +476,7 @@ public:
 
 	// Print options
 	int P10,P11,P12,P15,P16,P20,P21,P23,P24,P25,P26,P27,P28,P29,P35,P40,P41,P43,P44,P45,P50,P51,P52,P53,P54,P56,P57,P58,P59;
-	int P61,P62,P63,P64,P65,P66,P71,P72,P73,P74,P75,P76,P77,P78,P79,P81,P82,P85,P92,P101,P120,P121,P122,P123,P124,P125,P126;
+	int P61,P62,P63,P64,P65,P66,P71,P72,P73,P74,P75,P76,P77,P78,P79,P80,P81,P82,P85,P88,P92,P101,P120,P121,P122,P123,P124,P125,P126;
 	int P140,P150,P151,P152,P166,P167,P168,P180,P181,P184,P185,P190,P191,P194,P195,P351,P352;
 	double P22,P30,P34,P42;
 	double *P35_ts,*P35_te,*P35_dt;
@@ -490,6 +496,7 @@ public:
     double *P66_x,*P66_y,*P66_z;
 	double *P81_xs,*P81_xe,*P81_ys,*P81_ye,*P81_zs,*P81_ze;
 	double *P85_x,*P85_y,*P85_r,*P85_cd,*P85_cm;
+    double *P88_x,*P88_y;
 	double P91;
 	double P101_xm,P101_ym,P101_zs,P101_ze,P101_r1,P101_r2;
     int P110;

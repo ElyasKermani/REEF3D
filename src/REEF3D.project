@@ -65,6 +65,9 @@
         </VirtualDirectory>
       </VirtualDirectory>
       <VirtualDirectory Name="SFLOW">
+        <VirtualDirectory Name="Forcing">
+          <File Name="sflow_forcing.h"/>
+        </VirtualDirectory>
         <VirtualDirectory Name="Turbulence">
           <File Name="sflow_turb_kw_IM1_v1.h"/>
           <File Name="sflow_turb_io_void.h"/>
@@ -257,6 +260,9 @@
           <File Name="nhflow_convection.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Force ALE">
+            <File Name="nhflow_force_ale.h"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Force">
             <File Name="nhflow_force.h"/>
           </VirtualDirectory>
@@ -330,7 +336,6 @@
           <File Name="nhflow_pressure.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
-          <File Name="nhflow_momentum_FS2.h"/>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.h"/>
           </VirtualDirectory>
@@ -361,14 +366,17 @@
           <File Name="fnpf_sigma.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Kinematics">
+            <File Name="fnpf_print_kinematics.h"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Hs">
             <File Name="fnpf_print_Hs.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Runup">
             <File Name="fnpf_runup.h"/>
           </VirtualDirectory>
-          <VirtualDirectory Name="ALE Force">
-            <File Name="force_ale.h"/>
+          <VirtualDirectory Name="Force ALE">
+            <File Name="fnpf_force_ale.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="State">
             <File Name="fnpf_state.h"/>
@@ -462,7 +470,6 @@
       </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="Extensions">
-      <VirtualDirectory Name="Particle"/>
       <VirtualDirectory Name="Wind">
         <File Name="wind_v.h"/>
         <File Name="wind_f.h"/>
@@ -504,6 +511,7 @@
           <File Name="bedload_einstein.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Bedshear">
+          <File Name="reduction_FD_gamma.h"/>
           <File Name="bedshear.h"/>
           <File Name="bedshear_reduction.h"/>
           <File Name="bedslope.h"/>
@@ -514,6 +522,7 @@
           <File Name="reduction_FD.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Sandslide">
+          <File Name="sandslide_nz.h"/>
           <File Name="sandslide_f3.h"/>
           <File Name="sandslide_f2.h"/>
           <File Name="sandslide_f.h"/>
@@ -561,7 +570,6 @@
         <File Name="sediment_void.h"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Sediment Particle">
-        <File Name="sediment_part.h"/>
         <File Name="partres.h"/>
         <File Name="part.h"/>
       </VirtualDirectory>
@@ -816,6 +824,7 @@
       <File Name="ghostcell.h"/>
     </VirtualDirectory>
     <VirtualDirectory Name="Main">
+      <File Name="sediment_part.h"/>
       <VirtualDirectory Name="Driver">
         <File Name="nhflow_header.h"/>
         <File Name="FSI_header.h"/>
@@ -836,6 +845,9 @@
         <File Name="waves_header.h"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Grid">
+        <VirtualDirectory Name="Boundary">
+          <File Name="boundary.h"/>
+        </VirtualDirectory>
         <VirtualDirectory Name="Grid">
           <File Name="grid.h"/>
         </VirtualDirectory>
@@ -1168,6 +1180,9 @@
         </VirtualDirectory>
       </VirtualDirectory>
       <VirtualDirectory Name="SFLOW">
+        <VirtualDirectory Name="Forcing">
+          <File Name="sflow_forcing.cpp"/>
+        </VirtualDirectory>
         <File Name="sflow_v.cpp"/>
         <File Name="sflow_f_logic.cpp"/>
         <File Name="sflow_f_ini.cpp"/>
@@ -1391,6 +1406,11 @@
           <File Name="nhflow_HLL.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Force ALE">
+            <File Name="nhflow_force_ale_print.cpp"/>
+            <File Name="nhflow_force_ale_force.cpp"/>
+            <File Name="nhflow_force_ale.cpp"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Force">
             <File Name="nhflow_force_allocate.cpp"/>
             <File Name="nhflow_force_print.cpp"/>
@@ -1450,7 +1470,10 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="FDM">
-          <VirtualDirectory Name="Potential Flow"/>
+          <VirtualDirectory Name="Potential Flow">
+            <File Name="nhflow_potential_v.cpp"/>
+            <File Name="nhflow_potential_f.cpp"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Reinitialization">
             <File Name="nhflow_reinidisc_fsf.cpp"/>
           </VirtualDirectory>
@@ -1488,16 +1511,14 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
-          <File Name="nhflow_momentum_FS2.cpp"/>
+          <File Name="nhflow_momentum_RK2.cpp"/>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.cpp"/>
           </VirtualDirectory>
-          <File Name="nhflow_momentum_RK2.cpp"/>
           <File Name="nhflow_momentum_RK3.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="FSF">
           <File Name="nhflow_fsf_update.cpp"/>
-          <File Name="nhflow_fsf_forcing.cpp"/>
           <File Name="nhflow_fsf_guard.cpp"/>
           <File Name="nhflow_fsf_kbedbc.cpp"/>
           <File Name="nhflow_fsf_ucorr.cpp"/>
@@ -1539,6 +1560,11 @@
           <File Name="fnpf_sigma.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Printer">
+          <VirtualDirectory Name="Kinematics">
+            <File Name="fnpf_print_kinematics_calc.cpp"/>
+            <File Name="fnpf_print_kinematics_print.cpp"/>
+            <File Name="fnpf_print_kinematics.cpp"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="Runup">
             <File Name="fnpf_runup_calc.cpp"/>
             <File Name="fnpf_runup_print.cpp"/>
@@ -1549,9 +1575,9 @@
             <File Name="fnpf_vel_probe.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Force ALE">
-            <File Name="force_ale_print.cpp"/>
-            <File Name="force_ale_force.cpp"/>
-            <File Name="force_ale.cpp"/>
+            <File Name="fnpf_force_ale_print.cpp"/>
+            <File Name="fnpf_force_ale_force.cpp"/>
+            <File Name="fnpf_force_ale.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Hs">
             <File Name="fnpf_print_Hs.cpp"/>
@@ -1781,6 +1807,7 @@
           <File Name="bedload_einstein.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Bedshear">
+          <File Name="reduction_FD_gamma.cpp"/>
           <File Name="bedshear_cfd.cpp"/>
           <File Name="bedshear_sflow.cpp"/>
           <File Name="bedshear_nhflow.cpp"/>
@@ -1792,6 +1819,7 @@
           <File Name="reduction_FD.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Sandslide">
+          <File Name="sandslide_nz.cpp"/>
           <File Name="sandslide_f3.cpp"/>
           <File Name="sandslide_f2.cpp"/>
           <File Name="sandslide_v.cpp"/>
@@ -1892,7 +1920,8 @@
           <File Name="6DOF_cfd_velsource.cpp"/>
           <File Name="6DOF_cfd.cpp"/>
         </VirtualDirectory>
-        <VirtualDirectory Name="Void">
+        <VirtualDirectory Name="Interface Void">
+          <File Name="6DOF_void_initialize.cpp"/>
           <File Name="6DOF_void.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Interface SFLOW">
@@ -1901,15 +1930,19 @@
           <File Name="6DOF_sflow.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="6DOF Object">
+          <VirtualDirectory Name="Forcing">
+            <File Name="6DOF_obj_forcing.cpp"/>
+            <File Name="6DOF_obj_forcing_sflow.cpp"/>
+            <File Name="6DOF_obj_forcing_nhflow.cpp"/>
+            <File Name="6DOF_obj_forcing_2D.cpp"/>
+          </VirtualDirectory>
           <File Name="6DOF_obj_update_pos_nhflow.cpp"/>
-          <File Name="6DOF_obj_forcing_nhflow.cpp"/>
           <VirtualDirectory Name="Forces NHFLOW">
             <File Name="6DOF_obj_nhflow_forces_lsm.cpp"/>
             <File Name="6DOF_obj_nhflow_forces_stl.cpp"/>
             <File Name="6DOF_obj_nhflow_forces_reconstruction.cpp"/>
             <File Name="6DOF_obj_nhflow_forces_triangulation.cpp"/>
           </VirtualDirectory>
-          <File Name="6DOF_obj_forcing_2D.cpp"/>
           <File Name="6DOF_obj_update_pos_2D.cpp"/>
           <File Name="6DOF_obj_trans_matrices.cpp"/>
           <File Name="6DOF_obj_fbvel.cpp"/>
@@ -1917,7 +1950,6 @@
           <File Name="6DOF_obj_update_pos.cpp"/>
           <File Name="6DOF_obj_solve.cpp"/>
           <File Name="6DOF_obj_rotation.cpp"/>
-          <File Name="6DOF_obj_forcing.cpp"/>
           <VirtualDirectory Name="Initialize">
             <File Name="6DOF_obj_ini_nhflow.cpp"/>
             <File Name="6DOF_obj_ini_shipwave.cpp"/>
@@ -2398,6 +2430,7 @@
         <File Name="gc_sommerfeld.cpp"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Flag">
+        <File Name="gc_nhflow_ioflag.cpp"/>
         <File Name="gc_buildflag.cpp"/>
         <File Name="gc_flagbase.cpp"/>
         <File Name="gc_flagfield.cpp"/>
@@ -2494,6 +2527,10 @@
         <File Name="driver_stop.cpp"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Grid">
+        <VirtualDirectory Name="Boundary">
+          <File Name="boundary_update_nhflow.cpp"/>
+          <File Name="boundary.cpp"/>
+        </VirtualDirectory>
         <VirtualDirectory Name="Grid">
           <File Name="grid_gcb4a.cpp"/>
           <File Name="grid_gcb3.cpp"/>

@@ -10,7 +10,7 @@ the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
 FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
 for more details.
 
@@ -20,11 +20,32 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#include"nhflow_fsf_f.h"
-#include"lexer.h"
-#include"fdm_nhf.h"
-#include"ghostcell.h"
+#include"bedshear_reduction.h"
+#include"bedslope.h"
 
-void nhflow_fsf_f::forcing(lexer* p, fdm_nhf* d, ghostcell* pgc, double *UH, double *VH, double *WH, slice &WL)
-{    
-}
+class lexer;
+class ghostcell;
+class sediment_fdm;
+
+using namespace std;
+
+#ifndef REDUCTION_FD_GAMMA_H_
+#define REDUCTION_FD_GAMMA_H_
+
+class reduction_FD_gamma :  public bedshear_reduction, public bedslope
+{
+public:
+    reduction_FD_gamma(lexer*);
+    virtual ~reduction_FD_gamma();
+
+	virtual void start(lexer*,ghostcell*,sediment_fdm*);
+
+private:
+    double u_abs,u_plus,dist;
+    double uvel, vvel;
+    double beta;
+};
+
+#endif
+
+

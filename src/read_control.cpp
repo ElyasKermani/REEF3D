@@ -1291,6 +1291,24 @@ void lexer::read_control()
                  case 18: control>>N18;
 						 clear(c,numint);
 						 break;
+                case 20: control>>N20;
+						 clear(c,numint);
+						 break;
+                case 22: control>>N22;
+						 clear(c,numint);
+						 break;
+                case 23: control>>N23;
+						 clear(c,numint);
+						 break;
+                case 24: control>>N24;
+						 clear(c,numint);
+						 break;
+                case 25: control>>N25;
+						 clear(c,numint);
+						 break;
+                case 26: control>>N26;
+						 clear(c,numint);
+						 break;
 				case 40: control>>N40;
 						 clear(c,numint);
 						 break;
@@ -1489,13 +1507,19 @@ void lexer::read_control()
 			    case 79: control>>P79;
 						 clear(c,numint);
 						 break;
+                case 80: control>>P80;
+						 clear(c,numint);
+						 break;
                 case 81: ++P81;
 						 clear(c,numint);
 						 break;
-               case 82: control>>P82;
+                case 82: control>>P82;
 						 clear(c,numint);
 						 break;
-				case 85: ++P85;
+                case 85: ++P85;
+						 clear(c,numint);
+						 break;
+                case 88: ++P88;
 						 clear(c,numint);
 						 break;
 				case 91: control>>P91;
@@ -2805,6 +2829,9 @@ void lexer::read_control()
 	Darray(P85_r,P85);
 	Darray(P85_cd,P85);
 	Darray(P85_cm,P85);
+    
+    Darray(P88_x,P88);
+	Darray(P88_y,P88);
 
 	Darray(P121_x,P121);
 	Darray(P121_y,P121);
@@ -3106,6 +3133,7 @@ void lexer::read_control()
     int countP168=0;
 	int countP81=0;
 	int countP85=0;
+    int countP88=0;
 	int countP121=0;
 	int countP123=0;
 	int countP124=0;
@@ -3437,6 +3465,10 @@ void lexer::read_control()
 						 break;
 				case 85: control>>P85_x[countP85]>>P85_y[countP85]>>P85_r[countP85]>>P85_cd[countP85]>>P85_cm[countP85];
                         ++countP85;
+						 clear(c,numint);
+						 break;
+                 case 88: control>>P88_x[countP88]>>P88_y[countP88];
+                        ++countP88;
 						 clear(c,numint);
 						 break;
 				case 121: control>>P121_x[countP121]>>P121_y[countP121];

@@ -117,7 +117,7 @@ void lexer::ini_default()
     A519=0;      // int turn on bed roughness
     A520=2;		// int NFHLOW non-hydrostatic pressure scheme
     A521=0;		// int
-    A522=4.0;    // double p_alpha
+    A522=5.0;    // double p_alpha
     A523=1.0;    // double p_gamma
     A531=3.0;    // double Froude number limiter
     A540=1;      // int NFHLOW fsf scheme
@@ -497,7 +497,13 @@ void lexer::ini_default()
     // Numerics
 	N10=14;			// int linear poisson solver
 	N11=11;         // int precondioner
-    N18=1;         // int precondioner
+    N18=0;         //
+    N20=20;        //  int precondioner switch iter
+    N22=0;         //  int precondioner switch SFLOW
+    N23=0;         //  int precondioner switch FNPF
+    N24=0;         //  int precondioner switch
+    N25=0;         //  int precondioner switch NHFLOW
+    N26=1;         //  int precondioner switch CFD
 	N40=3;			// int time scheme
 	N41=1.0e+19; 	// double total time
 	N43=1.0e-5;     // double stopping criteria convection-diffusion
@@ -566,9 +572,11 @@ void lexer::ini_default()
     P77=0;            // int print out sediment parameters: 1
     P78=0;            // int print out sediment parameters: 2
 	P79=0;            // int print out bed shear stress when running sediment transport
-	P81=0;            // int force print out
+	P80=1;            // int force print out interval
+    P81=0;            // int force print out
     P82=0;            // int add eddyv to viscous force
 	P85=0;            // int ALE force print out for FNPF
+    P88=0;            // int kinematics print out for FNPF
 	P91=0.25;		  // double factor used in force calculation algorithm
     P92=0;           // int force from water or from water+air
 	P101=0;			  // int print sloshing forces
@@ -899,4 +907,6 @@ void lexer::ini_default()
 	pressval=0;
     alpha=0.0;
     solidread=toporead=porousread=0;
+    net_count=0;
+    mooring_count=0;
 }

@@ -27,7 +27,6 @@ Author: Hans Bihs
 #include"increment.h"
 
 class fdm_nhf;
-class force_ale;
 class ioflow;
 class sediment;
 class nhflow_print_wsf;
@@ -45,6 +44,7 @@ class nhflow_vel_probe_theory;
 class nhflow_print_Hs;
 class nhflow_turbulence;
 class nhflow_force;
+class nhflow_force_ale;
 
 using namespace std;
 
@@ -87,11 +87,11 @@ private:
     nhflow_vtp_bed *pbed;
     nhflow_state *pstate;
     nhflow_breaking_log *pbreaklog;
-	force_ale **pforce_ale;
     nhflow_vel_probe *pvel;
     nhflow_vel_probe_theory *pveltheo;
     nhflow_print_Hs *phs;
     nhflow_force **pforce;
+    nhflow_force_ale **pforce_ale;
     
 };
 
