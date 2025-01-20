@@ -111,7 +111,6 @@ public:
     
     double Mass_fb, Vfb, Rfb;
 
-private:
 
 	void ini_parameter_stl(lexer*, fdm*, ghostcell*);
     void ini_fbvel(lexer*, ghostcell*);

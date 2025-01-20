@@ -485,7 +485,7 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
             ylocp = yc + p->X42*ny*p->DYP[JP];
             zlocp = zc + p->X42*nz*p->DZP[KP];
 
-            p_int = p->ccipol4_a(a->press,xlocp,ylocp,zlocp) - p->pressgage;
+            p_int = p->ccipol4a(a->press,xlocp,ylocp,zlocp) - p->pressgage;
             
             Fp_x = -nx*p_int*A_triang;
             Fp_y = -ny*p_int*A_triang;
@@ -512,9 +512,9 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
                 ylocvel = yc + p->X43*ny*p->DYP[JP];
                 zlocvel = zc + p->X43*nz*p->DZP[KP];
                 
-                nu_int = p->ccipol4_a(a->visc,xlocvel,ylocvel,zlocvel);
-                enu_int = 0.0; //p->ccipol4_a(a->eddyv,xlocvel,ylocvel,zlocvel);
-                rho_int = p->ccipol4_a(a->ro,xlocvel,ylocvel,zlocvel);
+                nu_int = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = 0.0; //p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
                 
                 i = p->posc_i(xlocvel);
                 j = p->posc_j(ylocvel);
@@ -544,9 +544,9 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
                 ylocvel = yc + p->X43*ny*p->DYP[JP];
                 zlocvel = zc + p->X43*nz*p->DZP[KP];
                 
-                nu_int  = p->ccipol4_a(a->visc,xlocvel,ylocvel,zlocvel);
-                enu_int = p->ccipol4_a(a->eddyv,xlocvel,ylocvel,zlocvel);
-                rho_int = p->ccipol4_a(a->ro,xlocvel,ylocvel,zlocvel);
+                nu_int  = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
                 
                 uval=p->ccipol1(uvel,xlocvel,ylocvel,zlocvel);
                 vval=p->ccipol2(vvel,xlocvel,ylocvel,zlocvel);
@@ -584,9 +584,9 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
                 ylocvel = yc + p->X43*ny*p->DYP[JP];
                 zlocvel = zc + p->X43*nz*p->DZP[KP];
                 
-                nu_int  = p->ccipol4_a(a->visc,xlocvel,ylocvel,zlocvel);
-                enu_int = p->ccipol4_a(a->eddyv,xlocvel,ylocvel,zlocvel);
-                rho_int = p->ccipol4_a(a->ro,xlocvel,ylocvel,zlocvel);
+                nu_int  = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
                 
                 i = p->posc_i(xlocvel);
                 j = p->posc_j(ylocvel);
@@ -631,9 +631,9 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
                 ylocvel = yc + p->X43*ny*p->DYP[JP];
                 zlocvel = zc + p->X43*nz*p->DZP[KP];
                 
-                nu_int  = p->ccipol4_a(a->visc,xlocvel,ylocvel,zlocvel);
-                enu_int = p->ccipol4_a(a->eddyv,xlocvel,ylocvel,zlocvel);
-                rho_int = p->ccipol4_a(a->ro,xlocvel,ylocvel,zlocvel);
+                nu_int  = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
                 
                 uval=p->ccipol1(uvel,xlocvel,ylocvel,zlocvel);
                 vval=p->ccipol2(vvel,xlocvel,ylocvel,zlocvel);
@@ -646,9 +646,9 @@ void sixdof_obj::forces_stl2(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field
                 double delta = sqrt(pow(xc-xlocvel,2.0) + pow(yc-ylocvel,2.0) + pow(zc-zlocvel,2.0));
                 
                     
-                nu_int  = p->ccipol4_a(a->visc,xlocvel,ylocvel,zlocvel);
-                enu_int = p->ccipol4_a(a->eddyv,xlocvel,ylocvel,zlocvel);
-                rho_int = p->ccipol4_a(a->ro,xlocvel,ylocvel,zlocvel);
+                nu_int  = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
 
 
                 u_abs = sqrt(uval*uval + vval*vval + wval*wval);
