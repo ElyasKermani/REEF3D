@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -26,6 +26,7 @@ Author: Hans Bihs
 
 void ghostcell::gciobc_update(lexer *p, fdm_nhf *d)
 {
+    /*
     LOOP
     p->IO[IJK]=0;
     
@@ -90,6 +91,6 @@ void ghostcell::gciobc_update(lexer *p, fdm_nhf *d)
     p->IO[IJKp1]=-10;
     }
     
-    startintV(p,p->IO,1);
+    startintV(p,p->IO,1);*/
     
 }

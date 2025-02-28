@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -41,6 +41,9 @@ void sixdof_obj::initialize_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<
 {
     if(p->mpirank==0)
     cout<<"6DOF_df_ini "<<endl;
+    
+    if(p->mpirank==0)
+    mkdir("./REEF3D_NHFLOW_6DOF",0777);
     
     // Initialise folder structure
     if(p->X50==1)

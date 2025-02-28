@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -75,7 +75,7 @@ void driver::logic_nhflow()
     if(p->A511==2)
 	pnhfconvec = new nhflow_HLLC(p,pgc,pBC);
     
-    pnhfscalarconvec = new nhflow_scalar_iweno(p);
+    pnhfscalarconvec = new nhflow_scalar_ifou(p);
     
 //Diffusion
     if(p->A512==0)
@@ -114,7 +114,7 @@ void driver::logic_nhflow()
     if(p->A560==0)
 	pnhfturb = new nhflow_komega_func_void(p,d,pgc);
     
-    if(p->A560==2)
+    if(p->A560==2 || p->A560==22)
     {
 	pnhfturb = new nhflow_komega_IM1(p,d,pgc);
     
@@ -124,6 +124,9 @@ void driver::logic_nhflow()
         if(p->j_dir==0)
         pnhfturbdiff = new nhflow_idiff_2D(p);
     }
+    
+    if(p->A560==31)
+	pnhfturb = new nhflow_LES_Smagorinsky(p,d,pgc);
 
 //Solver
     if(p->j_dir==0)
@@ -194,6 +197,13 @@ void driver::logic_nhflow()
 
 	if(p->B180==1||p->B191==1||p->B192==1)
 	pflow = new ioflow_gravity(p,pgc,pBC);
+    
+//Potential Flow Solver
+    if(p->I11==0)
+    pnhfpot = new nhflow_potential_v;
+
+    if(p->I11==1)
+    pnhfpot = new nhflow_potential_f(p);
     
 //6DOF
     if(p->X10==0)

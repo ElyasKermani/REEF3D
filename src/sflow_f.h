@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -24,6 +24,7 @@ Author: Hans Bihs
 #include"increment.h"
 #include<iostream>
 #include<fstream>
+#include<vector>
 
 class lexer;
 class fdm2D;
@@ -47,6 +48,7 @@ class sediment;
 class turbulence;
 class patchBC_interface;
 class sixdof;
+class net;
 
 using namespace std;
 
@@ -92,6 +94,7 @@ private:
     sflow_turbulence *pturb;
     sediment *psed;
     sflow_potential *potflow;
+    vector<net*> pnet;
     
     fdm *aa;
     turbulence *pturbcfd;

@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -65,7 +65,7 @@ public:
     
 	void initialize_cfd(lexer*,fdm*,ghostcell*,vector<net*>&);
     void initialize_nhflow(lexer*,fdm_nhf*,ghostcell*,vector<net*>&);
-    void initialize_shipwave(lexer*,ghostcell*);
+    void initialize_shipwave(lexer*,ghostcell*,slice&,slice&);
     
 	// Additional functions
     void transform(lexer*, fdm*, ghostcell*, bool);
@@ -100,7 +100,7 @@ public:
     // SFLOW
     double Hsolidface_2D(lexer*, int,int);
     void updateForcing_box(lexer*, ghostcell*, slice&);
-    void updateForcing_stl(lexer*, ghostcell*, slice&);
+    void updateForcing_stl(lexer*, ghostcell*, slice&, slice&);
     void updateForcing_oned(lexer*, ghostcell*, slice&);
     
     void update_forcing_sflow(lexer*, ghostcell*, slice&, slice&, slice&, slice&, slice&, slice&, int);

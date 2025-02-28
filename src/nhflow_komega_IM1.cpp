@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -46,13 +46,15 @@ nhflow_komega_IM1::~nhflow_komega_IM1()
 void nhflow_komega_IM1::start(lexer* p, fdm_nhf* d, ghostcell* pgc, nhflow_scalar_convection* pconvec, nhflow_diffusion* pdiff,solver* psolv, ioflow* pflow, vrans *pvrans)
 {
 	Pk_update(p,d,pgc);
+    Pk_b_update(p,d,pgc);
 	wallf_update(p,d,pgc,WALLF);
+    inflow(p,d,pgc);
 
 //kin
     starttime=pgc->timer();
 	clearrhs(p,d);
     pconvec->start(p,d,KIN,4,d->U,d->V,d->omegaF);
-	pdiff->diff_scalar(p,d,pgc,psolv,KIN,1.0);
+	pdiff->diff_scalar(p,d,pgc,psolv,KIN,kw_sigma_k,1.0);
 	kinsource(p,d,pvrans);
 	timesource(p,d,KN);
     bckomega_start(p,d,KIN,EPS,gcval_kin);
@@ -69,7 +71,7 @@ void nhflow_komega_IM1::start(lexer* p, fdm_nhf* d, ghostcell* pgc, nhflow_scala
     starttime=pgc->timer();
 	clearrhs(p,d);
     pconvec->start(p,d,EPS,4,d->U,d->V,d->omegaF);
-	pdiff->diff_scalar(p,d,pgc,psolv,EPS,1.0);
+	pdiff->diff_scalar(p,d,pgc,psolv,EPS,kw_sigma_w,1.0);
 	epssource(p,d,pvrans);
 	timesource(p,d,EN);
     bcomega_matrix(p,d,KIN,EPS);
@@ -83,6 +85,7 @@ void nhflow_komega_IM1::start(lexer* p, fdm_nhf* d, ghostcell* pgc, nhflow_scala
 	cout<<"omega_iter: "<<p->epsiter<<"  omega_time: "<<setprecision(3)<<p->epstime<<endl;
 
     eddyvisc(p,d,pgc,pvrans);
+    pflow->turb_relax_nhflow(p,d,pgc,KIN);
     pflow->turb_relax_nhflow(p,d,pgc,d->EV);
     pgc->start24V(p,d->EV,24);
 }

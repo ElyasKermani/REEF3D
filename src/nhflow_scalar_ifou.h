@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -20,36 +20,33 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#include"fnpf_laplace.h"
+#include"nhflow_scalar_convection.h"
 #include"increment.h"
 
-class solver_fnpf;
+class nhflow_scalar_advec;
 
-#ifndef FNPF_LAPLACE_CDS2_V2_H_
-#define FNPF_LAPLACE_CDS2_V2_H_
+#ifndef NHFLOW_SCALAR_IFOU_H_
+#define NHFLOW_SCALAR_IFOU_H_
 
 using namespace std;
 
-class fnpf_laplace_cds2_v2 : public fnpf_laplace, public increment
+class nhflow_scalar_ifou : public nhflow_scalar_convection, public increment
 {
 public:
-    fnpf_laplace_cds2_v2 (lexer*,ghostcell*);
-	virtual ~fnpf_laplace_cds2_v2();
+	nhflow_scalar_ifou (lexer*);
+	virtual ~nhflow_scalar_ifou();
 
-    virtual void start(lexer *,fdm_fnpf*,ghostcell*,solver*,fnpf_fsf*,double*,slice&);
-    
-    void laplace2D(lexer *,fdm_fnpf*,ghostcell*,solver*,fnpf_fsf*,double*);
-    
-    void laplace3D(lexer *,fdm_fnpf*,ghostcell*,solver*,fnpf_fsf*,double*);
-    
+	virtual void start(lexer*,fdm_nhf*,double*,int,double*,double*,double*);
+
 private:
-    
-    solver_fnpf *psolv;
-    
-    double *x,*rhs,*M;
-    
-    int vecsize;
 
+	int count;
+    
+    double ivel1,ivel2,jvel1,jvel2,kvel1,kvel2;
+    double udir,vdir,wdir;
+    
+    nhflow_scalar_advec *padvec;
+    
 };
 
 #endif

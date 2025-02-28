@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -48,7 +48,7 @@ private:
 	double isor,jsor,ksor;
 	double irsm,jrsm,krsm;
     const double maxtimestep, c0_orig;
-    double dx;
+    double dx,dz;
 
 };
 

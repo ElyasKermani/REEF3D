@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -45,6 +45,8 @@ sixdof_nhflow::~sixdof_nhflow()
 void sixdof_nhflow::start_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, vrans* pvrans, vector<net*>& pnet, int iter, 
                                  double *U, double *V, double *W, double *FX, double *FY, double *FZ, slice &WL, slice &fe, bool finalize)
 {
+    starttime = pgc->timer();
+    
     if(p->X10==1)
     start_twoway(p,d,pgc,pvrans,pnet,iter,FX,FY,FZ,WL,fe,finalize);
     
@@ -53,6 +55,8 @@ void sixdof_nhflow::start_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, vrans* pv
     
     if(p->X10==3)
     start_shipwave(p,d,pgc,iter,finalize);
+    
+    p->fbtime+=pgc->timer()-starttime;
 }
 
 void sixdof_nhflow::start_twoway(lexer *p, fdm_nhf *d, ghostcell *pgc, vrans* pvrans, vector<net*>& pnet, int iter, 
@@ -133,7 +137,7 @@ void sixdof_nhflow::start_oneway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter,
 void sixdof_nhflow::start_shipwave(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter, bool finalize)
 {
     
-    if(iter==0)
+    if(finalize==1)
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Advance body in time
@@ -156,7 +160,7 @@ void sixdof_nhflow::start_shipwave(lexer *p, fdm_nhf *d, ghostcell *pgc, int ite
         fb_obj[nb]->updateForcing_oned(p,pgc,press);
         
         else if (p->X400==10)
-        fb_obj[nb]->updateForcing_stl(p,pgc,press);
+        fb_obj[nb]->updateForcing_stl(p,pgc,press,d->eta);
         
             // Print
             if(p->X50==1)

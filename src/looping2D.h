@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -158,4 +158,8 @@ Author: Hans Bihs
 #define QQGCSLB4A for(qq=0;qq<p->gcbsl4a_count;++qq)
 #define QQGCSLB4ACHECK if(p->gcbsl4a[qq][3]>0)
 #define QQGCSL4ALOOP QQGCSLB4A QQGCSLB4ACHECK
+
+#define GCSLDF4 for(n=0;n<p->gcsldf4_count;++n)
+#define GCSLDF4CHECK if(p->gcsldf4[n][3]>0)
+#define GCSLDF4LOOP GCSLDF4 GCSLDF4CHECK
 

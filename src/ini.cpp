@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
  *
 This file is part of REEF3D.
 
@@ -33,23 +33,20 @@ void lexer::ini_default()
     A211=4;		  // int convection scheme for SLOW velocities
     A212=0;		  // int diffusion treatment for SLOW velocities
     A214=1;      // int convection for vertical velocity
-    A215=0;      // int conservative discretization
+    A215=0;      // int 
     A216=2;      // int convection velocity
     A217=2;      // int slip or no-slip boundary conditions
     A218=0;      // int turn on roughness
     A219=1;      // int additional courant number constraint
     A220=2;		  // int non-hydrostatic pressure scheme for SFLOW
-    A221=1;		  // int hydrostatic pressure scheme for SFLOW
+    A221=1;		  // int 
     A223=0.5;    // double blending factor hydrostatic pressure gradient
     A230=0;      // int turn on Boussinesq wave model
     A240=1;      // int FSF algorithm SFLOW
     A241=1;		  // int discretization of water level SFLOW
-  	A242=0;		  // int hydostatic pressure for shallow areas
+  	A242=0;		  // int non-hydostatic pressure for shallow areas
     A243=1;      // int turn on wetting-drying
-    A244_val=0.001; // double absolute wetting criterion value
-    A244=1;      // int absolute wetting criterion
-    A245=0;      // int dx-based relative wetting citerion
-    A245_val=0.001; // double dx-based relative wetting citerion value
+    A244=0.001; // double absolute wetting criterion value
     A246=1;      // int turn on breaking
     A247=0.6;    // double breaking parameter alpha
     A248=0;      // int turn on breaking persistence
@@ -120,7 +117,7 @@ void lexer::ini_default()
     A522=5.0;    // double p_alpha
     A523=1.0;    // double p_gamma
     A531=3.0;    // double Froude number limiter
-    A540=1;      // int NFHLOW fsf scheme
+    A540=1;      // int NFHLOW wetdry scheme
     A541=0.0;    // double coastline damping distance factor for dxm
     A542=0.0;    // double coastline damping absolute distance
     A543=1;		// int NHFLOW wetting & drying or coastline
@@ -133,6 +130,12 @@ void lexer::ini_default()
     A553=0;      // int breaking in very shallow regions turned onf
     
     A560=0;      // int turbulence model
+    A564=1;      // int eddyv limiter
+    A565=0;      // int stabilization
+    A566=0;      // int buoyancy
+    A567=0;      // int fsf eps
+    A568=0;      // int 
+    A569=0;      // int 
     
     A570=0;      // int wind modle
     A571_u=0.0;  // double wind velocity
@@ -159,7 +162,8 @@ void lexer::ini_default()
     
 
     // Boundary Conditions
-	B10=0;			// int wall laws velocities on/off
+	B10=0;			// int wall function velocities on/off
+    B11=1;			// int wall function turbulence on/off
 	B20=2;			// int slip or no-slip boundary condition for velocity
     B23=1;            // int ghostcell extrapolation or refective
 	B29=0.5;		// double gamma for gc image point
@@ -381,11 +385,7 @@ void lexer::ini_default()
 	F61=-1.0e20;  // double inflow  ini
 	F62=-1.0e20;  // double outflow  ini
 	F63=-1.0e20;  // double xstart phi interpolate with outflow h
-	F64=0;			// int fsf plane with angle on/off
-	F64_xs=0.0;			// double xs
-	F64_ys=0.0;			// double xs
-	F64_zs=0.0;			// double xs
-	F64_alpha=0.0;			// double alpha
+	F64=0;			// iterations for relaxing outflow waterlevel
 	F70=0;             // int number of phi 1 ini boxes
 	F71=0;             // int number of phi 2 ini boxes
 	F72=0;             // int number of phi 1 ini regions
@@ -423,7 +423,6 @@ void lexer::ini_default()
 
     // Grid
     G2=0;            // int sigma grid
-    G3=1;            // int solid forcing
 	G10=3;			// int xmargin inflow
 	G11=3;			// int ymargin right
 	G12=3;			// int zmargin bottom
@@ -566,7 +565,7 @@ void lexer::ini_default()
     P71=0;           // int print viscosity to vtu
     P72=0;           // int print vof function
     P73=0;           // int print hx and hy for sflow vtp
-    P74=0;           
+    P74=0;           // int print omega nhflow
 	P75=0;            // int print out vorticity vec
     P76=0;            // int print out bedload
     P77=0;            // int print out sediment parameters: 1
@@ -811,7 +810,7 @@ void lexer::ini_default()
 	X44=0.0;    // double viscosity in body
     X45=0;      // int type of lsm convection disc at fb
     X46=0;      // int density smoothing inside fb
-    X48=0;
+    X48=1;      // int solid forcing level set
     X49=0;
     X50=1;      // int type of print out format for 6DOF structure
     X60=1;      // int type of print of force calculation
@@ -880,6 +879,7 @@ void lexer::ini_default()
     X401_cl=2.0;    // sflow external pressure term cl
     X401_cb=16.0;   // sflow external pressure term cb
     X401_a=16.0;    // sflow external pressure term a
+    X410=0;         // int etaval for draft
 
 	// Developer
 	Y1=0;   // int turn on/off experimental screen force model

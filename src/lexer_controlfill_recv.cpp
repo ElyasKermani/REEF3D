@@ -1,7 +1,7 @@
 
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -69,13 +69,7 @@ void lexer::ctrlrecv()
 	ii++;
     A243 = ictrl[ii];
 	ii++;
-    A244 = ictrl[ii];
-	ii++;
-    A244_val = dctrl[dd];
-	dd++;
-    A245 = ictrl[ii];
-	ii++;
-    A245_val = dctrl[dd];
+    A244 = dctrl[dd];
 	dd++;
     A246 = ictrl[ii];
 	ii++;
@@ -224,6 +218,18 @@ void lexer::ctrlrecv()
 	ii++;
     A560 = ictrl[ii];
 	ii++;
+    A564 = ictrl[ii];
+	ii++;
+    A565 = ictrl[ii];
+	ii++;
+    A566 = ictrl[ii];
+	ii++;
+    A567 = ictrl[ii];
+	ii++;
+    A568 = ictrl[ii];
+	ii++;
+    A569 = ictrl[ii];
+	ii++;
     A570 = ictrl[ii];
 	ii++;
     A571_u = dctrl[dd];
@@ -295,6 +301,8 @@ void lexer::ctrlrecv()
 	
 	
     B10 = ictrl[ii];
+	ii++;
+    B11 = ictrl[ii];
 	ii++;
     B20 = ictrl[ii];
 	ii++;
@@ -751,14 +759,6 @@ void lexer::ctrlrecv()
 	dd++;
 	F64 = ictrl[ii];
 	ii++;
-	F64_xs = dctrl[dd];
-	dd++;
-	F64_ys = dctrl[dd];
-	dd++;
-	F64_zs = dctrl[dd];
-	dd++;
-	F64_alpha = dctrl[dd];
-	dd++;
     F70 = ictrl[ii];
 	ii++;
 	F71 = ictrl[ii];
@@ -832,8 +832,6 @@ void lexer::ctrlrecv()
     G1  = ictrl[ii];
 	ii++;
     G2  = ictrl[ii];
-	ii++;
-    G3  = ictrl[ii];
 	ii++;
     G10 = ictrl[ii];
 	ii++;
@@ -1865,6 +1863,8 @@ void lexer::ctrlrecv()
     dd++;
     X401_a = dctrl[dd]; 
     dd++;
+    X410 = ictrl[ii];
+	ii++;
 	
 
     Y1 = ictrl[ii];

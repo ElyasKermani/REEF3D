@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -155,6 +155,8 @@ void sflow_f::start(lexer *p, fdm2D* b, ghostcell* pgc)
             {
             if(p->B90>0)
             cout<<"mtime: "<<setprecision(3)<<mtime<<endl;
+            if(p->X10>0)
+            cout<<"fbtime: "<<setprecision(3)<<p->fbtime<<endl;
             cout<<"wavegentime: "<<setprecision(3)<<p->wavecalctime<<endl;
             cout<<"printouttime: "<<setprecision(3)<<p->printouttime<<endl;
             cout<<"gctime: "<<setprecision(3)<<p->gctime<<"\t average gctime: "<<setprecision(3)<<p->gcmeantime<<endl;
@@ -172,6 +174,7 @@ void sflow_f::start(lexer *p, fdm2D* b, ghostcell* pgc)
 	p->wavecalctime=0.0;
 	p->lsmtime=0.0;
 	p->printouttime=0.0;
+    p->fbtime=0.0;
     
     SLICELOOP1
     b->Pn(i,j) = b->P(i,j);
@@ -243,10 +246,8 @@ void sflow_f::log_ini(lexer *p)
     mainlogout.open("./REEF3D_SFLOW_Log/REEF3D_SFLOW_mainlog.dat");
 
     mainlogout<<"number of cells:  "<<p->cellnumtot2D<<endl;
-    mainlogout<<"#iteration \t #timestep \t #simtime \t #itertime \t #piter \t #ptime "<<endl;
-    }
-
-    
+    mainlogout<<"#iteration \t #timestep \t #simtime \t #itertime \t #piter \t #ptime \t #Inflow \t #Outflow "<<endl;
+    }    
 }
 
 void sflow_f::mainlog(lexer *p)
@@ -256,6 +257,7 @@ void sflow_f::mainlog(lexer *p)
      mainlogout<<fixed<<p->count<<" \t "<<setprecision(5)<<p->dt<<" \t "<<setprecision(5)<<p->simtime<<" \t ";
 	 mainlogout<<fixed<<setprecision(4)<<p->itertime<<" \t ";
 	 mainlogout<<p->poissoniter<<" \t "<<setprecision(4)<<p->poissontime<<" \t ";
+      mainlogout<<fixed<<setprecision(6)<<p->Qi<<" \t "<<setprecision(6)<<p->Qo<<" \t ";
 	 mainlogout<<endl;
 	 }
 }

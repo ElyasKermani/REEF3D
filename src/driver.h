@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -60,7 +60,6 @@ class data;
 class concentration;
 class ptf;
 class fnpf;
-class onephase;
 class nhflow_fsf;
 class nhflow_convection;
 class nhflow_scalar_convection;
@@ -71,6 +70,7 @@ class nhflow_turbulence;
 class nhflow_pressure;
 class nhflow_diffusion;
 class nhflow_forcing;
+class nhflow_potential;
 class sflow;
 class fnpf_printer;
 class fnpf_timestep;
@@ -191,7 +191,6 @@ public:
 	concentration *pconc;
     fnpf *ppfsg;
     ptf *pptf;
-    onephase *poneph;
     nhflow_fsf *pnhfsf;
     sflow *psflow;
     fnpf_printer *pfprint; 
@@ -206,6 +205,7 @@ public:
     nhflow_pressure *pnhpress;
     nhflow_turbulence *pnhfturb;
     nhflow_diffusion *pnhfdiff,*pnhfturbdiff; 
+    nhflow_potential *pnhfpot;
     multiphase *pmp;
     nhflow_timestep *pnhfstep;
     nhflow_momentum *pnhfmom;

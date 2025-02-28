@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -76,7 +76,7 @@ public:
     double *U,*V,*W,*omegaF;
     double *UH,*VH,*WH;
     
-    double *P,*RO,*VISC,*EV;
+    double *P,*RO,*VISC,*EV,*EV0;
     double *F,*G,*H,*L;
     double *porosity;
     double *test;

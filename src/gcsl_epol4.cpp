@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -86,11 +86,15 @@ int ghostcell::gcsleval4(lexer *p, int gcv, int bc, int cs)
 	return 4;
     
     else
-    if((bc==2||bc==7) && (gcv==51||gcv==54 || p->B99==1 || p->B99==0))
+    if((bc==7) && (gcv==51||gcv==54 || p->B99==1 || p->B99==0))
 	return 4;
     
     else
-    if(bc==8 && (gcv==51||gcv==52||gcv==53||gcv==54) && p->B99==3)
+    if((bc==2) && (gcv==51||gcv==54))
+	return 4;
+    
+    else
+    if((bc==7 || bc==8) && (gcv==51||gcv==52||gcv==53||gcv==54) && p->B99==3)
 	return 4;
     
     else

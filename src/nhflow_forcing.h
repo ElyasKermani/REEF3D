@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -21,6 +21,8 @@ Author: Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"increment.h"
+#include"net.h"
+#include<vector>
 #include"slice4.h"
 
 class lexer;
@@ -30,10 +32,8 @@ class slice;
 class sixdof;
 class vrans;
 class mooring;
-class net;
 class fsi;
 class nhflow_reinidisc_fsf;
-#include<vector>
 
 using namespace std;
 
@@ -106,6 +106,7 @@ private:
     int entity_count, entity_sum;
     double xs,xe,ys,ye,zs,ze;
     double zmin,zmax;
+    double starttime;
     
     int reiniter;
     int forcing_flag,solid_flag,floating_flag;

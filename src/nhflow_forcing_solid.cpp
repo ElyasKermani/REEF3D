@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -64,26 +64,27 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
             efc+=1.0;
         }
         
-        if(efc>0.1)
-        {
+        //if(efc>0.1)
+        //{
         FX[IJK] += H*(uf - U[IJK])/(alpha*p->dt);
         FY[IJK] += H*(vf - V[IJK])/(alpha*p->dt);
         FZ[IJK] += H*(wf - W[IJK])/(alpha*p->dt);
         
         d->FHB[IJK] = min(d->FHB[IJK] + H, 1.0); 
-        }
+        //}
     }
     
     pgc->start5V(p,d->FHB,50);
     
     
     k=p->knoz-1;
-     
+    /*
     SLICELOOP4
     {
     H = Hsolidface(p,d,0,0,0);
     
     ef = d->depth(i,j);
+    
     
     if(d->SOLID[IJK]<0.0)
     {
@@ -122,8 +123,7 @@ void nhflow_forcing::solid_forcing(lexer *p, fdm_nhf *d, ghostcell *pgc,
     
     }
     
-    if(efc>0.1 && d->SOLID[IJK]<0.0)
+    //if(efc>0.1 && d->SOLID[IJK]<0.0)
     fe(i,j) += H*(ef - WL(i,j))/(alpha*p->dt);
-    
-    }
+    }*/
 }

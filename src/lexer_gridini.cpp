@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -61,6 +61,7 @@ void lexer::flagini()
     
     // boundary conditions
     Iarray(IO,imax*jmax*kmax);
+    Iarray(IOSL,imax*jmax);
     Iarray(DF,imax*jmax*kmax);
     
     // flag
@@ -77,6 +78,10 @@ void lexer::flagini()
     for(j=-margin; j<knoy+margin; ++j)
     for(k=-margin; k<knoz+margin; ++k)
     IO[(i-imin)*jmax*kmax + (j-jmin)*kmax + k-kmin] = 0;
+    
+    for(i=-margin; i<knox+margin; ++i)
+    for(j=-margin; j<knoy+margin; ++j)
+    IOSL[(i-imin)*jmax + j-jmin] = 0;
     
     for(i=-margin; i<knox+margin; ++i)
     for(j=-margin; j<knoy+margin; ++j)
@@ -107,6 +112,11 @@ void lexer::flagini()
     Iarray(gcdf2,gcdf2_count,6);
     Iarray(gcdf3,gcdf3_count,6);
     Iarray(gcdf4,gcdf4_count,6);
+    
+    // gcsldf
+    gcsldf4_count=1;
+    
+    Iarray(gcsldf4,gcsldf4_count,6);
 }
 
 void lexer::gridini_patchBC()

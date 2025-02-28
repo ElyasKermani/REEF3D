@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -179,7 +179,7 @@ void force::force_calc(lexer* p, fdm *a, ghostcell *pgc)
             k = p->posc_k(zloc);
             
             // Force
-            if(phival>-1.6*p->DXM || p->P92==1)
+            if((phival>-1.6*p->DXM || p->P92==1) && a->topo(i,j,k)>0.0)
             {
             Fx += -(pval)*A*nx
                        + density*viscosity*A*(du*ny+du*nz);
@@ -210,8 +210,6 @@ void force::force_calc(lexer* p, fdm *a, ghostcell *pgc)
     
     //if(p->mpirank==0)
     //cout<<"Ax : "<<Ax<<" Ay: "<<Ay<<" A_tot: "<<A_tot<<endl;
-    
- 
 }
 
 

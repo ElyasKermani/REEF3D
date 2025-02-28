@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -53,7 +53,7 @@ void nhflow_komega_func::isource(lexer *p, fdm_nhf *d)
     
     if(p->T33==1)
     LOOP
-	d->F[IJK] = (2.0/3.0)*(KIN[Ip1JK]-KIN[Im1JK])/(p->DXP[IP]+p->DXP[IM1]);
+	d->F[IJK] = -(2.0/3.0)*(KIN[Ip1JK]-KIN[Im1JK])/(p->DXP[IP]+p->DXP[IM1]);
 }
 
 void nhflow_komega_func::jsource(lexer *p, fdm_nhf *d)
@@ -64,7 +64,7 @@ void nhflow_komega_func::jsource(lexer *p, fdm_nhf *d)
     
     if(p->T33==1)
     LOOP
-	d->G[IJK] = (2.0/3.0)*(KIN[IJp1K]-KIN[IJm1K])/(p->DYP[JP]+p->DYP[JM1]);
+	d->G[IJK] = -(2.0/3.0)*(KIN[IJp1K]-KIN[IJm1K])/(p->DYP[JP]+p->DYP[JM1]);
 }
 
 void nhflow_komega_func::ksource(lexer *p, fdm_nhf *d)
@@ -75,20 +75,27 @@ void nhflow_komega_func::ksource(lexer *p, fdm_nhf *d)
     
     if(p->T33==1)
     LOOP
-	d->H[IJK] = (2.0/3.0)*(KIN[IJKp1]-KIN[IJKm1])/(p->DZP[KP]+p->DZP[KM1]);
+	d->H[IJK] = -(2.0/3.0)*(KIN[IJKp1]-KIN[IJKm1])/((p->DZP[KP]+p->DZP[KM1])*d->WL(i,j));
 }
 
 void nhflow_komega_func::eddyvisc(lexer* p, fdm_nhf *d, ghostcell* pgc, vrans* pvrans)
 {
 	double factor;
 	double H;
-	double epsi = 1.6*p->DXM;
 	int n;
-	
+        
+        
+        if(p->A564==0)
+        LOOP
+		d->EV0[IJK] = MAX(MAX(KIN[IJK]
+						  /((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0),
+						  0.00001*d->VISC[IJK]);
+                          
+        if(p->A564==1)
 		LOOP
-		EV0[IJK] = MAX(MIN(MAX(KIN[IJK]
-						  /((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0),fabs(KIN[IJK])/strainterm(p,d)),
-						  0.0001*d->VISC[IJK]);
+		d->EV0[IJK] = MAX(MIN(MAX(KIN[IJK]
+						  /((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0),fabs(p->T31*KIN[IJK])/strainterm(p,d)),
+						  0.00001*d->VISC[IJK]);
 
 		
 		GC4LOOP
@@ -97,75 +104,32 @@ void nhflow_komega_func::eddyvisc(lexer* p, fdm_nhf *d, ghostcell* pgc, vrans* p
 		i = p->gcb4[n][0];
 		j = p->gcb4[n][1];
 		k = p->gcb4[n][2];
-		
-		EV0[IJK] = MAX(MIN(MAX(KIN[IJK]
+
+		d->EV0[IJK] = MAX(MIN(MAX(KIN[IJK]
 						  /((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0),fabs(p->T35*KIN[IJK])/strainterm(p,d)),
-						  0.0001*d->VISC[IJK]);
+						  0.00001*d->VISC[IJK]);
 		}
 	
-	if(p->T10==22)
+	if(p->A560==22)
 	LOOP
-	EV0[IJK] = MIN(EV0[IJK], p->DXM*p->cmu*pow((KIN[IJK]>(1.0e-20)?(KIN[IJK]):(1.0e20)),0.5));
+	d->EV0[IJK] = MIN(d->EV0[IJK], p->DXM*p->cmu*pow((KIN[IJK]>(1.0e-20)?(KIN[IJK]):(1.0e20)),0.5));
     
     // stabilization
-    //if(p->T41==0)
+    if(p->A565==0)
     LOOP
-    d->EV[IJK] = EV0[IJK];
+    d->EV[IJK] = d->EV0[IJK];
     
-    /*if(p->T41==1)
+    if(p->A565==1)
     LOOP
-	d->EV[IJK] = MIN(EV0[IJK], MAX(KIN[IJK]/((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0)
-                                         *(p->cmu*kw_alpha*rotationterm(p,a))/(p->T42*kw_beta*strainterm(p,a)));*/
-	
-    
-    if(p->B98==3||p->B98==4||p->B99==3||p->B99==4||p->B99==5)
+	d->EV[IJK] = MIN(d->EV0[IJK], MAX(KIN[IJK]/((fabs(EPS[IJK]))>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0)
+                                         *(p->cmu*kw_alpha*rotationterm(p,d))/(p->T42*kw_beta*strainterm(p,d)));
+                                         
+    LOOP
+    if(p->DF[IJK]<0)
     {
-		for(int q=0;q<5;++q)
-		for(n=0;n<p->gcin_count;++n)
-		{
-		i=p->gcin[n][0]+q;
-		j=p->gcin[n][1];
-		k=p->gcin[n][2];
-
-		d->EV[IJK] = MAX(MIN(MAX(KIN[IJK]
-						  /((EPS[IJK])>(1.0e-20)?(EPS[IJK]):(1.0e20)),0.0),fabs(0.212*KIN[IJK])/strainterm(p,d)),
-						  0.0001*d->VISC[IJK]);
-		}
+    d->EV[IJK] = 0.0;
+    d->EV0[IJK] = 0.0;
     }
-    
-    // free surface eddyv minimum
-    /*if(p->T39==1)
-    {
-    double sgs_val;
-    double c_sgs=0.2;
-    double factor=1.0;
-    
-        LOOP
-        {
-        if(fabs(a->phi(i,j,k))<epsi)
-        dirac = (0.5/epsi)*(1.0 + cos((PI*a->phi(i,j,k))/epsi));
-            
-        if(fabs(a->phi(i,j,k))>=epsi)
-        dirac=0.0;
-        
-        if(dirac>0.0)
-        {
-        sgs_val = pow(c_sgs,2.0)*pow(p->DXN[IP]*p->DYN[JP]*p->DZN[KP],2.0/3.0)
-                 *sqrt(2.0)*strainterm(p,a->u,a->v,a->w);
-                 
-        dirac=MIN(dirac,1.0);
-                 
-        d->EV[IJK] = MAX(d->EV[IJK],dirac*sgs_val);
-        }
-        }
-    }
-        
-    pvrans->eddyv_func(p,a);
-    
-	pgc->start4(p,eddyv0,24);
-    pgc->start4(p,a->eddyv,24);
-    */
-    
 }
 
 void nhflow_komega_func::kinsource(lexer *p, fdm_nhf *d, vrans* pvrans)
@@ -178,8 +142,18 @@ void nhflow_komega_func::kinsource(lexer *p, fdm_nhf *d, vrans* pvrans)
         {
         d->M.p[count] += p->cmu * MAX(EPS[IJK],0.0);
 
-        d->rhsvec.V[count] += pk(p,d);
+        d->rhsvec.V[count] += PK[IJK];
+        
+        //d->rhsvec.V[count] += MIN(PK[IJK], 10.0*p->cmu*((fabs(KIN[IJK]))>(1.0e-20)?(KIN[IJK]):(1.0e20))*((fabs(EPS[IJK]))>(1.0e-20)?(EPS[IJK]):(1.0e20)));
         }
+	++count;
+    }
+    
+    if(p->A566==1)
+    LOOP
+    {
+        d->rhsvec.V[count]  -= PK_b[IJK];
+        
 	++count;
     }
     
@@ -195,7 +169,7 @@ void nhflow_komega_func::epssource(lexer *p, fdm_nhf *d, vrans* pvrans)
         {
 		d->M.p[count] += kw_beta * MAX(EPS[IJK],0.0);
 
-        d->rhsvec.V[count] +=  kw_alpha * (MAX(EPS[IJK],0.0)/(KIN[IJK]>(1.0e-10)?(fabs(KIN[IJK])):(1.0e20)))*pk(p,d);
+        d->rhsvec.V[count] +=  kw_alpha * (MAX(EPS[IJK],0.0)/(KIN[IJK]>(1.0e-10)?(fabs(KIN[IJK])):(1.0e20)))*PK0[IJK];
         ++count;
         }
 
@@ -206,11 +180,11 @@ void nhflow_komega_func::epssource(lexer *p, fdm_nhf *d, vrans* pvrans)
 void nhflow_komega_func::epsfsf(lexer *p, fdm_nhf *d, ghostcell *pgc)
 {
 	
-	if(p->T36>0)
+	if(p->A567==1)
 	LOOP
 	{
 	if(k==p->knoz-1 && p->DF[IJK]>0)
-	EPS[IJK] = 2.5*pow(p->cmu,-0.25)*pow(fabs(KIN[IJK]),0.5)*(1.0/p->T37);
+	EPS[IJK] = 2.5*pow(p->cmu,-0.25)*pow(fabs(KIN[IJK]),0.5)*(1.0/(p->T37*d->WL(i,j)));
 	}
 }
 

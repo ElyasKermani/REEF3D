@@ -117,7 +117,6 @@
         <VirtualDirectory Name="Momentum">
           <File Name="sflow_momentum_RK3.h"/>
           <File Name="sflow_momentum_RK2.h"/>
-          <File Name="sflow_momentum_AB2.h"/>
           <File Name="sflow_momentum.h"/>
           <VirtualDirectory Name="BC">
             <File Name="sflow_roughness.h"/>
@@ -140,11 +139,6 @@
             <File Name="sflow_hxy_fou.h"/>
             <File Name="sflow_hxy_disc.h"/>
             <File Name="sflow_hxy_cds.h"/>
-            <File Name="sflow_eta_weno_hj.h"/>
-            <File Name="sflow_eta_weno.h"/>
-            <File Name="sflow_eta_uds.h"/>
-            <File Name="sflow_eta_disc.h"/>
-            <File Name="sflow_eta_cds.h"/>
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="FDM">
@@ -174,9 +168,6 @@
             <File Name="sflow_flux_face_HJ.h"/>
             <File Name="sflow_flux_face_FOU.h"/>
             <File Name="sflow_flux_face_CDS.h"/>
-            <File Name="sflow_flux_face_C_HJ.h"/>
-            <File Name="sflow_flux_face_C_FOU.h"/>
-            <File Name="sflow_flux_face_C_CDS.h"/>
             <File Name="sflow_flux.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Filtering">
@@ -189,18 +180,14 @@
             <File Name="sflow_diffusion.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Convection">
-            <File Name="sflow_cweno_flux.h"/>
-            <File Name="sflow_chires.h"/>
-            <File Name="sflow_csfou.h"/>
-            <File Name="sflow_cfou.h"/>
+            <File Name="sflow_ifou.h"/>
+            <File Name="sflow_convection.h"/>
             <File Name="sflow_weno_blend.h"/>
             <File Name="sflow_weno_hj.h"/>
             <File Name="sflow_weno_flux.h"/>
             <File Name="sflow_voidconv.h"/>
             <File Name="sflow_iweno_hj.h"/>
-            <File Name="sflow_hires.h"/>
             <File Name="sflow_fou.h"/>
-            <File Name="sflow_convection.h"/>
             <VirtualDirectory Name="Limiter">
               <File Name="sflow_fluxlim_vanleer.h"/>
               <File Name="sflow_fluxlim_smart.h"/>
@@ -215,12 +202,12 @@
           <File Name="nhflow_forcing.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Turbulence">
+          <VirtualDirectory Name="SST"/>
           <VirtualDirectory Name="Strain">
             <File Name="nhflow_strain.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="LES">
             <File Name="nhflow_LES_Smagorinsky.h"/>
-            <File Name="nhflow_LES.h"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Komega">
             <File Name="nhflow_komega_func.h"/>
@@ -238,6 +225,7 @@
         </VirtualDirectory>
         <VirtualDirectory Name="Convect">
           <VirtualDirectory Name="Scalar">
+            <File Name="nhflow_scalar_ifou.h"/>
             <File Name="nhflow_scalar_advec_CDS2.h"/>
             <File Name="nhflow_scalar_advec.h"/>
             <File Name="nhflow_scalar_iweno.h"/>
@@ -336,6 +324,9 @@
           <File Name="nhflow_pressure.h"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
+          <VirtualDirectory Name="Func">
+            <File Name="nhflow_momentum_func.h"/>
+          </VirtualDirectory>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.h"/>
           </VirtualDirectory>
@@ -408,9 +399,6 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Laplace">
-          <File Name="fnpf_laplace_cds4_bc2.h"/>
-          <File Name="fnpf_laplace_cds4.h"/>
-          <File Name="fnpf_laplace_cds2_v2.h"/>
           <File Name="fnpf_laplace_cds2.h"/>
           <File Name="fnpf_laplace.h"/>
         </VirtualDirectory>
@@ -677,7 +665,6 @@
         <File Name="hcds6.h"/>
         <File Name="iweno_hj_df_nug.h"/>
         <File Name="weno_hj_df_nug.h"/>
-        <File Name="iweno3_hj.h"/>
         <File Name="convection_void.h"/>
         <File Name="convection.h"/>
         <File Name="weno3_flux.h"/>
@@ -814,11 +801,6 @@
         <File Name="VOF_PLIC.h"/>
       </VirtualDirectory>
       <File Name="freesurface.h"/>
-      <VirtualDirectory Name="One Phase">
-        <File Name="onephase_f.h"/>
-        <File Name="onephase.h"/>
-        <File Name="onephase_v.h"/>
-      </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="Ghostcell">
       <File Name="ghostcell.h"/>
@@ -1166,7 +1148,6 @@
           <File Name="ptf_bed_update.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Laplace">
-          <File Name="ptf_laplace_cds4.cpp"/>
           <File Name="ptf_laplace_cds2.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="FSFBC">
@@ -1257,7 +1238,6 @@
         <VirtualDirectory Name="Momentum">
           <File Name="sflow_momentum_RK3.cpp"/>
           <File Name="sflow_momentum_RK2.cpp"/>
-          <File Name="sflow_momentum_AB2.cpp"/>
           <VirtualDirectory Name="Roughness">
             <File Name="sflow_rough_void.cpp"/>
             <File Name="sflow_rough_manning.cpp"/>
@@ -1267,6 +1247,7 @@
           <File Name="sflow_maxcoor.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="FSF">
+          <File Name="sflow_eta_wetdry_nb.cpp"/>
           <File Name="sflow_eta_wetdry.cpp"/>
           <File Name="sflow_eta_breaking.cpp"/>
           <File Name="sflow_eta.cpp"/>
@@ -1275,10 +1256,6 @@
             <File Name="sflow_hxy_weno.cpp"/>
             <File Name="sflow_hxy_fou.cpp"/>
             <File Name="sflow_hxy_cds.cpp"/>
-            <File Name="sflow_eta_weno_hj.cpp"/>
-            <File Name="sflow_eta_weno.cpp"/>
-            <File Name="sflow_eta_uds.cpp"/>
-            <File Name="sflow_eta_cds.cpp"/>
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="FDM">
@@ -1305,9 +1282,6 @@
             <File Name="sflow_flux_face_HJ.cpp"/>
             <File Name="sflow_flux_face_FOU.cpp"/>
             <File Name="sflow_flux_face_CDS.cpp"/>
-            <File Name="sflow_flux_face_C_HJ.cpp"/>
-            <File Name="sflow_flux_face_C_FOU.cpp"/>
-            <File Name="sflow_flux_face_C_CDS.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Filtering">
             <File Name="sflow_filter.cpp"/>
@@ -1318,16 +1292,12 @@
             <File Name="sflow_diffusion_void.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Convection">
-            <File Name="sflow_cweno_flux.cpp"/>
-            <File Name="sflow_chires.cpp"/>
-            <File Name="sflow_csfou.cpp"/>
-            <File Name="sflow_cfou.cpp"/>
+            <File Name="sflow_ifou.cpp"/>
             <File Name="sflow_weno_blend.cpp"/>
             <File Name="sflow_weno_hj.cpp"/>
             <File Name="sflow_weno_flux.cpp"/>
             <File Name="sflow_voidconv.cpp"/>
             <File Name="sflow_iweno_hj.cpp"/>
-            <File Name="sflow_hires.cpp"/>
             <File Name="sflow_fou.cpp"/>
             <VirtualDirectory Name="Limiter">
               <File Name="sflow_limiter_vanleer.cpp"/>
@@ -1367,12 +1337,12 @@
           <File Name="nhflow_forcing.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Turbulence">
+          <VirtualDirectory Name="SST"/>
           <VirtualDirectory Name="Strain">
             <File Name="nhflow_strain.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="LES">
             <File Name="nhflow_LES_Smagorinsky.cpp"/>
-            <File Name="nhflow_LES.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Komega">
             <File Name="nhflow_komega_func.cpp"/>
@@ -1390,6 +1360,7 @@
         </VirtualDirectory>
         <VirtualDirectory Name="Convect">
           <VirtualDirectory Name="Scalar">
+            <File Name="nhflow_scalar_ifou.cpp"/>
             <File Name="nhflow_scalar_advec_CDS2.cpp"/>
             <File Name="nhflow_scalar_iweno.cpp"/>
           </VirtualDirectory>
@@ -1511,6 +1482,9 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Momentum">
+          <VirtualDirectory Name="Func">
+            <File Name="nhflow_momentum_func.cpp"/>
+          </VirtualDirectory>
           <File Name="nhflow_momentum_RK2.cpp"/>
           <VirtualDirectory Name="BC">
             <File Name="nhflow_bcmom.cpp"/>
@@ -1628,9 +1602,6 @@
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Laplace">
-          <File Name="fnpf_laplace_cds4.cpp"/>
-          <File Name="fnpf_laplace_cds4_bc2.cpp"/>
-          <File Name="fnpf_laplace_cds2_v2.cpp"/>
           <File Name="fnpf_laplace_cds2.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Initialize">
@@ -2178,7 +2149,6 @@
         <File Name="iweno_hj_df_nug.cpp"/>
         <File Name="weno_hj_df_nug.cpp"/>
         <File Name="ifou.cpp"/>
-        <File Name="iweno3_hj.cpp"/>
         <File Name="weno3_flux.cpp"/>
         <File Name="weno3_hj.cpp"/>
         <File Name="iweno_hj_nug.cpp"/>
@@ -2362,12 +2332,6 @@
         <File Name="VOF_PLIC_advection.cpp"/>
         <File Name="VOF_PLIC.cpp"/>
       </VirtualDirectory>
-      <VirtualDirectory Name="One Phase">
-        <File Name="onephase_f_disc.cpp"/>
-        <File Name="onephase_f_extension.cpp"/>
-        <File Name="onephase_f.cpp"/>
-        <File Name="onephase_v.cpp"/>
-      </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="Ghostcell">
       <VirtualDirectory Name="DGC">
@@ -2381,6 +2345,8 @@
         <File Name="gcx_partnum.cpp"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Forcing">
+        <File Name="gcsldf_update.cpp"/>
+        <File Name="gc_solid_forcing_eta.cpp"/>
         <File Name="gc_solid_forcing_lsm.cpp"/>
         <File Name="gcdf_update.cpp"/>
         <File Name="gc_solid_forcing_interface.cpp"/>
@@ -2818,7 +2784,6 @@
       </VirtualDirectory>
       <VirtualDirectory Name="HYPRE SStruct">
         <File Name="hypre_sstruct_fillM.cpp"/>
-        <File Name="hypre_sstruct_fill10.cpp"/>
         <File Name="hypre_sstruct_solve.cpp"/>
         <File Name="hypre_sstruct_grid.cpp"/>
         <File Name="hypre_sstruct_fill8.cpp"/>
@@ -3203,13 +3168,13 @@
       </Completion>
     </Configuration>
     <Configuration Name="Release" CompilerType="mpicxx" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="overwrite" BuildLnkWithGlobalSettings="overwrite" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O3; -w; -std=c++11" C_Options="-O3; -w" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0"/>
+      <Compiler Options="-O3; -w; -std=c++11; -DVERSION=\&quot;$(shell git describe --abbrev=8 --dirty --always --tags)\&quot;; -DBRANCH=\&quot;$(shell git rev-parse --abbrev-ref HEAD)\&quot;" C_Options="-O3; -w" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0"/>
       <Linker Options="-lm" Required="yes">
         <LibraryPath Value="/usr/local/hypre/lib"/>
         <Library Value="HYPRE"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
-      <General OutputFile="./Release/REEF3D" IntermediateDirectory="./obj" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="/Users/hansbihs/Dropbox/Codelite/REEF3D" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <General OutputFile="./Release/REEF3D" IntermediateDirectory="./obj" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>

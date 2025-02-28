@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -74,7 +74,7 @@ void driver::loop_fnpf()
 
 
         // PFLOW
-		ppfsg->start(p,c,pgc,plapsolv,pfsfdisc,pflow,preini,poneph);
+		ppfsg->start(p,c,pgc,plapsolv,pfsfdisc,pflow,preini);
         
         // printer
         pfprint->start(p,c,pgc,pflow);

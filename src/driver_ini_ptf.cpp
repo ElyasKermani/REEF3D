@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -82,11 +82,11 @@ cout<<"starting driver_ini_PTF"<<endl;
 	a->bed(i,j) = p->bed[IJ];
     
     pflow->ini_ptf(p,a,pgc);
-    pptf->ini(p,a,pgc,pflow,preini,poneph); 
+    pptf->ini(p,a,pgc,pflow,preini); 
     pflow->ini_ptf(p,a,pgc);
 
     ptstep->ini(a,p,pgc);
-    pptf->ini(p,a,pgc,pflow,preini,poneph);  // --- 
+    pptf->ini(p,a,pgc,pflow,preini);  // --- 
     pflow->eta_relax(p,pgc,a->eta);
     pflow->fi_relax(p,pgc,a->Fi,a->phi);
 

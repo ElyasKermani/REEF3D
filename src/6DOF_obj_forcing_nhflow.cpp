@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -36,7 +36,7 @@ void sixdof_obj::update_forcing_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc,
     {
         H = Hsolidface_nhflow(p,d,0,0,0);
         
-        
+        /*
         efc = 0.0;
         
         if(d->FB[IJK]<0.0)
@@ -60,22 +60,22 @@ void sixdof_obj::update_forcing_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc,
             
             if(d->FB[IJKp1]>0.0)    
             efc+=1.0;
-        }
+        }*/
         
         uf = u_fb(0) + u_fb(4)*(p->pos_z() - c_(2)) - u_fb(5)*(p->pos_y() - c_(1));
         vf = u_fb(1) + u_fb(5)*(p->pos_x() - c_(0)) - u_fb(3)*(p->pos_z() - c_(2));
         wf = u_fb(2) + u_fb(3)*(p->pos_y() - c_(1)) - u_fb(4)*(p->pos_x() - c_(0));
          
-        if(efc>0.1)
-        {
+        //if(efc>0.1)
+        //{
         d->FHB[IJK] = MIN(d->FHB[IJK] + H, 1.0); 
         
         FX[IJK] += H*(uf - U[IJK])/(alpha[iter]*p->dt);
         FY[IJK] += H*(vf - V[IJK])/(alpha[iter]*p->dt);
         FZ[IJK] += H*(wf - W[IJK])/(alpha[iter]*p->dt);
-        }
+        //}
     }
-    
+    /*
     k=p->knoz-1;
      
     SLICELOOP4
@@ -122,7 +122,7 @@ void sixdof_obj::update_forcing_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc,
     
     if(efc>0.1 && d->FB[IJK]<0.0)
     fe(i,j) += (ef - WL(i,j))/(alpha[iter]*p->dt);
-    }
+    }*/
 
     pgc->start5V(p,d->FHB,50);
 }

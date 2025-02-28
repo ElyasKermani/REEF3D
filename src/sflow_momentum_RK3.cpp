@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -98,7 +98,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 //Step 1
 //--------------------------------------------------------
     // fsf
-    pfsf->wetdry(p,b,pgc,b->P,b->Q,b->ws);
+    pfsf->disc(p,b,pgc,b->P,b->Q,b->ws,b->eta);
 
     SLICELOOP4
     etark1(i,j) =      b->eta(i,j)
@@ -108,6 +108,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,etark1,gcval_eta);
     pfsf->depth_update(p,b,pgc,b->P,b->Q,b->ws,etark1);
+    pfsf->disc(p,b,pgc,b->P,b->Q,b->ws,b->eta);
     pfsf->breaking(p,b,pgc,etark1,b->eta,1.0);
     pflow->waterlevel2D(p,b,pgc,etark1);
     pflow->eta_relax(p,pgc,etark1);
@@ -166,7 +167,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,wrk1,12);
     
-    psfdf->forcing(p,b,pgc,p6dof,0,1.0,Prk1,Qrk1,wrk1,b->hp,0);
+    psfdf->forcing(p,b,pgc,p6dof,0,1.0,Prk1,Qrk1,wrk1,etark1,b->hp,0);
 
 	// press
     ppress->start(p,b,pgc,ppoissonsolv,pflow, Prk1, Qrk1, b->P, b->Q, wrk1, etark1, 1.0);
@@ -186,8 +187,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 //--------------------------------------------------------
 
     // fsf
-    pfsf->wetdry(p,b,pgc,Prk1,Qrk1,wrk1);
-    pflow->waterlevel2D(p,b,pgc,etark1);
+    pfsf->disc(p,b,pgc,Prk1,Qrk1,wrk1,etark1);
 
     SLICELOOP4
     etark2(i,j) = 0.75*b->eta(i,j) + 0.25*etark1(i,j)
@@ -197,6 +197,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,etark2,gcval_eta);
     pfsf->depth_update(p,b,pgc,Prk1,Qrk1,wrk1,etark2);
+    pfsf->disc(p,b,pgc,Prk1,Qrk1,wrk1,etark1);
     pfsf->breaking(p,b,pgc,etark2,etark1,0.25);
     pflow->waterlevel2D(p,b,pgc,etark2);
     pflow->eta_relax(p,pgc,etark2);
@@ -256,7 +257,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,wrk2,12);
     
-    psfdf->forcing(p,b,pgc,p6dof,1,0.25,Prk2,Qrk2,wrk2,b->hp,0);
+    psfdf->forcing(p,b,pgc,p6dof,1,0.25,Prk2,Qrk2,wrk2,etark2,b->hp,0);
 
     // press
     ppress->start(p,b,pgc,ppoissonsolv,pflow, Prk2, Qrk2, Prk1, Qrk1, wrk2, etark2, 0.25);
@@ -275,8 +276,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 //--------------------------------------------------------
 
     //fsf
-    pfsf->wetdry(p,b,pgc,Prk2,Qrk2,wrk2);
-    pflow->waterlevel2D(p,b,pgc,etark2);
+    pfsf->disc(p,b,pgc,Prk2,Qrk2,wrk2,etark2);
 
     SLICELOOP4
     b->eta(i,j) = (1.0/3.0)*b->eta(i,j) + (2.0/3.0)*etark2(i,j)
@@ -286,6 +286,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,b->eta,gcval_eta);
     pfsf->depth_update(p,b,pgc,Prk2,Qrk2,wrk2,b->eta);
+    pfsf->disc(p,b,pgc,Prk2,Qrk2,wrk2,etark2);
     pfsf->breaking(p,b,pgc,b->eta,etark2,2.0/3.0);
     pflow->waterlevel2D(p,b,pgc,b->eta);
     pflow->eta_relax(p,pgc,b->eta);
@@ -344,7 +345,7 @@ void sflow_momentum_RK3::start(lexer *p, fdm2D* b, ghostcell* pgc)
 
     pgc->gcsl_start4(p,b->ws,12);
     
-    psfdf->forcing(p,b,pgc,p6dof,2,2.0/3.0,b->P,b->Q,b->ws,b->hp,1);
+    psfdf->forcing(p,b,pgc,p6dof,2,2.0/3.0,b->P,b->Q,b->ws,b->eta,b->hp,1);
 
 	//--------------------------------------------------------
 	// pressure

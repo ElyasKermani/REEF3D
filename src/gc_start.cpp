@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -180,7 +180,6 @@ void ghostcell::start4(lexer *p, field &f, int gcv)
 	endtime=timer();
 	p->xtime+=endtime-starttime;
     }
-    
     
     if(p->F10==1)
     nse4(p,a,f,gcv);

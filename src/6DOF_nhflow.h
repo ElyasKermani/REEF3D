@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -47,7 +47,7 @@ public:
     
     virtual void start_cfd(lexer*,fdm*,ghostcell*,vrans*,vector<net*>&,int,field&,field&,field&,field&,field&,field&,bool);
     virtual void start_nhflow(lexer*,fdm_nhf*,ghostcell*,vrans*,vector<net*>&,int,double*,double*,double*,double*,double*,double*,slice&,slice&,bool);
-    virtual void start_sflow(lexer*,ghostcell*,int,slice&,slice&,slice&,slice&,slice&,slice&,slice&,bool);
+    virtual void start_sflow(lexer*,fdm2D*,ghostcell*,int,slice&,slice&,slice&,slice&,slice&,slice&,slice&,bool);
     
     void start_twoway(lexer*,fdm_nhf*,ghostcell*,vrans*,vector<net*>&,int,double*,double*,double*,slice&,slice&,bool);
     void start_oneway(lexer*,fdm_nhf*,ghostcell*,int,double*,double*,double*,slice&,slice&,bool);
@@ -55,6 +55,7 @@ public:
        
 	virtual void ini(lexer*,ghostcell*);
     virtual void initialize(lexer*, fdm*, ghostcell*, vector<net*>&);
+    virtual void initialize(lexer*, fdm2D*, ghostcell*, vector<net*>&);
     virtual void initialize(lexer*, fdm_nhf*, ghostcell*, vector<net*>&);
 	
     
@@ -73,6 +74,7 @@ private:
 	
     // hires gradient
     double limiter(double v1, double v2);
+    double starttime;
     
     double denom,val,r,phival;
     double dfdx_plus,dfdx_min,dfdy_plus,dfdy_min,dfdx,dfdy;

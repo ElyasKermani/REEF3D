@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -41,6 +41,8 @@ Author: Hans Bihs
 #include"nhflow_turbulence.h"
 #include"nhflow_force.h"
 #include"nhflow_force_ale.h"
+#include"bedshear_probe.h"
+#include"bedshear_max.h"
 #include<sys/stat.h>
 #include<sys/types.h>
 
@@ -125,6 +127,12 @@ nhflow_vtu3D::nhflow_vtu3D(lexer* p, fdm_nhf *d, ghostcell *pgc)
 
     pbed = new nhflow_vtp_bed(p,d,pgc);
 
+    if(p->P125>0)
+    pbedshear = new bedshear_probe(p,pgc);
+
+    if(p->P126==1)
+    pbedshearmax = new bedshear_max(p,pgc);
+    
 }
 
 nhflow_vtu3D::~nhflow_vtu3D()
@@ -266,13 +274,20 @@ void nhflow_vtu3D::start(lexer* p, fdm_nhf* d, ghostcell* pgc, ioflow *pflow, nh
     for(n=0;n<p->P85;++n)
     pforce_ale[n]->start(p,d,pgc);
 
-    /*
+    
     if((p->simtime>p->probeprinttime && p->P55>0.0)  || (p->count==0 &&  p->P55>0.0))
     p->probeprinttime+=p->P55;
-
+    /*
     if(p->P59==1)
     pbreaklog->write(p,d,pgc);
     */
+
+    // sediment probes
+    if(p->P125>0)
+	pbedshear->bedshear_gauge(p,pgc,psed);
+
+    if(p->P126==1)
+    pbedshearmax->bedshear_maxval(p,pgc,psed);
 }
 
 void nhflow_vtu3D::print_stop(lexer* p, fdm_nhf* d, ghostcell* pgc, ioflow *pflow, nhflow_turbulence *pnhfturb, sediment *psed)
@@ -306,11 +321,9 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     }
     
     //
-    //pgc->gcsl_start4(p,d->WL,50);
     pgc->gcsl_start4(p,d->bed,50);
     pgc->gcsl_start4(p,d->breaking_print,50);
     pgc->start4V(p,d->test,50);
-    //pgc->start4(p,d->test,1);
     
     pgc->dgcslpol(p,d->WL,p->dgcsl4,p->dgcsl4_count,14);
     pgc->dgcslpol(p,d->breaking_print,p->dgcsl4,p->dgcsl4_count,14);
@@ -355,8 +368,11 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     pnhfturb->offset_vtu(p,d,pgc,result,offset,n);
     
     // omega_sig
+    if(p->P74==1)
+    {
 	offset[n]=offset[n-1]+4*(p->pointnum)+4;
 	++n;
+    }
 
     // elevation
 	offset[n]=offset[n-1]+4*(p->pointnum)+4;
@@ -432,8 +448,11 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     
     pnhfturb->name_vtu(p,d,pgc,result,offset,n);
     
+    if(p->P74==1)
+    {
     result<<"<DataArray type=\"Float32\" Name=\"omega_sig\"  format=\"appended\" offset=\""<<offset[n]<<"\" />"<<endl;
     ++n;
+    }
 
 
     result<<"<DataArray type=\"Float32\" Name=\"elevation\"  format=\"appended\" offset=\""<<offset[n]<<"\" />"<<endl;
@@ -566,6 +585,8 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     pnhfturb->print_3D(p,d,pgc,result);
     
 //  Omega_sig
+    if(p->P74==1)
+    {
     iin=4*(p->pointnum);
     result.write((char*)&iin, sizeof (int));
 	TPLOOP
@@ -583,6 +604,7 @@ void nhflow_vtu3D::print_vtu(lexer* p, fdm_nhf *d, ghostcell* pgc, nhflow_turbul
     
 	result.write((char*)&ffn, sizeof (float));
 	}
+    }
 
 //  elevation
 	iin=4*(p->pointnum)*3;

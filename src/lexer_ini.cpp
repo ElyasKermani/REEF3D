@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -32,7 +32,7 @@ void lexer::lexer_ini()
     omegamax=0.0;
 
     utime=vtime=wtime=0.0;
-    kintime=epstime=poissontime=lsmtime=susptime=printouttime=0.0;
+    kintime=epstime=poissontime=lsmtime=susptime=printouttime=dftime=0.0;
     recontime=fsftime=0.0;
 
     uiter=viter=witer=0;

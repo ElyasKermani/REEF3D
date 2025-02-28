@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -106,13 +106,12 @@ void driver::driver_ini_cfd()
         }
     
         // Solid Forcing
-        if(p->G3==1)
-        {
+
         if(p->mpirank==0)
         cout<<"driver solid forcing initialize"<<endl;
         
         pgc->solid_forcing_ini(p,a);
-        }
+
         
         SLICEBASELOOP
         p->wet[IJ]=1;
@@ -124,7 +123,6 @@ void driver::driver_ini_cfd()
     pBC->patchBC_ini(p,pgc);
     
     //ioflow ini --------------------------------------------------------------
-    poneph->update(p,a,pgc,pflow);
     pflow->ini(p,a,pgc);
 
     
@@ -183,8 +181,6 @@ void driver::driver_ini_cfd()
 	pini->droplet_ini(p,a,pgc);
 
 	pflow->pressure_io(p,a,pgc);
-    
-    poneph->update(p,a,pgc,pflow);
     
     ppress->ini(p,a,pgc);
     

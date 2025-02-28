@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -55,6 +55,8 @@ private:
     
     void HLL(lexer*&, fdm_nhf*&, double*, double*, double*, double*);
     void HLL_E(lexer*&, fdm_nhf*&);
+    
+    void wetdry_fluxes(lexer*&, fdm_nhf*&, int);
     
 	double dx,dy,dz;
 	double udir,vdir,wdir;

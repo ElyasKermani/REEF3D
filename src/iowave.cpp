@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -241,6 +241,9 @@ iowave::iowave(lexer *p, ghostcell *pgc, patchBC_interface *ppBC)  : wave_interf
         f_switch=1;
         }
 	}
+    
+    if(p->B99==1 || p->B99==2)
+    beach_relax=1;
     
     expinverse = 1.0/(exp(1.0)-1.0);
     

@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -23,7 +23,7 @@ Author: Hans Bihs
 #ifndef GHOSTCELL_H_
 #define GHOSTCELL_H_
 
-#include <mpi.h>
+#include<mpi.h>
 #include"boundarycheck.h"
 
 class fdm;
@@ -131,7 +131,8 @@ public:
 // Forcing
     void solid_forcing(lexer*,fdm*,double,field&,field&,field&,field&,field&,field&);
     void solid_forcing_ini(lexer*,fdm*);
-    void solid_forcing_lsm(lexer*, fdm*,field&);
+    void solid_forcing_lsm(lexer*,fdm*,field&);
+    void solid_forcing_eta(lexer*,slice&);
     double Hsolidface(lexer*, fdm*, int,int,int);
 	double Hsolidface_t(lexer*, fdm*, int,int,int);
 
@@ -165,6 +166,7 @@ public:
 
 // 6DOF update gcdf
 	void gcdf_update(lexer*,fdm*);
+    void gcsldf_update(lexer*);
     
 
 // IBM

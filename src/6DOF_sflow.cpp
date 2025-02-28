@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -22,7 +22,6 @@ Authors: Hans Bihs, Tobias Martin
 
 #include"6DOF_sflow.h"
 #include"lexer.h"
-#include"fdm.h"
 #include"fdm2D.h"
 #include"ghostcell.h"
 #include"vrans.h"
@@ -42,16 +41,20 @@ sixdof_sflow::~sixdof_sflow()
 {
 }
 
-void sixdof_sflow::start_sflow(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice &Q, slice &w, slice &fx, slice &fy, slice &fz, bool finalize)
+void sixdof_sflow::start_sflow(lexer *p, fdm2D *b, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice &Q, slice &w, slice &fx, slice &fy, slice &eta, bool finalize)
 {
+    starttime = pgc->timer();
+    
     if(p->X10==2)
-    start_oneway(p,pgc,iter,fsglobal,P,Q,w,fx,fy,fz,finalize);
+    start_oneway(p,pgc,iter,fsglobal,P,Q,w,fx,fy,eta,finalize);
     
     if(p->X10==3)
-    start_shipwave(p,pgc,iter,fsglobal,P,Q,fx,fy,fz,finalize);
+    start_shipwave(p,pgc,iter,fsglobal,P,Q,fx,fy,eta,finalize);
+    
+    p->fbtime+=pgc->timer()-starttime;
 }
 
-void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice &Q, slice &w, slice &fx, slice &fy, slice &fz, bool finalize)
+void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice &Q, slice &w, slice &fx, slice &fy, slice &eta, bool finalize)
 {
     for (int nb=0; nb<number6DOF;++nb)
     {
@@ -68,7 +71,7 @@ void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, int iter, slice &fsglo
         fb_obj[nb]->update_fbvel(p,pgc);
         
         // Update forcing terms
-        fb_obj[nb]->update_forcing_sflow(p,pgc,P,Q,w,fx,fy,fz,iter);
+        fb_obj[nb]->update_forcing_sflow(p,pgc,P,Q,w,fx,fy,eta,iter);
         
             // Print
         if(finalize==true)
@@ -86,13 +89,12 @@ void sixdof_sflow::start_oneway(lexer *p, ghostcell *pgc, int iter, slice &fsglo
     }
 }
 
-void sixdof_sflow::start_shipwave(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice&Q, slice &fx, slice &fy, slice &fz, bool finalize)
+void sixdof_sflow::start_shipwave(lexer *p, ghostcell *pgc, int iter, slice &fsglobal, slice &P, slice&Q, slice &fx, slice &fy, slice &eta, bool finalize)
 {
-    
+    if(finalize==1)
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Advance body in time
-        if(iter==0)
         fb_obj[nb]->solve_eqmotion_oneway_onestep(p,pgc);
         
         // Update transformation matrices
@@ -112,7 +114,7 @@ void sixdof_sflow::start_shipwave(lexer *p, ghostcell *pgc, int iter, slice &fsg
         fb_obj[nb]->updateForcing_oned(p,pgc,press);
         
         if(p->X400==10)
-        fb_obj[nb]->updateForcing_stl(p,pgc,press);
+        fb_obj[nb]->updateForcing_stl(p,pgc,press,eta);
         
             // Print
             if(p->X50==1)
@@ -122,6 +124,5 @@ void sixdof_sflow::start_shipwave(lexer *p, ghostcell *pgc, int iter, slice &fsg
             fb_obj[nb]->print_stl(p,pgc);
             
             fb_obj[nb]->print_parameter(p,pgc);
-        
     }
 }

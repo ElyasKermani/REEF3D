@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -73,8 +73,6 @@ void sediment_f::active_sflow(lexer *p, fdm2D *b, ghostcell *pgc)
     SLICELOOP4
     if(b->solidbed(i,j) >= s->bedzh(i,j))
     {
-    b->test(i,j) = b->solidbed(i,j);
-
     s->active(i,j)=0;
     }
     

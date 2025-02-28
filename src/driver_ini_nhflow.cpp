@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -75,21 +75,11 @@ void driver::driver_ini_nhflow()
 
     pnhfstep->ini(p,d,pgc);
  
-	pflow->gcio_update(p,a,pgc); 
-	//pflow->pressure_io(p,a,pgc);
-     
+	pflow->gcio_update_nhflow(p,d,pgc); 
+
     // inflow ini
 	pflow->discharge_nhflow(p,d,pgc);
-
     pflow->wavegen_precalc_nhflow(p,d,pgc);
-
-	//if(p->I11==1)
-	//ptstep->start(a,p,pgc,pturb);
-    
-    //if(p->I13==1)
-    //pturb->ini(p,a,pgc);
-	
-	//pflow->pressure_io(p,a,pgc);
     
     SLICELOOP4
     d->WL(i,j) = d->eta(i,j) + d->depth(i,j);
@@ -121,9 +111,17 @@ void driver::driver_ini_nhflow()
 
     pnhfsf->ini(p,d,pgc,pflow,d->U,d->V,d->W);
     pnhfsf->kinematic_fsf(p,d,d->U,d->V,d->W,d->eta);
-    //pnhfmom->inidisc(p,d,pgc,pnhfsf);
     
+    pflow->gcio_update_nhflow(p,d,pgc); 
     
+    // potential ini
+    pnhfpot->start(p,d,ppoissonsolv,pgc);
+    
+    pflow->discharge_nhflow(p,d,pgc);
+    pflow->inflow_nhflow(p,d,pgc,d->U,d->V,d->W,d->UH,d->VH,d->WH);
+    
+    // turbulence ini
+    pnhfturb->ini(p, d, pgc);
     
     //sediment ini
     psed->ini_nhflow(p,d,pgc);

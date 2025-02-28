@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -29,6 +29,10 @@ void sixdof_cfd::initialize(lexer *p, fdm *a, ghostcell *pgc, vector<net*>& pnet
 {
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj[nb]->initialize_cfd(p, a, pgc, pnet);
+}
+
+void sixdof_cfd::initialize(lexer *p, fdm2D *b, ghostcell *pgc, vector<net*>& pnet)
+{
 }
 
 void sixdof_cfd::initialize(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<net*>& pnet)

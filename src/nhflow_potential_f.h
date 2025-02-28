@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -45,6 +45,7 @@ private:
 	void wcalc(lexer*,fdm_nhf*);
     
     void laplace(lexer*,fdm_nhf*,ghostcell*);
+    void ini_bc(lexer*,fdm_nhf*,ghostcell*);
     
     
 	double starttime,endtime;
@@ -53,6 +54,8 @@ private:
     double sigxyz2;
     
     double *PSI;
+    
+    int *BC;
 
 };
 

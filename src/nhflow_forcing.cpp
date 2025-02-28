@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -70,6 +70,8 @@ nhflow_forcing::~nhflow_forcing()
 void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof, vrans* pvrans, vector<net*>& pnet, 
                              int iter, double alpha, double *UH, double *VH, double *WH, slice &WL, bool finalize)
 {
+    starttime=pgc->timer();
+    
     // ini forcing terms
     reset(p,d,pgc);
     
@@ -127,11 +129,12 @@ void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof
         p->fbmax = MAX(fabs(alpha*CPORNH*d FZ[IJK]), p->fbmax);*/
     }
     
+    /*
     SLICELOOP4
     WL(i,j) += alpha*p->dt*CPORNH*fe(i,j);
     
     SLICELOOP4
-    d->eta(i,j) = WL(i,j) - d->depth(i,j);
+    d->eta(i,j) = WL(i,j) - d->depth(i,j);*/
     
     // DF
     LOOP
@@ -140,16 +143,25 @@ void nhflow_forcing::forcing(lexer *p, fdm_nhf *d, ghostcell *pgc, sixdof *p6dof
     if(solid_flag==1)
     LOOP
     if(d->SOLID[IJK]<0.0)
-    p->DF[IJK]=0;
+    p->DF[IJK]=-1;
 
     if(floating_flag==1)
     LOOP
     if(d->FB[IJK]<0.0)
-    p->DF[IJK]=0;
-        
+    p->DF[IJK]=-1;
+    
+    // DFSL slice
+    pgc->gcsldf_update(p);
+    pgc->solid_forcing_eta(p,WL);
+    pgc->solid_forcing_eta(p,d->eta);
     }
     
+    pgc->startintV(p,p->DF,1);
+    
+    
     pgc->gciobc_update(p,d);
+    
+    p->dftime+=pgc->timer()-starttime;
 }
 
 void nhflow_forcing::reset(lexer *p, fdm_nhf *d, ghostcell *pgc)
@@ -192,4 +204,24 @@ void nhflow_forcing::forcing_ini(lexer *p, fdm_nhf *d, ghostcell *pgc)
     SLICELOOP4
 	d->depth(i,j) = p->wd - d->bed(i,j);
     }
+    
+    // --------------
+    // DF
+    LOOP
+    p->DF[IJK]=1;
+    
+    if(solid_flag==1)
+    LOOP
+    if(d->SOLID[IJK]<0.0)
+    p->DF[IJK]=-1;
+
+    if(floating_flag==1)
+    LOOP
+    if(d->FB[IJK]<0.0)
+    p->DF[IJK]=-1;
+    
+    // DFSL slice
+    pgc->gcsldf_update(p);
+    pgc->solid_forcing_eta(p,d->WL);
+    pgc->solid_forcing_eta(p,d->eta);
 }

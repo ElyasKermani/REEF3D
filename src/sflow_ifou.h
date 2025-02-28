@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -24,52 +24,34 @@ Author: Hans Bihs
 #include"increment.h"
 
 class sflow_flux;
-class fdm2D;
 
 using namespace std;
 
-#ifndef SFLOW_CWENO_FLUX_H_
-#define SFLOW_CWENO_FLUX_H_
+#ifndef SFLOW_IFOU_H_
+#define SFLOW_IFOU_H_
 
-class sflow_cweno_flux : public sflow_convection, public increment
+class sflow_ifou : public sflow_convection, public increment
 {
 public:
-	sflow_cweno_flux(lexer*,fdm2D*);
-	virtual ~sflow_cweno_flux();
+	sflow_ifou(lexer*);
+	virtual ~sflow_ifou();
 
 	virtual void start(lexer*,fdm2D*,slice&,int,slice&,slice&);
 
 private:
-    double aij(lexer*, fdm2D*, slice&, int, slice&, slice&);
-
-	virtual double fx(lexer*, fdm2D*, slice&, int, double);
-	virtual double fy(lexer*, fdm2D*, slice&, int, double);
-	void iqmin(lexer*, fdm2D*, slice&, int);
-	void jqmin(lexer*, fdm2D*, slice&, int);
-	void iqmax(lexer*, fdm2D*, slice&, int);
-	void jqmax(lexer*, fdm2D*, slice&, int);
-
-
-	double L,grad;
-	const double tttw,fourth,third,sevsix,elvsix,sixth,fivsix,tenth;
-	const double sixten,treten;
-	const double epsilon,smallnum;
-	double is1,is2,is3;
-	double alpha1,alpha2,alpha3;
-	double w1,w2,w3;
-	double q1,q2,q3,q4,q5;
-	double gradx, grady, gradz;
-	double fu1,fv1,fu2,fv2;
-    double dx,dy;
-
-
-	void is_min(fdm2D*,slice&);
-    void is_max(fdm2D*,slice&);
-	void alpha();
-	void weight();
+    void aij(lexer*, fdm2D*, slice&, int, slice&, slice&);
+	
+	double dx,dy,L;
+	double ul,ur,vl,vr;
     
     sflow_flux *pflux;
+    
     double ivel1,ivel2,jvel1,jvel2;
+    double udir,vdir;
+    double iadvec,jadvec;
+    
+    int count;
+
 };
 
 #endif

@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -345,7 +345,10 @@ void sflow_vtp_fsf::print2D(lexer *p, fdm2D* b, ghostcell* pgc, sflow_turbulence
 	result.write((char*)&ddn, sizeof (double));
 
     if(p->P73==0)
-	ddn=p->sl_ipol4eta(p->wet,b->eta,b->bed)+p->wd;
+	ddn=p->sl_ipol4eta(p->wet,b->eta,b->bed) + p->wd;
+    
+    if(p->wet[IJ]==1 && p->wet[Ip1J]==1 && p->wet[IJp1]==1 && p->wet[Ip1Jp1]==1)
+    ddn = MAX(ddn,b->bednode(i,j)+p->A244);
     
     if(p->P73==1)
     {
@@ -356,6 +359,9 @@ void sflow_vtp_fsf::print2D(lexer *p, fdm2D* b, ghostcell* pgc, sflow_turbulence
 	{
     ddn=0.5*(b->hy(i,j)+b->hy(i+1,j)) + p->sl_ipol4(b->bed);
     }
+    
+    if(p->P73==3)
+    ddn=p->sl_ipol4(b->eta) + p->wd;
     
 	result.write((char*)&ddn, sizeof (double));
 	}

@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -68,7 +68,7 @@ void driver::loop_ptf(fdm* a)
         pflow->wavegen_precalc(p,pgc);
 
         // PFLOW
-		pptf->start(p,a,pgc,plapsolv,pfsfdisc,pflow,preini,poneph);
+		pptf->start(p,a,pgc,plapsolv,pfsfdisc,pflow,preini);
     
         //timestep control
         p->simtime+=p->dt;

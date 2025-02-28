@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -59,8 +59,6 @@ void ghostcell::flagfield(lexer *p)
         p->flag4[IJK]=OBJ_FLAG;
     }
     
-
-
     for(i=0;i<p->imax*p->jmax*p->kmax; ++i)
 	{
 	p->flag1[i]=p->flag4[i];

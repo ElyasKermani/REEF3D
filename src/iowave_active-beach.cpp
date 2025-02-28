@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -88,8 +88,7 @@ void iowave::active_beach(lexer *p, fdm* a, ghostcell* pgc, field &u, field &v, 
         if(p->B99==3)
         Uc = eta_R*sqrt(9.81/p->wd);
 				
-        if(p->B99==4)
-        Uc = eta_R*p->ww*(cosh(p->wk*(p->wd+z))/sinh(p->wk*p->wd));
+        
         
         //cout<<p->mpirank<<" eta_R: "<<eta_R<<" eta_M: "<<eta_M<<"   wsf: "<<wsf<<"   Uc: "<<Uc<<endl;
 
@@ -104,6 +103,8 @@ void iowave::active_beach(lexer *p, fdm* a, ghostcell* pgc, field &u, field &v, 
 				if(p->pos_z()>p->phimean)
 				z=(fabs(p->phimean-p->pos_z()));
 				
+                if(p->B99==4)
+                Uc = eta_R*p->ww*(cosh(p->wk*(p->wd+z))/sinh(p->wk*p->wd));
 				                
                 if(p->B99==5)
                 {

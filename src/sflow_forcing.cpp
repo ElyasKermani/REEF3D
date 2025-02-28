@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -40,7 +40,7 @@ sflow_forcing::~sflow_forcing()
 }
 
 void sflow_forcing::forcing(lexer *p, fdm2D *b, ghostcell *pgc, sixdof *p6dof, 
-                             int iter, double alpha, slice &P, slice &Q, slice &w, slice &WL, bool finalize)
+                             int iter, double alpha, slice &P, slice &Q, slice &w, slice &eta, slice &WL, bool finalize)
 {
     SLICELOOP4
     {
@@ -51,7 +51,7 @@ void sflow_forcing::forcing(lexer *p, fdm2D *b, ghostcell *pgc, sixdof *p6dof,
     
 
     // 6DOF forcing
-    p6dof->start_sflow(p,pgc,iter,b->fs,P,Q,w,b->fx,b->fy,b->fz,finalize);
+    p6dof->start_sflow(p,b,pgc,iter,b->fs,P,Q,w,b->fx,b->fy,eta,finalize);
 
 
     if(forcing_flag==1)
@@ -79,13 +79,22 @@ void sflow_forcing::forcing(lexer *p, fdm2D *b, ghostcell *pgc, sixdof *p6dof,
     
     SLICELOOP4
     {
-        w(i,j) += alpha*p->dt*b->fz(i,j);
+        w(i,j) += alpha*p->dt*0.0;
         
         /*if(p->count<10)
         b->maxG = MAX(fabs(alpha*CPORNH*b->FY[IJK]), b->maxG);
         
         p->fbmax = MAX(fabs(alpha*CPORNH*b->FY[IJK]), p->fbmax);*/
     }
+    
+    /*
+    SLICELOOP4
+    {
+        eta(i,j) += alpha*p->dt*b->fz(i,j);
+    }
+    
+    SLICELOOP4
+    WL(i,j) = MAX(eta(i,j) + p->wd - p->bed[IJ],0.0);*/
     }
 }
 

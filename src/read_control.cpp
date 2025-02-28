@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
 REEF3D
-Copyright 2008-2024 Hans Bihs
+Copyright 2008-2025 Hans Bihs
 
 This file is part of REEF3D.
 
@@ -114,12 +114,7 @@ void lexer::read_control()
                case 243: control>>A243;
 						 clear(c,numint);
 						 break;
-               case 244: control>>A244_val;
-                        A244=1;
-						 clear(c,numint);
-						 break;
-               case 245: control>>A245_val;
-                        A245=1;
+               case 244: control>>A244;
 						 clear(c,numint);
 						 break;
                case 246: control>>A246;
@@ -337,6 +332,24 @@ void lexer::read_control()
                case 560: control>>A560;
                         clear(c,numint);
                         break;
+               case 564: control>>A564;
+                        clear(c,numint);
+                        break;
+               case 565: control>>A565;
+                        clear(c,numint);
+                        break;
+               case 566: control>>A566;
+                        clear(c,numint);
+                        break;
+               case 567: control>>A567;
+                        clear(c,numint);
+                        break;
+               case 568: control>>A568;
+                        clear(c,numint);
+                        break;
+               case 569: control>>A569;
+                        clear(c,numint);
+                        break;
                case 570: control>>A570;
                         clear(c,numint);
                         break;
@@ -397,6 +410,9 @@ void lexer::read_control()
 				switch(numint)
 				{
 				case 10: control>>B10;
+						 clear(c,numint);
+						 break;
+                 case 11: control>>B11;
 						 clear(c,numint);
 						 break;
 				case 20: control>>B20;
@@ -985,8 +1001,7 @@ void lexer::read_control()
                 case 63: control>>F63;
 						 clear(c,numint);
 						 break;
-                case 64: control>>F64_xs>>F64_ys>>F64_zs>>F64_alpha;
-						 F64=1;
+                case 64: control>>F64;
 						 clear(c,numint);
 						 break;
                 case 70: ++F70;
@@ -2305,6 +2320,9 @@ void lexer::read_control()
                          clear(c,numint);
 						 break;
 				case  401: control>>X401_p0>>X401_cl>>X401_cb>>X401_a;
+                         clear(c,numint);
+						 break;
+                 case  410: control>>X410;
                          clear(c,numint);
 						 break;
 				}
