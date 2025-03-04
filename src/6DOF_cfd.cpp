@@ -52,6 +52,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         // Calculate forces
         fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
         
+        // Calculate collision forces
+        fb_obj[nb]->linear_collision_force(p,a,pgc);
+        
         // Advance body in time
         fb_obj[nb]->solve_eqmotion(p,a,pgc,iter,pvrans,pnet);
         
@@ -66,7 +69,6 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vect
         
         // Update forcing terms
         fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
-        
         
         // Print
         if(finalize==true)

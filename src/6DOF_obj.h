@@ -110,6 +110,9 @@ public:
     
     double Mass_fb, Vfb, Rfb;
 
+    // Linear collision force
+    void linear_collision_force(lexer* p, fdm *a, ghostcell *pgc);
+    
 private:
 
 	void ini_parameter_stl(lexer*, fdm*, ghostcell*);
@@ -371,6 +374,10 @@ private:
     int triangle_token,printnormal_count;
     
     double alpha[3],gamma[3],zeta[3];
+
+    // Collision force components
+    double Xe_coll, Ye_coll, Ze_coll;
+    double Ke_coll, Me_coll, Ne_coll;
 };
 
 #endif
