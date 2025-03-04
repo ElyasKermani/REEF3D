@@ -612,6 +612,9 @@
           <File Name="net_void.h"/>
           <File Name="net.h"/>
         </VirtualDirectory>
+        <VirtualDirectory Name="Collision">
+          <File Name="6DOF_collision.h"/>
+        </VirtualDirectory>
         <File Name="6DOF.h"/>
         <File Name="6DOF_void.h"/>
       </VirtualDirectory>
@@ -2030,6 +2033,9 @@
             <File Name="net_barDyn.cpp"/>
           </VirtualDirectory>
           <File Name="net_void.cpp"/>
+        </VirtualDirectory>
+        <VirtualDirectory Name="Collision">
+          <File Name="6DOF_collision.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Mooring">
           <VirtualDirectory Name="Spring">

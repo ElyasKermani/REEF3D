@@ -25,11 +25,13 @@ Authors: Hans Bihs, Tobias Martin
 
 #include"6DOF.h"
 #include"6DOF_obj.h"
+#include"6DOF_collision.h"
 #include<vector>
 
 class mooring;
 class net;
 class ddweno_f_nug;
+class sixdof_collision;
 
 using namespace std;
 
@@ -66,7 +68,9 @@ private:
    
     int number6DOF;
     vector<sixdof_obj*> fb_obj;
-
+    
+    // Collision model
+    sixdof_collision *p_collision;
 };
 
 #endif
