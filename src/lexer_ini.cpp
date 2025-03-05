@@ -19,8 +19,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
 Author: Hans Bihs
 --------------------------------------------------------------------*/
-
-#include"lexer.h"
+#include"lexer.h"
 
 void lexer::lexer_ini()
 {
@@ -77,19 +76,6 @@ void lexer::lexer_ini()
     
 	ufbi=vfbi=wfbi=0.0;
 	pfbi=qfbi=rfbi=0.0;
-    
-    // Initialize 6DOF collision variables
-    X110 = 0;
-    X110_xc = NULL;
-    X110_yc = NULL;
-    X110_zc = NULL;
-    X110_uc = NULL;
-    X110_vc = NULL;
-    X110_wc = NULL;
-    X110_pc = NULL;
-    X110_qc = NULL;
-    X110_rc = NULL;
-    X110_R = NULL;
     
     if(B98==1)
     B98=2;

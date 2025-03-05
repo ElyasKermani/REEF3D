@@ -794,26 +794,6 @@ public:
     double *sigx,*sigy,*sigz,*sigt;
     double *sigxx;
     
-    // Linear collision model parameters
-    double X401_kn;    // Normal spring stiffness
-    double X401_kt;    // Tangential spring stiffness
-    double X401_cn;    // Normal damping coefficient
-    double X401_ct;    // Tangential damping coefficient
-    double X401_mu;    // Friction coefficient
-    
-    // 6DOF collision variables
-    int X110;  // Number of collision points
-    double *X110_xc;  // x-coordinates of collision points
-    double *X110_yc;  // y-coordinates of collision points
-    double *X110_zc;  // z-coordinates of collision points
-    double *X110_uc;  // x-velocity at collision points
-    double *X110_vc;  // y-velocity at collision points
-    double *X110_wc;  // z-velocity at collision points
-    double *X110_pc;  // roll rate at collision points
-    double *X110_qc;  // pitch rate at collision points
-    double *X110_rc;  // yaw rate at collision points
-    double *X110_R;   // Radius of each object
-    
 private:
 	void clear(char&, int&);
     
