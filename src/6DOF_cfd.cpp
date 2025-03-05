@@ -53,6 +53,9 @@ sixdof_cfd::~sixdof_cfd()
 void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, vrans* pvrans, vector<net*>& pnet, int iter, field &uvel, field &vvel, field &wvel, field &fx, field &fy, field &fz, bool finalize)
 {
     setup(p,a,pgc);
+
+    for (int nb=0; nb<number6DOF;++nb)
+    fb_obj[nb]->clearExternalForces();
     
     // Calculate collision forces between objects
     if(p->X20 > 1) // Only calculate collisions if there's more than one object
