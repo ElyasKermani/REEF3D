@@ -28,9 +28,13 @@ Author: Tobias Martin
 #include"net.h"
 #include"vrans.h"
 
-void sixdof_obj::externalForces(lexer *p,fdm* a, ghostcell *pgc, double alpha, vrans *pvrans, vector<net*>& pnet)
+void sixdof_obj::clearExternalForces()
 {
     Xext = Yext = Zext = Kext = Mext = Next = 0.0;
+}
+
+void sixdof_obj::externalForces(lexer *p,fdm* a, ghostcell *pgc, double alpha, vrans *pvrans, vector<net*>& pnet)
+{
 
     // Mooring forces
 	if (p->X310>0)
@@ -47,7 +51,7 @@ void sixdof_obj::externalForces(lexer *p,fdm* a, ghostcell *pgc, double alpha, v
 
 void sixdof_obj::externalForces_nhflow(lexer *p, fdm_nhf* d, ghostcell *pgc, double alpha, vrans *pvrans, vector<net*>& pnet)
 {
-    Xext = Yext = Zext = Kext = Mext = Next = 0.0;
+    clearExternalForces();
 
     // Mooring forces
 	if (p->X310>0)

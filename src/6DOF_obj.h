@@ -79,6 +79,7 @@ public:
     void update_position_2D(lexer*, ghostcell*,slice&);
     
     void solve_eqmotion_oneway_onestep(lexer*,ghostcell*);
+    void clearExternalForces();
     
     // NHFLOW
     virtual void solve_eqmotion_nhflow(lexer*,fdm_nhf*,ghostcell*,int,vrans*,vector<net*>&);
@@ -371,6 +372,8 @@ private:
     int triangle_token,printnormal_count;
     
     double alpha[3],gamma[3],zeta[3];
+
+    friend class sixdof_collision;
 };
 
 #endif
