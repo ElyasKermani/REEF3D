@@ -36,7 +36,7 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Initialize collision model parameters from control file parameters
     // These should be added to the parameter file in a real implementation
     // For now, we set default values
-    spring_constant = 1.0e6;            // Default stiffness [N/m]
+    spring_constant = 1.0e3;            // Default stiffness [N/m]
     damping_constant = 1.0e4;           // Default damping [N·s/m]
     friction_coefficient = 0.3;         // Default friction coefficient
     restitution_coefficient = 0.7;      // Default restitution coefficient
@@ -48,7 +48,7 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // In a real implementation, this would be calculated based on the object geometry
     for(int i=0; i<p->X20; ++i)
     {
-        bounding_radius[i] = 1.0; // Default radius (should be calculated from geometry)
+        bounding_radius[i] = 0.2; // Default radius (should be calculated from geometry)
     }
 }
 

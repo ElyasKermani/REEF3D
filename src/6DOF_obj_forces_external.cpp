@@ -35,7 +35,7 @@ void sixdof_obj::clearExternalForces()
 
 void sixdof_obj::externalForces(lexer *p,fdm* a, ghostcell *pgc, double alpha, vrans *pvrans, vector<net*>& pnet)
 {
-
+    //Xext = Yext = Zext = Kext = Mext = Next = 0.0;
     // Mooring forces
 	if (p->X310>0)
 	{
