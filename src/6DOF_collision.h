@@ -17,7 +17,7 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
-Author: 
+Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
 #ifndef SIXDOF_COLLISION_H_
@@ -25,12 +25,21 @@ Author:
 
 #include<Eigen/Dense>
 #include<vector>
+#include<map>
 
 class lexer;
 class ghostcell;
 class sixdof_obj;
 
 using namespace std;
+
+// Enumeration for different collision models
+enum class ContactForceModel {
+    Linear,      // Linear spring-dashpot model
+    Hertz,       // Non-linear Hertzian elastic contact
+    HertzMindlin, // Hertz with tangential history
+    DMT         // Derjaguin-Muller-Toporov model for adhesive contacts
+};
 
 class sixdof_collision
 {
@@ -41,6 +50,9 @@ public:
     
     // Calculate collision forces between all 6DOF objects
     void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
+    
+    // Set the contact force model to use
+    void set_contact_force_model(ContactForceModel model) { contact_model = model; }
     
 private:
 
@@ -56,11 +68,66 @@ private:
                                       Eigen::Vector3d &force, 
                                       Eigen::Vector3d &torque);
     
-    // Parameters for the linear collision model
-    double spring_constant;    // Normal spring stiffness [N/m]
-    double damping_constant;   // Normal damping coefficient [N·s/m]
-    double friction_coefficient; // Tangential friction coefficient
-    double restitution_coefficient; // Coefficient of restitution
+    // Calculate Hertzian contact force (non-linear elastic)
+    void calculate_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                     const Eigen::Vector3d &contact_point, 
+                                     const Eigen::Vector3d &normal, 
+                                     const double overlap,
+                                     Eigen::Vector3d &force, 
+                                     Eigen::Vector3d &torque);
+    
+    // Calculate Hertz-Mindlin contact force with tangential history
+    void calculate_hertz_mindlin_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                            const Eigen::Vector3d &contact_point, 
+                                            const Eigen::Vector3d &normal, 
+                                            const double overlap,
+                                            Eigen::Vector3d &force, 
+                                            Eigen::Vector3d &torque);
+    
+    // Calculate DMT (Derjaguin-Muller-Toporov) model for adhesive contacts
+    void calculate_dmt_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                   const Eigen::Vector3d &contact_point, 
+                                   const Eigen::Vector3d &normal, 
+                                   const double overlap,
+                                   Eigen::Vector3d &force, 
+                                   Eigen::Vector3d &torque);
+    
+    // Calculate effective material properties
+    double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
+    double calculate_effective_radius(double R1, double R2);
+    
+    // Helper function for Hertzian contact
+    double calculate_hertz_stiffness(double E_eff, double R_eff);
+    
+    // Parameters for the collision models
+    ContactForceModel contact_model;
+    
+    // Common parameters
+    double spring_constant;          // Normal spring stiffness [N/m]
+    double damping_constant;         // Normal damping coefficient [N·s/m]
+    double friction_coefficient;     // Tangential friction coefficient
+    double restitution_coefficient;  // Coefficient of restitution
+    
+    // Hertzian contact parameters
+    double young_modulus;            // Young's modulus [Pa]
+    double poisson_ratio;            // Poisson's ratio
+    
+    // DMT model parameters
+    double surface_energy;           // Surface energy [J/m²]
+    double dmt_cutoff_threshold;     // Cutoff for DMT force
+    
+    // Contact history for Hertz-Mindlin model
+    struct ContactHistory {
+        Eigen::Vector3d tangential_overlap;
+        bool in_contact;
+        double last_update_time;
+    };
+    
+    // Map to store contact history between object pairs
+    map<pair<int, int>, ContactHistory> contact_history;
+    
+    // Clear contact history for pairs no longer in contact
+    void update_contact_history(lexer *p);
     
     // Simplified bounding sphere collision detection
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
