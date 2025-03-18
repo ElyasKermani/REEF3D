@@ -294,7 +294,8 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             // Improved wall distance calculation
             dist = fabs(p->ccipol4(a->fb,xlocvel,ylocvel,zlocvel));
             
-            // Surface roughness - could be made a parameter
+            // Surface roughness - now properly used in calculations
+            // Could be set as a parameter from input file
             ks = 0.00001;
             
             // Calculate velocity magnitude and direction
@@ -326,24 +327,45 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
                     nz_par /= magNpar;
                 }
                 
-                // Improved wall function parameters
+                // Wall function parameters
                 const double kappa = 0.41;  // von Karman constant
-                const double E = 9.8;       // Wall constant
+                const double E = 9.8;       // Wall constant for smooth walls
                 
                 // Calculate non-dimensional wall distance
                 double yPlus = dist * sqrt(rho_int * velMag * velMag) / (rho_int * nu_int);
                 
                 // Calculate wall shear stress magnitude using appropriate law
                 double tauWall;
+                double uTau;
+                
                 if(yPlus < 11.0)
                 {
-                    // Viscous sublayer: linear velocity profile
+                    // Viscous sublayer: linear velocity profile (not affected by roughness)
                     tauWall = rho_int * nu_int * velMag / dist;
                 }
                 else
                 {
-                    // Log-law region
-                    double uTau = velMag * kappa / log(E * yPlus);
+                    // Calculate roughness Reynolds number
+                    double roughness_plus = ks * sqrt(velMag) / nu_int;
+                    
+                    // Apply log-law with roughness effects
+                    if(roughness_plus < 5.0) 
+                    {
+                        // Hydraulically smooth regime
+                        uTau = velMag * kappa / log(E * yPlus);
+                    }
+                    else if(roughness_plus < 70.0)
+                    {
+                        // Transitionally rough regime - modified log law
+                        double delta_B = (1/kappa) * log(roughness_plus) * sin(0.4258 * (log(roughness_plus) - 0.811));
+                        uTau = velMag * kappa / (log(E * yPlus) - delta_B);
+                    }
+                    else
+                    {
+                        // Fully rough regime
+                        uTau = velMag * kappa / log(30.0 * dist/ks);
+                    }
+                    
                     tauWall = rho_int * uTau * uTau;
                 }
                 
