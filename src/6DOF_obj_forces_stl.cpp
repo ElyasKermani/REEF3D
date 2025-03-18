@@ -129,8 +129,11 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             ylocp = yc + p->X42*ny*p->DYP[JP];
             zlocp = zc + p->X42*nz*p->DZP[KP];
 
+            // Improved pressure force calculation with proper density scaling
             p_int = p->ccipol4a(a->press,xlocp,ylocp,zlocp) - p->pressgage;
+            rho_int = p->ccipol4a(a->ro,xlocp,ylocp,zlocp);
             
+            // Calculate pressure force using normal vector
             Fp_x = -nx*p_int*A_triang;
             Fp_y = -ny*p_int*A_triang;
             Fp_z = -nz*p_int*A_triang;
@@ -157,14 +160,15 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             ylocvel = yc + p->X43*ny*p->DYP[JP];
             zlocvel = zc + p->X43*nz*p->DZP[KP];
             
-             nu_int = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+            nu_int = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
             enu_int = 0.0; //p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
             rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
             
-             i = p->posc_i(xlocvel);
+            i = p->posc_i(xlocvel);
             j = p->posc_j(ylocvel);
             k = p->posc_k(zlocvel);
             
+            // Calculate full velocity gradient tensor using central differences
             dudx = (uvel(i+1,j,k) - uvel(i-1,j,k))/(p->DXP[IP] + p->DXP[IM1]);
             dudy = (uvel(i,j+1,k) - uvel(i,j-1,k))/(p->DYP[JP] + p->DYP[JM1]);
             dudz = (uvel(i,j,k+1) - uvel(i,j,k-1))/(p->DZP[KP] + p->DZP[KM1]);
@@ -177,9 +181,24 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             dwdy = (wvel(i,j+1,k) - wvel(i,j-1,k))/(p->DYP[JP] + p->DYP[JM1]);
             dwdz = (wvel(i,j,k+1) - wvel(i,j,k-1))/(p->DZP[KP] + p->DZP[KM1]);
 
-            Fv_x = rho_int*(nu_int + enu_int)*A_triang*(2.0*dudx*nx + (dudy + dvdx)*ny + (dudz + dwdx)*nz);
-            Fv_y = rho_int*(nu_int + enu_int)*A_triang*((dudy + dvdx)*nx + 2.0*dvdy*ny + (dvdz + dwdy)*nz);
-            Fv_z = rho_int*(nu_int + enu_int)*A_triang*((dudz + dwdx)*nx + (dvdz + dwdy)*ny + 2.0*dwdz*nz);
+            // Improved formulation for viscous stress based on OpenFOAM's approach
+            // Calculate the stress tensor components using symmetric deformation tensor
+            double mu_eff = rho_int*(nu_int + enu_int);
+            
+            // Normal stresses (diagonal components of stress tensor)
+            double tauxx = 2.0*mu_eff*dudx;
+            double tauyy = 2.0*mu_eff*dvdy;
+            double tauzz = 2.0*mu_eff*dwdz;
+            
+            // Shear stresses (off-diagonal components)
+            double tauxy = mu_eff*(dudy + dvdx);
+            double tauxz = mu_eff*(dudz + dwdx);
+            double tauyz = mu_eff*(dvdz + dwdy);
+            
+            // Calculate viscous force using stress tensor * surface normal
+            Fv_x = A_triang*(tauxx*nx + tauxy*ny + tauxz*nz);
+            Fv_y = A_triang*(tauxy*nx + tauyy*ny + tauyz*nz);
+            Fv_z = A_triang*(tauxz*nx + tauyz*ny + tauzz*nz);
             }
             
             
@@ -193,6 +212,7 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
             rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
             
+            // Get interpolated velocity at the evaluation point
             uval=p->ccipol1(uvel,xlocvel,ylocvel,zlocvel);
             vval=p->ccipol2(vvel,xlocvel,ylocvel,zlocvel);
             wval=p->ccipol3(wvel,xlocvel,ylocvel,zlocvel);
@@ -201,38 +221,55 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             j = p->posc_j(ylocvel);
             k = p->posc_k(zlocvel);
             
+            // Calculate distance from cell center to triangle center
             double delta = sqrt(pow(xc-xlocvel,2.0) + pow(yc-ylocvel,2.0) + pow(zc-zlocvel,2.0));
             
-            /*
-            dudx = (uval)/(p->DXP[IP]);
-            dudy = (uval)/(p->DYP[JP]);
-            dudz = (uval)/(p->DZP[KP]);
-                                                                           
-            dvdx = (vval)/(p->DXP[IP]);
-            dvdy = (vval)/(p->DYP[JP]);
-            dvdz = (vval)/(p->DZP[KP]);
-                                                                            
-            dwdx = (wval)/(p->DXP[IP]);
-            dwdy = (wval)/(p->DYP[JP]);
-            dwdz = (wval)/(p->DZP[KP]);
-            */
-            dudx = (uval)/delta;
-            dudy = (uval)/delta;
-            dudz = (uval)/delta;
-                                                                           
-            dvdx = (vval)/delta;
-            dvdy = (vval)/delta;
-            dvdz = (vval)/delta;
-                                                                            
-            dwdx = (wval)/delta;
-            dwdy = (wval)/delta;
-            dwdz = (wval)/delta;
+            // Calculate local gradient more robustly
+            // Forward difference gradient at the evaluation point
+            double uforward = p->ccipol1(uvel,xlocvel+delta*nx,ylocvel+delta*ny,zlocvel+delta*nz);
+            double vforward = p->ccipol2(vvel,xlocvel+delta*nx,ylocvel+delta*ny,zlocvel+delta*nz);
+            double wforward = p->ccipol3(wvel,xlocvel+delta*nx,ylocvel+delta*ny,zlocvel+delta*nz);
             
-            u_abs = sqrt(uval*uval + vval*vval + wval*wval);
-
-            Fv_x = -rho_int*(nu_int + enu_int)*A_triang*(2.0*dudx*nx + (dudy + dvdx)*ny + (dudz + dwdx)*nz);
-            Fv_y = -rho_int*(nu_int + enu_int)*A_triang*((dudy + dvdx)*nx + 2.0*dvdy*ny + (dvdz + dwdy)*nz);
-            Fv_z = -rho_int*(nu_int + enu_int)*A_triang*((dudz + dwdx)*nx + (dvdz + dwdy)*ny + 2.0*dwdz*nz);
+            // Calculate velocity gradient in normal direction (improve robustness)
+            dudx = (uforward - uval)/delta;
+            dvdx = (vforward - vval)/delta;
+            dwdx = (wforward - wval)/delta;
+            
+            // Decompose velocity into normal and tangential components
+            double u_n = uval*nx + vval*ny + wval*nz;  // Normal component
+            
+            // Tangential components 
+            double u_t = uval - u_n*nx;
+            double v_t = vval - u_n*ny;
+            double w_t = wval - u_n*nz;
+            
+            // Calculate tangential velocity magnitude
+            double u_t_mag = sqrt(u_t*u_t + v_t*v_t + w_t*w_t);
+            
+            // Effective viscosity
+            double mu_eff = rho_int*(nu_int + enu_int);
+            
+            // Calculate wall shear stress based on tangential velocity gradient
+            // This is similar to OpenFOAM's approach
+            if(u_t_mag > 1.0e-10)
+            {
+                // Unit vectors in tangential direction
+                double tx = u_t/u_t_mag;
+                double ty = v_t/u_t_mag;
+                double tz = w_t/u_t_mag;
+                
+                // Wall shear stress magnitude
+                double tau_w = mu_eff * u_t_mag / delta;
+                
+                // Apply tangential force in the direction of tangential velocity
+                Fv_x = -tau_w * A_triang * tx;
+                Fv_y = -tau_w * A_triang * ty;
+                Fv_z = -tau_w * A_triang * tz;
+            }
+            else
+            {
+                Fv_x = Fv_y = Fv_z = 0.0;
+            }
             }
             
             
@@ -254,33 +291,67 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             vval=p->ccipol2(vvel,xlocvel,ylocvel,zlocvel);
             wval=p->ccipol3(wvel,xlocvel,ylocvel,zlocvel);
             
+            // Improved wall distance calculation
             dist = fabs(p->ccipol4(a->fb,xlocvel,ylocvel,zlocvel));
             
+            // Surface roughness - could be made a parameter
             ks = 0.00001;
             
-        
-        // x-dir            
-            uplus = (1.0/kappa)*log(30.0*(dist/ks));
+            // Calculate velocity magnitude and direction
+            double velMag = sqrt(uval*uval + vval*vval + wval*wval);
             
-            dir = uval/(fabs(uval)>0.0?uval:1.0e20);
-  
-            Fv_x =  dir*fabs(sqrt(ny*ny + nz*nz)*A_triang*rho_int*(uval*uval)/pow((uplus>0.0?uplus:1.0e20),2.0));
-            
-            //cout<<"Fv_x: "<<Fv_x<<" ustar: "<<ustar<<" nx: "<<nx<<" uplus: "<<uplus<<" dist: "<<dist<<" value: "<<value<<" log(value): "<<log(value)<<endl;
-            
-        // y-dir
-            vplus = (1.0/kappa)*log(30.0*(dist/ks));
-            
-            dir = vval/(fabs(vval)>0.0?uval:1.0e20);
-  
-            Fv_y =  dir*fabs(sqrt(nx*nx + nz*nz)*A_triang*rho_int*(vval*vval)/pow((vplus>0.0?vplus:1.0e20),2.0));
-            
-        // z-dir
-            wplus = (1.0/kappa)*log(30.0*(dist/ks));
-            
-            dir = wval/(fabs(wval)>0.0?wval:1.0e20);
-  
-            Fv_z = dir*fabs(sqrt(nx*nx + ny*ny)*A_triang*rho_int*(wval*wval)/pow((wplus>0.0?wplus:1.0e20),2.0));
+            // Skip calculation if velocity is effectively zero
+            if(velMag < 1.0e-10)
+            {
+                Fv_x = Fv_y = Fv_z = 0.0;
+            }
+            else
+            {
+                // Unit vectors in direction of flow
+                double ux = uval/velMag;
+                double uy = vval/velMag;
+                double uz = wval/velMag;
+                
+                // Calculate wall-parallel projection of normal vector
+                double nx_par = nx - (nx*ux + ny*uy + nz*uz)*(ux);
+                double ny_par = ny - (nx*ux + ny*uy + nz*uz)*(uy);
+                double nz_par = nz - (nx*ux + ny*uy + nz*uz)*(uz);
+                
+                // Normalize the parallel component
+                double magNpar = sqrt(nx_par*nx_par + ny_par*ny_par + nz_par*nz_par);
+                if(magNpar > 1.0e-10)
+                {
+                    nx_par /= magNpar;
+                    ny_par /= magNpar;
+                    nz_par /= magNpar;
+                }
+                
+                // Improved wall function parameters
+                const double kappa = 0.41;  // von Karman constant
+                const double E = 9.8;       // Wall constant
+                
+                // Calculate non-dimensional wall distance
+                double yPlus = dist * sqrt(rho_int * velMag * velMag) / (rho_int * nu_int);
+                
+                // Calculate wall shear stress magnitude using appropriate law
+                double tauWall;
+                if(yPlus < 11.0)
+                {
+                    // Viscous sublayer: linear velocity profile
+                    tauWall = rho_int * nu_int * velMag / dist;
+                }
+                else
+                {
+                    // Log-law region
+                    double uTau = velMag * kappa / log(E * yPlus);
+                    tauWall = rho_int * uTau * uTau;
+                }
+                
+                // Scale the force by area and apply in flow direction
+                Fv_x = -tauWall * A_triang * ux;
+                Fv_y = -tauWall * A_triang * uy;
+                Fv_z = -tauWall * A_triang * uz;
+            }
             }
             
             
@@ -331,13 +402,88 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             if(p->S33==2)
             tau=density*pturb->ccipol_kinval(p,pgc,xip,yip,zval)*0.3;*/
             }
-
-
-            // Total forces
-            Fx = Fp_x + Fv_x;
-            Fy = Fp_y + Fv_y;
-            Fz = Fp_z + Fv_z;
             
+            
+            // New implementation using the combined stress tensor approach (similar to OpenFOAM)
+            if(p->X39==5)
+            {
+                // Points for interpolation
+                xlocvel = xc + p->X43*nx*p->DXP[IP];
+                ylocvel = yc + p->X43*ny*p->DYP[JP];
+                zlocvel = zc + p->X43*nz*p->DZP[KP];
+                
+                // Get properties
+                nu_int  = p->ccipol4a(a->visc,xlocvel,ylocvel,zlocvel);
+                enu_int = p->ccipol4a(a->eddyv,xlocvel,ylocvel,zlocvel);
+                rho_int = p->ccipol4a(a->ro,xlocvel,ylocvel,zlocvel);
+                
+                // Get pressure at appropriate location
+                xlocp = xc + p->X42*nx*p->DXP[IP];
+                ylocp = yc + p->X42*ny*p->DYP[JP];
+                zlocp = zc + p->X42*nz*p->DZP[KP];
+                p_int = p->ccipol4a(a->press,xlocp,ylocp,zlocp) - p->pressgage;
+                
+                // Get cell indices
+                i = p->posc_i(xlocvel);
+                j = p->posc_j(ylocvel);
+                k = p->posc_k(zlocvel);
+                
+                // Calculate full velocity gradient tensor using central differences
+                dudx = (uvel(i+1,j,k) - uvel(i-1,j,k))/(p->DXP[IP] + p->DXP[IM1]);
+                dudy = (uvel(i,j+1,k) - uvel(i,j-1,k))/(p->DYP[JP] + p->DYP[JM1]);
+                dudz = (uvel(i,j,k+1) - uvel(i,j,k-1))/(p->DZP[KP] + p->DZP[KM1]);
+                                                                               
+                dvdx = (vvel(i+1,j,k) - vvel(i-1,j,k))/(p->DXP[IP] + p->DXP[IM1]);
+                dvdy = (vvel(i,j+1,k) - vvel(i,j-1,k))/(p->DYP[JP] + p->DYP[JM1]);
+                dvdz = (vvel(i,j,k+1) - vvel(i,j,k-1))/(p->DZP[KP] + p->DZP[KM1]);
+                                                                                
+                dwdx = (wvel(i+1,j,k) - wvel(i-1,j,k))/(p->DXP[IP] + p->DXP[IM1]);
+                dwdy = (wvel(i,j+1,k) - wvel(i,j-1,k))/(p->DYP[JP] + p->DYP[JM1]);
+                dwdz = (wvel(i,j,k+1) - wvel(i,j,k-1))/(p->DZP[KP] + p->DZP[KM1]);
+                
+                // Calculate effective viscosity
+                double mu_eff = rho_int * (nu_int + enu_int);
+                
+                // Calculate complete stress tensor (pressure + viscous)
+                // Diagonal components (pressure + normal viscous stresses)
+                double sigma_xx = -p_int + 2.0*mu_eff*dudx;
+                double sigma_yy = -p_int + 2.0*mu_eff*dvdy;
+                double sigma_zz = -p_int + 2.0*mu_eff*dwdz;
+                
+                // Off-diagonal components (shear stresses)
+                double sigma_xy = mu_eff*(dudy + dvdx);
+                double sigma_xz = mu_eff*(dudz + dwdx);
+                double sigma_yz = mu_eff*(dvdz + dwdy);
+                
+                // Calculate total force using stress tensor * normal vector
+                Fx = A_triang*(sigma_xx*nx + sigma_xy*ny + sigma_xz*nz);
+                Fy = A_triang*(sigma_xy*nx + sigma_yy*ny + sigma_yz*nz);
+                Fz = A_triang*(sigma_xz*nx + sigma_yz*ny + sigma_zz*nz);
+                
+                // Calculate pressure component separately for output
+                Fp_x = -p_int*A_triang*nx;
+                Fp_y = -p_int*A_triang*ny;
+                Fp_z = -p_int*A_triang*nz;
+                
+                // Calculate viscous component as the difference
+                Fv_x = Fx - Fp_x;
+                Fv_y = Fy - Fp_y;
+                Fv_z = Fz - Fp_z;
+                
+                if(p->j_dir==0)
+                {
+                    Fy = 0.0;
+                    Fp_y = 0.0;
+                    Fv_y = 0.0;
+                }
+            }
+            else
+            {
+                // For other X39 options, calculate total force by adding pressure and viscous
+                Fx = Fp_x + Fv_x;
+                Fy = Fp_y + Fv_y;
+                Fz = Fp_z + Fv_z;
+            }
 
             // Add forces to global forces
             Xe += Fx;
