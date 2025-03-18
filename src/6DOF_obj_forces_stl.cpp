@@ -295,8 +295,7 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
             dist = fabs(p->ccipol4(a->fb,xlocvel,ylocvel,zlocvel));
             
             // Surface roughness - now properly used in calculations
-            // Could be set as a parameter from input file
-            ks = 0.00001;
+            ks = p->B50;
             
             // Calculate velocity magnitude and direction
             double velMag = sqrt(uval*uval + vval*vval + wval*wval);
