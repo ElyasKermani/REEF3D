@@ -444,46 +444,38 @@ void sixdof_obj::forces_stl(lexer* p, fdm *a, ghostcell *pgc,field& uvel, field&
                 // Calculate effective viscosity
                 double mu_eff = rho_int * (nu_int + enu_int);
                 
-                // Calculate complete stress tensor (pressure + viscous)
-                // Diagonal components (pressure + normal viscous stresses)
-                double sigma_xx = -p_int + 2.0*mu_eff*dudx;
-                double sigma_yy = -p_int + 2.0*mu_eff*dvdy;
-                double sigma_zz = -p_int + 2.0*mu_eff*dwdz;
+                // Calculate pressure forces (consistent with other X39 options)
+                Fp_x = -p_int * A_triang * nx;
+                Fp_y = -p_int * A_triang * ny;
+                Fp_z = -p_int * A_triang * nz;
                 
-                // Off-diagonal components (shear stresses)
-                double sigma_xy = mu_eff*(dudy + dvdx);
-                double sigma_xz = mu_eff*(dudz + dwdx);
-                double sigma_yz = mu_eff*(dvdz + dwdy);
+                // Calculate viscous stress tensor components
+                // Normal stresses (diagonal components)
+                double tauxx = 2.0 * mu_eff * dudx;
+                double tauyy = 2.0 * mu_eff * dvdy;
+                double tauzz = 2.0 * mu_eff * dwdz;
                 
-                // Calculate total force using stress tensor * normal vector
-                Fx = A_triang*(sigma_xx*nx + sigma_xy*ny + sigma_xz*nz);
-                Fy = A_triang*(sigma_xy*nx + sigma_yy*ny + sigma_yz*nz);
-                Fz = A_triang*(sigma_xz*nx + sigma_yz*ny + sigma_zz*nz);
+                // Shear stresses (off-diagonal components)
+                double tauxy = mu_eff * (dudy + dvdx);
+                double tauxz = mu_eff * (dudz + dwdx);
+                double tauyz = mu_eff * (dvdz + dwdy);
                 
-                // Calculate pressure component separately for output
-                Fp_x = -p_int*A_triang*nx;
-                Fp_y = -p_int*A_triang*ny;
-                Fp_z = -p_int*A_triang*nz;
-                
-                // Calculate viscous component as the difference
-                Fv_x = Fx - Fp_x;
-                Fv_y = Fy - Fp_y;
-                Fv_z = Fz - Fp_z;
+                // Calculate viscous forces from stress tensor
+                Fv_x = A_triang * (tauxx * nx + tauxy * ny + tauxz * nz);
+                Fv_y = A_triang * (tauxy * nx + tauyy * ny + tauyz * nz);
+                Fv_z = A_triang * (tauxz * nx + tauyz * ny + tauzz * nz);
                 
                 if(p->j_dir==0)
                 {
-                    Fy = 0.0;
                     Fp_y = 0.0;
                     Fv_y = 0.0;
                 }
             }
-            else
-            {
-                // For other X39 options, calculate total force by adding pressure and viscous
-                Fx = Fp_x + Fv_x;
-                Fy = Fp_y + Fv_y;
-                Fz = Fp_z + Fv_z;
-            }
+            
+            // For all X39 options, calculate total force by adding pressure and viscous components
+            Fx = Fp_x + Fv_x;
+            Fy = Fp_y + Fv_y;
+            Fz = Fp_z + Fv_z;
 
             // Add forces to global forces
             Xe += Fx;
