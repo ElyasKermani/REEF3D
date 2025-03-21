@@ -50,7 +50,6 @@ private:
     double yPlusViscous;     // y+ value for viscous/buffer layer transition
     double ksPlusSmooth;     // ks+ threshold for hydraulically smooth regime
     double ksPlusRough;      // ks+ threshold for fully rough regime
-    int i,j,k;
     int ii,jj,kk;
     double value;
     int gcval_phi, bckin;
