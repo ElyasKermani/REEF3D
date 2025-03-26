@@ -59,7 +59,7 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // In a real implementation, this would be calculated based on the object geometry
     for(int i=0; i<p->X20; ++i)
     {
-        bounding_radius[i] = 0.2; // Default radius (should be calculated from geometry)
+        bounding_radius[i] = 0.12; // Default radius (should be calculated from geometry)
     }
 }
 
@@ -123,22 +123,22 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                 }
                 
                 // Add collision forces to object i (action)
-                fb_obj[i]->Xext += force(0);
-                fb_obj[i]->Yext += force(1);
-                fb_obj[i]->Zext += force(2);
+                fb_obj[i]->Xext -= force(0);
+                fb_obj[i]->Yext -= force(1);
+                fb_obj[i]->Zext -= force(2);
                 
-                fb_obj[i]->Kext += torque(0);
-                fb_obj[i]->Mext += torque(1);
-                fb_obj[i]->Next += torque(2);
+                fb_obj[i]->Kext -= torque(0);
+                fb_obj[i]->Mext -= torque(1);
+                fb_obj[i]->Next -= torque(2);
                 
                 // Add collision forces to object j (reaction)
-                fb_obj[j]->Xext -= force(0);
-                fb_obj[j]->Yext -= force(1);
-                fb_obj[j]->Zext -= force(2);
+                fb_obj[j]->Xext += force(0);
+                fb_obj[j]->Yext += force(1);
+                fb_obj[j]->Zext += force(2);
                 
-                fb_obj[j]->Kext -= torque(0);
-                fb_obj[j]->Mext -= torque(1);
-                fb_obj[j]->Next -= torque(2);
+                fb_obj[j]->Kext += torque(0);
+                fb_obj[j]->Mext += torque(1);
+                fb_obj[j]->Next += torque(2);
                 
                 if(p->mpirank==0 && p->count%p->P12==0)
                 {
@@ -281,7 +281,7 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     }
     
     // Total force vector
-    force = fn * normal - ft * t_hat;
+    force = (fn * normal - ft * t_hat)/1.0e3;
     
     // Calculate torque
     torque = r1.cross(force);
