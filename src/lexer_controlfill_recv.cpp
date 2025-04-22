@@ -1,4 +1,3 @@
-
 /*--------------------------------------------------------------------
 REEF3D
 Copyright 2008-2025 Hans Bihs
@@ -1757,6 +1756,8 @@ void lexer::ctrlrecv()
     ii++;
     X164 = ictrl[ii];
     ii++;
+    X165 = ictrl[ii];
+    ii++;
     X180 = ictrl[ii];
     ii++;
     X181 = ictrl[ii];
@@ -2746,6 +2747,15 @@ void lexer::ctrlrecv()
     Darray(X164_x8,X164);
     Darray(X164_y8,X164);
     Darray(X164_z8,X164);
+    }
+
+    if(X165>0)
+    {
+        Darray(X165_x,X165);
+        Darray(X165_y,X165);
+        Darray(X165_z,X165);
+        Darray(X165_rad,X165);
+        Iarray(X165_objID,X165);
     }
     
     if(X311>0)
@@ -4078,6 +4088,20 @@ for(n=0;n<F369;++n)
     dd++;
     X164_z8[n] = dctrl[dd];
     dd++;
+    }
+
+    for(n=0;n<X165;++n)
+    {
+        X165_x[n] = dctrl[dd];
+        dd++;
+        X165_y[n] = dctrl[dd];
+        dd++;
+        X165_z[n] = dctrl[dd];
+        dd++;
+        X165_rad[n] = dctrl[dd];
+        dd++;
+        X165_objID[n] = ictrl[ii];
+        ++ii;
     }
     
     for(n=0;n<X311;++n)

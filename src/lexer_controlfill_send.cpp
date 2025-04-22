@@ -1763,6 +1763,8 @@ void lexer::ctrlsend()
     ii++;
     ictrl[ii] = X164;
     ii++;
+    ictrl[ii] = X165;
+    ++ii;
     ictrl[ii] = X180;
     ii++;
     ictrl[ii] = X181;
@@ -3161,6 +3163,20 @@ void lexer::ctrlsend()
     dd++;
     dctrl[dd] = X164_z8[n];
     dd++;
+    }
+
+    for(n=0;n<X165;++n)
+    {
+    dctrl[dd] = X165_x[n];
+    dd++;
+    dctrl[dd] = X165_y[n];
+    dd++;
+    dctrl[dd] = X165_z[n];
+    dd++;
+    dctrl[dd] = X165_rad[n];
+    dd++;
+    ictrl[ii] = X165_objID[n];
+    ii++;
     }
    
     for(n=0;n<X311;++n)

@@ -137,6 +137,7 @@ private:
     void wedge_sym(lexer*, ghostcell*,int);
     void wedge(lexer*, ghostcell*,int);
     void hexahedron(lexer*, ghostcell*,int);
+    void sphere(lexer*, ghostcell*,int);
     void read_stl(lexer*, ghostcell*);
     void triangle_switch_lsm(lexer*, ghostcell*);
     void triangle_switch_ray(lexer*, ghostcell*);
