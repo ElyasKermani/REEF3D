@@ -2001,6 +2001,7 @@
             <File Name="6DOF_obj_geometry.cpp"/>
             <File Name="6DOF_obj_cylinder.cpp"/>
             <File Name="6DOF_obj_box.cpp"/>
+            <File Name="6DOF_obj_sphere.cpp"/>
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Net">

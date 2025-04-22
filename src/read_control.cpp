@@ -2260,6 +2260,9 @@ void lexer::read_control()
                 case  164: ++X164;
 						 clear(c,numint);
 						 break;
+				case  165: ++X165;
+                         clear(c,numint);
+                         break;
                 case  180: control>>X180;
 						 clear(c,numint);
 						 break;
@@ -3029,6 +3032,12 @@ void lexer::read_control()
     Darray(X164_y8,X164);
     Darray(X164_z8,X164);
 
+	Darray(X165_x,X165);
+    Darray(X165_y,X165);
+    Darray(X165_z,X165);
+    Darray(X165_rad,X165);
+    Iarray(X165_objID,X165);
+
     if (X311 > 0)
     {
         Darray(X311_xs,X311);
@@ -3222,6 +3231,7 @@ void lexer::read_control()
     int countX110=0;
     int countX163=0;
     int countX164=0;
+    int countX165=0;
     int countX311=0;
     int countX312=0;
     int countX320=0;
@@ -3685,6 +3695,10 @@ void lexer::read_control()
                         ++countX164;
 						 clear(c,numint);
 						 break;
+				case 165: control>>X165_x[countX165]>>X165_y[countX165]>>X165_z[countX165]>>X165_rad[countX165]>>X165_objID[countX165];
+                        ++countX165;
+                         clear(c,numint);
+                         break;
 				case 311: control>>X311_xs[countX311]>>X311_xe[countX311]>>X311_ys[countX311]>>X311_ye[countX311]>>X311_zs[countX311]>>X311_ze[countX311]
 								>>X311_w[countX311]>>X311_rho_c[countX311]>>X311_EA[countX311]>>X311_d[countX311]>>X311_l[countX311]>>X311_H[countX311]
 								>>X311_P[countX311]>>X311_facT[countX311];

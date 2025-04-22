@@ -624,7 +624,7 @@ public:
 	//Eigen::Matrix3d quatRotMat;	
     int X10,X12,X14,X19,X11_u,X11_v,X11_w,X11_p,X11_q,X11_r,X21,X22,X23,X24,X31,X32,X33,X34,X38;
     int X39,X40,X45,X46,X48,X49,X50,X60,X110,X120,X131,X132,X133;
-    int X100,X101,X102,X103,X141,X142,X143,X153,X180,X181,X182,X183,X210,X211;
+    int X100,X101,X102,X103,X141,X142,X143,X153,X165,X180,X181,X182,X183,X210,X211;
     int X310, X311, X312, X313, X314, X315, X320, X321, mooring_count, net_count;
     int X20;
     double X21_d,X22_m;
@@ -640,6 +640,9 @@ public:
     double X103_p, X103_q, X103_r;
     double *X110_xs,*X110_xe,*X110_ys,*X110_ye,*X110_zs,*X110_ze;
     int *X110_objID;
+    double *X165_x, *X165_y, *X165_z;  // Center coordinates
+    double *X165_rad;  // Radius
+    int *X165_objID;  // Object ID
     double X120_rad,X120_xc,X120_yc,X120_zc;
     double X131_rad,X131_h,X131_xc,X131_yc,X131_zc;
     double X132_rad,X132_h,X132_xc,X132_yc,X132_zc;

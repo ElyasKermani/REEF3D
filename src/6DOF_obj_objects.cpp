@@ -77,19 +77,27 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
         ++entity_count;
     }
     
+    for(qn=0;qn<p->X165;++qn)
+    {
+        if(p->X165_objID[qn]==n6DOF)
+        {
+            sphere(p,pgc,qn);
+            ++entity_count;
+        }
+    }
+    
     if(p->X180==1)
     {
         read_stl(p,pgc);
 		++entity_count;
     }
 
-
-	if (entity_count > 1)
-	{
-		cout<<"Multiple floating bodies are not fully supported yet."<<endl<<endl;
-		//pgc->final();
-		//exit(0);
-	}
+    if (entity_count > 1)
+    {
+        cout<<"Multiple floating bodies are not fully supported yet."<<endl<<endl;
+        //pgc->final();
+        //exit(0);
+    }
 
     if(p->mpirank==0)
 	cout<<"Surface triangles: "<<tricount<<endl;
@@ -112,8 +120,8 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
 {
     double U,ds,phi,r,snum,trisum;
     
-    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164;
-	tricount=0;
+    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X165;
+    tricount=0;
     trisum=0;
     
     // box
@@ -148,6 +156,9 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     
     // hexahedron
     trisum+=12*p->X164;
+    
+    // sphere
+    trisum+=400*p->X165;  // 20*10*2 triangles per sphere
     
     // STL
     if(p->X180==1)
