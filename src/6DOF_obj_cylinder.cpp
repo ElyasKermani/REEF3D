@@ -35,14 +35,14 @@ void sixdof_obj::cylinder_x(lexer *p, ghostcell *pgc, int id)
     double Nx,Ny,Nz,norm;
     
 
-    xm=p->X131_xc;
-    ym=p->X131_yc;
-    zm=p->X131_zc;
+    xm=p->X131_xc[id];
+    ym=p->X131_yc[id];
+    zm=p->X131_zc[id];
     
-    x1=xm-p->X131_h;
-    x2=xm+p->X131_h;
+    x1=xm-p->X131_h[id];
+    x2=xm+p->X131_h[id];
     
-    r=p->X131_rad;
+    r=p->X131_rad[id];
     
     U = 2.0 * PI * r;
     
@@ -137,16 +137,14 @@ void sixdof_obj::cylinder_y(lexer *p, ghostcell *pgc, int id)
     double Bx,By,Bz;
     double Nx,Ny,Nz,norm;
     
+    xm=p->X132_xc[id];
+    ym=p->X132_yc[id];
+    zm=p->X132_zc[id];
     
-
-    xm=p->X132_xc;
-    ym=p->X132_yc;
-    zm=p->X132_zc;
+    y1=ym-0.5*p->X132_h[id];
+    y2=ym+0.5*p->X132_h[id];
     
-    y1=ym-0.5*p->X132_h;
-    y2=ym+0.5*p->X132_h;
-    
-    r=p->X132_rad;
+    r=p->X132_rad[id];
     
     U = 2.0 * PI * r;
     
@@ -240,15 +238,14 @@ void sixdof_obj::cylinder_z(lexer *p, ghostcell *pgc, int id)
     double Bx,By,Bz;
     double Nx,Ny,Nz,norm;
     
-
-    xm=p->X133_xc;
-    ym=p->X133_yc;
-    zm=p->X133_zc;
+    xm=p->X133_xc[id];
+    ym=p->X133_yc[id];
+    zm=p->X133_zc[id];
     
-    z1=zm-0.5*p->X133_h;
-    z2=zm+0.5*p->X133_h;
+    z1=zm-0.5*p->X133_h[id];
+    z2=zm+0.5*p->X133_h[id];
     
-    r=p->X133_rad;
+    r=p->X133_rad[id];
     
     U = 2.0 * PI * r;
     
