@@ -43,20 +43,29 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
     
     for(qn=0;qn<p->X131;++qn)
     {
-        cylinder_x(p,pgc,qn);
-        ++entity_count;
+        if(p->X131_objID[qn]==n6DOF)
+        {
+            cylinder_x(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X132;++qn)
     {
-        cylinder_y(p,pgc,qn);
-        ++entity_count;
+        if(p->X132_objID[qn]==n6DOF)
+        {
+            cylinder_y(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X133;++qn)
     {
-        cylinder_z(p,pgc,qn);
-        ++entity_count;
+        if(p->X133_objID[qn]==n6DOF)
+        {
+            cylinder_z(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X153;++qn)
@@ -118,6 +127,7 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 
 void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
 {
+    int qn;
     double U,ds,phi,r,snum,trisum;
     
     entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X165;
@@ -128,25 +138,43 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     trisum+=12*p->X110;
     
     // cylinder_x   
-    r=p->X131_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-	trisum+=5*(snum+1)*p->X131;
+    if(p->X131>0)
+    {
+        for(qn=0;qn<p->X131;++qn)
+        {
+            r=p->X131_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // cylinder_y
-    r=p->X132_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-	trisum+=5*(snum+1)*p->X132;
+    if(p->X132>0)
+    {
+        for(qn=0;qn<p->X132;++qn)
+        {
+            r=p->X132_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // cylinder_z
-    r=p->X133_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-    trisum+=5*(snum+1)*p->X133;
+    if(p->X133>0)
+    {
+        for(qn=0;qn<p->X133;++qn)
+        {
+            r=p->X133_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // wedge sym
     trisum+=12*p->X153;

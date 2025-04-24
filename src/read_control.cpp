@@ -2238,18 +2238,15 @@ void lexer::read_control()
                          X120=1;
                          clear(c,numint);
                          break;
-                case  131: control>>X131_rad>>X131_h>>X131_xc>>X131_yc>>X131_zc;
-                         X131=1;
-                         clear(c,numint);
-                         break;
-                case  132: control>>X132_rad>>X132_h>>X132_xc>>X132_yc>>X132_zc;
-                         X132=1;
-                         clear(c,numint);
-                         break;
-                case  133: control>>X133_rad>>X133_h>>X133_xc>>X133_yc>>X133_zc;
-                         X133=1;
-                         clear(c,numint);
-                         break;
+                case  131: ++X131;
+                        clear(c,numint);
+                        break;
+                case  132: ++X132;
+                        clear(c,numint);
+                        break;
+                case  133: ++X133;
+                        clear(c,numint);
+                        break;
                 case  153: control>>X153_xs>>X153_xe>>X153_ys>>X153_ye>>X153_zs>>X153_ze;
                          X153=1;
                          clear(c,numint);
@@ -2987,6 +2984,31 @@ void lexer::read_control()
     Darray(X110_ye,X110);
     Darray(X110_ze,X110);
     Iarray(X110_objID,X110);
+    
+        Darray(X131_rad,X131);
+        Darray(X131_h,X131);
+        Darray(X131_xc,X131);
+        Darray(X131_yc,X131);
+        Darray(X131_zc,X131);
+        Iarray(X131_objID,X131);
+    
+
+        Darray(X132_rad,X132);
+        Darray(X132_h,X132);
+        Darray(X132_xc,X132);
+        Darray(X132_yc,X132);
+        Darray(X132_zc,X132);
+        Iarray(X132_objID,X132);
+
+    
+
+        Darray(X133_rad,X133);
+        Darray(X133_h,X133);
+        Darray(X133_xc,X133);
+        Darray(X133_yc,X133);
+        Darray(X133_zc,X133);
+        Iarray(X133_objID,X133);
+
 
     Darray(X163_x1,X163);
     Darray(X163_y1,X163);
@@ -3229,6 +3251,9 @@ void lexer::read_control()
     int countW41=0;
     int countX102=0;
     int countX110=0;
+    int countX131=0;
+    int countX132=0;
+    int countX133=0;
     int countX163=0;
     int countX164=0;
     int countX165=0;
@@ -3682,6 +3707,18 @@ void lexer::read_control()
                         ++countX110;
 						 clear(c,numint);
 						 break;
+                case  131: control>>X131_rad[countX131]>>X131_h[countX131]>>X131_xc[countX131]>>X131_yc[countX131]>>X131_zc[countX131]>>X131_objID[countX131];
+                         ++countX131;
+                         clear(c,numint);
+                         break;
+                 case  132: control>>X132_rad[countX132]>>X132_h[countX132]>>X132_xc[countX132]>>X132_yc[countX132]>>X132_zc[countX132]>>X132_objID[countX132];
+                         ++countX132;
+                         clear(c,numint);
+                         break;
+                 case  133: control>>X133_rad[countX133]>>X133_h[countX133]>>X133_xc[countX133]>>X133_yc[countX133]>>X133_zc[countX133]>>X133_objID[countX133];
+                         ++countX133;
+                         clear(c,numint);
+                         break;
                 case 163: control>>X163_x1[countX163]>>X163_y1[countX163]>>X163_z1[countX163]>>X163_x2[countX163]>>X163_y2[countX163]>>X163_z2[countX163]
                                  >>X163_x3[countX163]>>X163_y3[countX163]>>X163_z3[countX163]>>X163_x4[countX163]>>X163_y4[countX163]>>X163_z4[countX163]
                                  >>X163_x5[countX163]>>X163_y5[countX163]>>X163_z5[countX163]>>X163_x6[countX163]>>X163_y6[countX163]>>X163_z6[countX163];

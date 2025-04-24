@@ -1730,40 +1730,10 @@ void lexer::ctrlrecv()
     dd++;
     X131 = ictrl[ii];
     ii++;
-    X131_rad = dctrl[dd];
-    dd++;
-    X131_h = dctrl[dd];
-    dd++;
-    X131_xc = dctrl[dd];
-    dd++;
-    X131_yc = dctrl[dd];
-    dd++;
-    X131_zc = dctrl[dd];
-    dd++;
     X132 = ictrl[ii];
     ii++;
-    X132_rad = dctrl[dd];
-    dd++;
-    X132_h = dctrl[dd];
-    dd++;
-    X132_xc = dctrl[dd];
-    dd++;
-    X132_yc = dctrl[dd];
-    dd++;
-    X132_zc = dctrl[dd];
-    dd++;
     X133 = ictrl[ii];
     ii++;
-    X133_rad = dctrl[dd];
-    dd++;
-    X133_h = dctrl[dd];
-    dd++;
-    X133_xc = dctrl[dd];
-    dd++;
-    X133_yc = dctrl[dd];
-    dd++;
-    X133_zc = dctrl[dd];
-    dd++;
     X153 = ictrl[ii];
     ii++;
     X153_xs = dctrl[dd];
@@ -2743,6 +2713,36 @@ void lexer::ctrlrecv()
     Iarray(X110_objID,X110);
     }
     
+    if(X131>0)
+    {
+        Darray(X131_rad,X131);
+        Darray(X131_h,X131);
+        Darray(X131_xc,X131);
+        Darray(X131_yc,X131);
+        Darray(X131_zc,X131);
+        Iarray(X131_objID,X131);
+    }
+
+    if(X132>0)
+    {
+        Darray(X132_rad,X132);
+        Darray(X132_h,X132);
+        Darray(X132_xc,X132);
+        Darray(X132_yc,X132);
+        Darray(X132_zc,X132);
+        Iarray(X132_objID,X132);
+    }
+
+    if(X133>0)
+    {
+        Darray(X133_rad,X133);
+        Darray(X133_h,X133);
+        Darray(X133_xc,X133);
+        Darray(X133_yc,X133);
+        Darray(X133_zc,X133);
+        Iarray(X133_objID,X133);
+    }
+
     if(X163>0)
 	{
 	Darray(X163_x1,X163);
@@ -4064,6 +4064,54 @@ for(n=0;n<F369;++n)
     dd++;
     X110_objID[n] = ictrl[ii];
     ii++;
+    }
+
+    for(n=0;n<X131;++n)
+    {
+            X131_rad[n] = dctrl[dd];
+            dd++;
+            X131_h[n] = dctrl[dd];
+            dd++;
+            X131_xc[n] = dctrl[dd];
+            dd++;
+            X131_yc[n] = dctrl[dd];
+            dd++;
+            X131_zc[n] = dctrl[dd];
+            dd++;
+            X131_objID[n] = ictrl[ii];
+            ii++;
+    }
+
+    for(n=0;n<X132;++n)
+    {
+        X132_rad[n] = dctrl[dd];
+        dd++;
+        X132_h[n] = dctrl[dd];
+        dd++;
+        X132_xc[n] = dctrl[dd];
+        dd++;
+        X132_yc[n] = dctrl[dd];
+        dd++;
+        X132_zc[n] = dctrl[dd];
+        dd++;
+        X132_objID[n] = ictrl[ii];
+        ii++;
+    }
+
+    for(n=0;n<X133;++n)
+    {
+        X133_rad[n] = dctrl[dd];
+        dd++;
+        X133_h[n] = dctrl[dd];
+        dd++;
+        X133_xc[n] = dctrl[dd];
+        dd++;
+        X133_yc[n] = dctrl[dd];
+        dd++;
+        X133_zc[n] = dctrl[dd];
+        dd++;
+        X133_objID[n] = ictrl[ii];
+        ii++;
     }
     
     for(n=0;n<X163;++n)

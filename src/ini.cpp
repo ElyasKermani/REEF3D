@@ -849,15 +849,13 @@ void lexer::ini_default()
     X110=0;        // int rectangular box floating body
     X120=0;        // int sphere floating bod
     X120_rad=X120_xc=X120_yc=X120_zc=0.0;
-    X131=0;        // int cylinder floating bod
-    X131_rad=X131_h=X131_xc=X131_yc=X131_zc=0.0;
-    X132=0;        // int cylinder floating bod
-    X132_rad=X132_h=X132_xc=X132_yc=X132_zc=0.0;
-    X133=0;        // int cylinder floating bod
-    X133_rad=X133_h=X133_xc=X133_yc=X133_zc=0.0;
+    X131=0;        // int cylinder floating bod x
+    X132=0;        // int cylinder floating bod y
+    X133=0;        // int cylinder floating bod z
     X153=0;        // int symmetric wedge
     X163=0;        // int wedge
     X164=0;        // int hexahedron
+    X165=0;        // int sphere
     X180=0;        // int read .stl file for floating body geometry
     X181=1.0;   // double scale .stl geometry
     X181=0;     // int scale .stl geometry on/off
@@ -872,9 +870,7 @@ void lexer::ini_default()
     X205=1;     // type of ramp up function
     X206=0;     // int ramp up velocity
     X206_ts=0.0;   // double ramp start
-    X206_ts=0.0;   // double ramp start
     X207=0;     // int ramp up draft
-    X207_ts=0.0;   // double ramp start
     X207_ts=0.0;   // double ramp start
 	X210=0;		// int give fixed linear velocity
     X210_u=0.0; // double fixed u vel

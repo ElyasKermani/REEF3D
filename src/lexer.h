@@ -644,9 +644,12 @@ public:
     double *X165_rad;  // Radius
     int *X165_objID;  // Object ID
     double X120_rad,X120_xc,X120_yc,X120_zc;
-    double X131_rad,X131_h,X131_xc,X131_yc,X131_zc;
-    double X132_rad,X132_h,X132_xc,X132_yc,X132_zc;
-    double X133_rad,X133_h,X133_xc,X133_yc,X133_zc;
+    double *X131_rad,*X131_h,*X131_xc,*X131_yc,*X131_zc;
+    int *X131_objID;
+    double *X132_rad,*X132_h,*X132_xc,*X132_yc,*X132_zc;
+    int *X132_objID;
+    double *X133_rad,*X133_h,*X133_xc,*X133_yc,*X133_zc;
+    int *X133_objID;
     double X153_xs,X153_xe,X153_ys,X153_ye,X153_zs,X153_ze;
     int X163;
     double *X163_x1,*X163_y1,*X163_z1;
