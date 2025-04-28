@@ -33,27 +33,28 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     if(p->mpirank==0)
     cout<<"6DOF Collision Model startup..."<<endl;
     
-    // Set default collision model
-    contact_model = ContactForceModel::Linear;
+    // Set default collision model to Hertz-Mindlin
+    contact_model = ContactForceModel::HertzMindlin;
     
-    // Initialize common parameters from control file parameters
-    // These should be added to the parameter file in a real implementation
-    // For now, we set default values
-    spring_constant = 1.0e6;            // Default stiffness [N/m]
-    damping_constant = 1.0e4;           // Default damping [N·s/m]
-    friction_coefficient = 0.3;         // Default friction coefficient
-    restitution_coefficient = 0.7;      // Default restitution coefficient
+    // Initialize base parameters (these are reference values for a 1m object)
+    base_spring_constant = 1.0e7;            // Base stiffness [N/m]
+    base_damping_constant = 2.0e4;           // Base damping [N·s/m]
+    base_young_modulus = 2.0e7;              // Base Young's modulus [Pa]
+    base_surface_energy = 0.1;               // Base surface energy [J/m²]
     
-    // Initialize Hertzian contact parameters
-    young_modulus = 1.0e7;              // Default Young's modulus [Pa]
-    poisson_ratio = 0.3;                // Default Poisson's ratio
+    // Initialize fixed parameters
+    poisson_ratio = 0.3;                     // Poisson's ratio
+    friction_coefficient = 0.3;              // Friction coefficient
+    restitution_coefficient = 0.65;          // Restitution coefficient
+    dmt_cutoff_threshold = 0.1;              // DMT cutoff threshold
     
-    // Initialize DMT model parameters
-    surface_energy = 0.05;              // Default surface energy [J/m²]
-    dmt_cutoff_threshold = 0.1;         // Default cutoff threshold for DMT
+    // Rolling resistance parameters
+    rolling_friction_coefficient = 0.01;      // Rolling friction coefficient
+    rolling_viscous_damping = 1.0e3;         // Rolling viscous damping [N·m·s]
     
-    // Allocate space for bounding radius for each 6DOF object
+    // Allocate space for bounding radius and contact history
     bounding_radius.resize(p->X20);
+    contact_history.clear();
     
     // Set initial bounding radius for each object
     // In a real implementation, this would be calculated based on the object geometry
@@ -77,6 +78,9 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
     {
         for(int j=i+1; j<p->X20; ++j)
         {
+            // Calculate size-dependent parameters for this pair
+            calculate_size_dependent_parameters(p, fb_obj[i], fb_obj[j]);
+            
             // Variables to store collision information
             Eigen::Vector3d contact_point, normal;
             double overlap = 0.0;
@@ -265,10 +269,30 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
         t_hat.normalize();
     }
     
-    // Calculate normal force using linear spring-dashpot model
-    double fn = spring_constant * overlap - damping_constant * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
+    // Calculate effective mass for the collision
+    double m1 = obj1->Mass_fb;
+    double m2 = obj2->Mass_fb;
+    double m_eff = (m1 * m2) / (m1 + m2);  // Reduced mass
+
+    // Calculate effective stiffness based on Young's modulus and size
+    double R1 = bounding_radius[obj1->n6DOF];
+    double R2 = bounding_radius[obj2->n6DOF];
+    double R_eff = (R1 * R2) / (R1 + R2);  // Effective radius
     
+    // Calculate effective Young's modulus
+    double E1 = scaled_young_modulus;
+    double E2 = scaled_young_modulus;
+    double nu1 = poisson_ratio;
+    double nu2 = poisson_ratio;
+    double E_eff = calculate_effective_young_modulus(E1, E2, nu1, nu2);
+    
+    // Calculate contact stiffness based on Hertz theory
+    double k_hertz = (4.0/3.0) * E_eff * sqrt(R_eff);
+    
+    // Calculate normal force using linear spring-dashpot model
+    double fn = k_hertz * overlap - scaled_damping_constant * v_rel_n;
+    fn = max(fn, 0.0); // Ensure normal force is repulsive
+
     // Calculate tangential (friction) force
     double ft = friction_coefficient * fn;
     if(v_rel_t_mag > 1.0e-10)
@@ -279,10 +303,10 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     {
         ft = 0.0;
     }
-    
-    // Total force vector
-    force = (fn * normal - ft * t_hat)/1.0e3;
-    
+
+    // Total force vector (no artificial scaling)
+    force = fn * normal - ft * t_hat;
+
     // Calculate torque
     torque = r1.cross(force);
 }
@@ -347,14 +371,14 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     
     // Calculate effective radius and effective Young's modulus
     double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    double E_eff = calculate_effective_young_modulus(scaled_young_modulus, scaled_young_modulus, poisson_ratio, poisson_ratio);
     
     // Calculate Hertzian stiffness
     double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
     
     // Calculate normal force using Hertzian contact model (non-linear spring with damping)
     // Fn = (4/3) * E* * sqrt(R*) * delta^(3/2) - damping_coefficient * v_rel_n
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant * v_rel_n;
+    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - scaled_damping_constant * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
     // Calculate tangential (friction) force - Coulomb friction
@@ -375,120 +399,116 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     torque = r1.cross(force);
 }
 
-void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                         const Eigen::Vector3d &contact_point, 
-                                                         const Eigen::Vector3d &normal, 
-                                                         const double overlap,
-                                                         Eigen::Vector3d &force, 
-                                                         Eigen::Vector3d &torque)
+void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell *pgc,
+                                                           sixdof_obj *obj1, sixdof_obj *obj2,
+                                                           const Eigen::Vector3d &contact_point,
+                                                           const Eigen::Vector3d &normal,
+                                                           const double overlap,
+                                                           Eigen::Vector3d &force,
+                                                           Eigen::Vector3d &torque)
 {
+    // Get object IDs for contact history
     int id1 = obj1->n6DOF;
     int id2 = obj2->n6DOF;
+    auto contact_pair = std::make_pair(std::min(id1, id2), std::max(id1, id2));
     
-    // Unique identifier for this contact pair
-    pair<int, int> contact_pair = make_pair(min(id1, id2), max(id1, id2));
-    
-    // Get object centers, velocities and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Relative position vectors from centers to contact point
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-    
-    // Get linear velocities at centers
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate velocities at contact point
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
-    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    
-    // Relative velocity at contact point
-    Eigen::Vector3d v_rel = v2_contact - v1_contact;
-    
-    // Normal component of relative velocity
-    double v_rel_n = v_rel.dot(normal);
-    
-    // Tangential component of relative velocity
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-    double v_rel_t_mag = v_rel_t.norm();
-    
-    // Get or create contact history for this pair
-    auto it = contact_history.find(contact_pair);
-    if(it == contact_history.end())
+    // Get or create contact history
+    auto &history = contact_history[contact_pair];
+    if(!history.in_contact)
     {
-        // New contact
-        ContactHistory history;
         history.tangential_overlap.setZero();
         history.in_contact = true;
         history.last_update_time = p->simtime;
-        contact_history[contact_pair] = history;
     }
     
-    // Get time step
-    double dt = p->simtime - contact_history[contact_pair].last_update_time;
-    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
+    // Calculate Hertz stiffness
+    double k_hertz = calculate_hertz_stiffness(effective_young_modulus, effective_radius);
     
-    // Update contact history
-    contact_history[contact_pair].in_contact = true;
-    contact_history[contact_pair].last_update_time = p->simtime;
+    // Get relative velocity at contact point
+    Eigen::Vector3d vel1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
+    vel1 += obj1->omega_I.cross(contact_point - obj1->c_);
+    Eigen::Vector3d vel2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
+    vel2 += obj2->omega_I.cross(contact_point - obj2->c_);
+    Eigen::Vector3d rel_vel = vel2 - vel1;
     
-    // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    // Normal component of relative velocity
+    double v_n = rel_vel.dot(normal);
     
-    // Calculate Hertzian stiffness
-    double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
+    // Calculate normal force using Hertz-Mindlin model with force limiting
+    double F_n = k_hertz * pow(overlap, 1.5);  // Hertz normal force
+    double F_n_damping = scaled_damping_constant * v_n;  // Damping force
     
-    // Calculate normal force using Hertzian contact model (non-linear spring with damping)
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
+    // Limit maximum force based on material strength
+    double max_force = M_PI * effective_radius * effective_radius * scaled_young_modulus;
+    F_n = std::min(F_n + F_n_damping, max_force);
     
-    // Calculate tangential spring constant (simplification of Mindlin theory)
-    double G_eff = 0.5 * E_eff / (2.0 * (1.0 + poisson_ratio)); // Effective shear modulus
-    double k_t = 8.0 * G_eff * sqrt(R_eff * overlap); // Tangential stiffness
+    // Calculate tangential force
+    Eigen::Vector3d v_t = rel_vel - v_n * normal;
+    double dt = p->simtime - history.last_update_time;
+    history.last_update_time = p->simtime;
     
-    // Update tangential overlap (displacement)
-    if(v_rel_t_mag > 1.0e-10)
+    // Update tangential overlap
+    if(dt > 0.0)
     {
-        Eigen::Vector3d t_hat = v_rel_t / v_rel_t_mag;
+        history.tangential_overlap += v_t * dt;
         
-        // Increment tangential overlap based on relative velocity
-        contact_history[contact_pair].tangential_overlap += v_rel_t * dt;
+        // Project tangential overlap to be perpendicular to normal
+        history.tangential_overlap -= normal * history.tangential_overlap.dot(normal);
+    }
+    
+    // Calculate tangential stiffness (Mindlin)
+    double G = effective_young_modulus / (2.0 * (1.0 + poisson_ratio));
+    double k_t = 8.0 * G * sqrt(effective_radius * overlap);
+    
+    // Calculate tangential force
+    Eigen::Vector3d F_t = -k_t * history.tangential_overlap;
+    double F_t_mag = F_t.norm();
+    
+    // Apply Coulomb friction limit
+    double F_t_max = friction_coefficient * F_n;
+    if(F_t_mag > F_t_max)
+    {
+        F_t *= F_t_max / F_t_mag;
+        // Reset tangential overlap to match limited force
+        history.tangential_overlap = -F_t / k_t;
+    }
+    
+    // Calculate rolling resistance torque
+    Eigen::Vector3d omega_rel = obj2->omega_I - obj1->omega_I;
+    Eigen::Vector3d rolling_torque;
+    if(omega_rel.norm() > 1e-10)
+    {
+        // Viscous rolling resistance
+        rolling_torque = -scaled_rolling_damping * omega_rel;
         
-        // Project tangential overlap to the current tangential plane
-        contact_history[contact_pair].tangential_overlap -= 
-            normal * normal.dot(contact_history[contact_pair].tangential_overlap);
-        
-        // Calculate the tangential force based on tangential spring
-        Eigen::Vector3d ft_vector = k_t * contact_history[contact_pair].tangential_overlap;
-        double ft_mag = ft_vector.norm();
-        
-        // Apply Coulomb's friction law (capping the tangential force)
-        double ft_max = friction_coefficient * fn;
-        if(ft_mag > ft_max)
+        // Limit rolling torque based on normal force
+        double max_rolling_torque = rolling_friction_coefficient * F_n * effective_radius;
+        if(rolling_torque.norm() > max_rolling_torque)
         {
-            // Scale tangential overlap and force to the maximum allowed
-            contact_history[contact_pair].tangential_overlap *= (ft_max / ft_mag);
-            ft_vector *= (ft_max / ft_mag);
+            rolling_torque *= max_rolling_torque / rolling_torque.norm();
         }
-        
-        // Total force vector
-        force = fn * normal - ft_vector;
     }
     else
     {
-        // No tangential motion, just apply normal force
-        force = fn * normal;
+        rolling_torque.setZero();
     }
     
-    // Calculate torque
-    torque = r1.cross(force);
+    // Combine forces
+    force = F_n * normal + F_t;
+    
+    // Calculate torque from force and rolling resistance
+    Eigen::Vector3d r1 = contact_point - obj1->c_;
+    torque = r1.cross(force) + rolling_torque;
+    
+    // Log forces if debugging
+    if(p->mpirank==0 && p->count%p->P12==0)
+    {
+        cout<<"  Normal force: "<<F_n<<endl;
+        cout<<"  Tangential force: "<<F_t.norm()<<endl;
+        cout<<"  Rolling torque: "<<rolling_torque.norm()<<endl;
+        cout<<"  Effective radius: "<<effective_radius<<endl;
+        cout<<"  Effective Young's modulus: "<<effective_young_modulus<<endl;
+    }
 }
 
 void sixdof_collision::calculate_dmt_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
@@ -533,7 +553,7 @@ void sixdof_collision::calculate_dmt_contact_force(lexer *p, ghostcell *pgc, six
     
     // Calculate effective radius and effective Young's modulus
     double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    double E_eff = calculate_effective_young_modulus(scaled_young_modulus, scaled_young_modulus, poisson_ratio, poisson_ratio);
     
     // Calculate Hertzian stiffness
     double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
@@ -542,14 +562,14 @@ void sixdof_collision::calculate_dmt_contact_force(lexer *p, ghostcell *pgc, six
     double hertz_force = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
     
     // Calculate adhesive force from DMT model
-    double pull_off_force = 2.0 * M_PI * surface_energy * R_eff;
+    double pull_off_force = 2.0 * M_PI * scaled_surface_energy * R_eff;
     
     // Apply contact force only if we're within the cutoff threshold
     // In the DMT model, adhesion forces act even at small separations
     double fn = hertz_force - pull_off_force;
     
     // Apply damping
-    fn -= damping_constant * v_rel_n;
+    fn -= scaled_damping_constant * v_rel_n;
     
     // Handle friction
     Eigen::Vector3d ft_vector = Eigen::Vector3d::Zero();
@@ -625,4 +645,48 @@ double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, si
     
     // Calculate distance between centers
     return (center2 - center1).norm();
+}
+
+void sixdof_collision::calculate_size_dependent_parameters(lexer *p, sixdof_obj *obj1, sixdof_obj *obj2)
+{
+    // Get characteristic sizes (using bounding radius as approximation)
+    double size1 = bounding_radius[obj1->n6DOF] * 2.0;  // Diameter
+    double size2 = bounding_radius[obj2->n6DOF] * 2.0;  // Diameter
+    
+    // Calculate average size ratio compared to base 1m object
+    double size_ratio = (size1 + size2) / 2.0;
+    
+    // Scale spring constant linearly with size
+    scaled_spring_constant = base_spring_constant * size_ratio;
+    
+    // Scale damping with square root of size (to maintain critical damping ratio)
+    scaled_damping_constant = base_damping_constant * sqrt(size_ratio);
+    
+    // Scale Young's modulus linearly with size
+    scaled_young_modulus = base_young_modulus * size_ratio;
+    
+    // Scale surface energy with square of size (surface area scaling)
+    scaled_surface_energy = base_surface_energy * size_ratio * size_ratio;
+    
+    // Calculate effective material properties
+    double E1 = scaled_young_modulus;
+    double E2 = scaled_young_modulus;
+    double nu1 = poisson_ratio;
+    double nu2 = poisson_ratio;
+    
+    effective_young_modulus = calculate_effective_young_modulus(E1, E2, nu1, nu2);
+    effective_radius = calculate_effective_radius(bounding_radius[obj1->n6DOF], 
+                                                bounding_radius[obj2->n6DOF]);
+    
+    // Scale rolling resistance parameters
+    scaled_rolling_damping = rolling_viscous_damping * size_ratio * size_ratio;
+    
+    if(p->mpirank==0 && p->count%p->P12==0)
+    {
+        cout<<"6DOF Collision parameters scaled for size: "<<size_ratio<<"m"<<endl;
+        cout<<"  Spring constant: "<<scaled_spring_constant<<" N/m"<<endl;
+        cout<<"  Damping constant: "<<scaled_damping_constant<<" N·s/m"<<endl;
+        cout<<"  Young's modulus: "<<scaled_young_modulus<<" Pa"<<endl;
+        cout<<"  Surface energy: "<<scaled_surface_energy<<" J/m²"<<endl;
+    }
 } 
