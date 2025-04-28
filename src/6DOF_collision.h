@@ -54,6 +54,9 @@ public:
     // Set the contact force model to use
     void set_contact_force_model(ContactForceModel model) { contact_model = model; }
     
+    // New function for size-dependent parameter calculation
+    void calculate_size_dependent_parameters(lexer *p, sixdof_obj *obj1, sixdof_obj *obj2);
+    
 private:
 
     // Detect collision between two 6DOF objects
@@ -102,19 +105,30 @@ private:
     // Parameters for the collision models
     ContactForceModel contact_model;
     
-    // Common parameters
-    double spring_constant;          // Normal spring stiffness [N/m]
-    double damping_constant;         // Normal damping coefficient [N·s/m]
-    double friction_coefficient;     // Tangential friction coefficient
-    double restitution_coefficient;  // Coefficient of restitution
+    // Base parameters for scaling
+    double base_spring_constant;
+    double base_damping_constant;
+    double base_young_modulus;
+    double base_surface_energy;
     
-    // Hertzian contact parameters
-    double young_modulus;            // Young's modulus [Pa]
-    double poisson_ratio;            // Poisson's ratio
+    // Current parameters (scaled)
+    double scaled_spring_constant;
+    double scaled_damping_constant;
+    double scaled_young_modulus;
+    double scaled_surface_energy;
+    double effective_young_modulus;
+    double effective_radius;
     
-    // DMT model parameters
-    double surface_energy;           // Surface energy [J/m²]
-    double dmt_cutoff_threshold;     // Cutoff for DMT force
+    // Fixed parameters
+    double poisson_ratio;
+    double friction_coefficient;
+    double restitution_coefficient;
+    double dmt_cutoff_threshold;
+    
+    // Rolling resistance parameters
+    double rolling_friction_coefficient;
+    double rolling_viscous_damping;
+    double scaled_rolling_damping;
     
     // Contact history for Hertz-Mindlin model
     struct ContactHistory {
