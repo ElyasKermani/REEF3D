@@ -40,10 +40,6 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
     
     // Initialize the collision model
     p_collision = new sixdof_collision(p,pgc);
-    
-    // Set collision model based on parameters (in a real implementation, would use parameter file)
-    // Default is Linear - could be set to ContactForceModel::Hertz, ContactForceModel::HertzMindlin, or ContactForceModel::DMT
-    p_collision->set_contact_force_model(ContactForceModel::Linear);
 }
     
 sixdof_cfd::~sixdof_cfd()
