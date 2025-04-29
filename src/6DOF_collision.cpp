@@ -265,15 +265,59 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
         t_hat.normalize();
     }
     
-    // Calculate normal force using linear spring-dashpot model
-    double fn = spring_constant * overlap - damping_constant * v_rel_n;
+    // Calculate effective mass
+    // Following Lethe's approach for equivalent mass calculation
+    double m1 = obj1->Mass_fb;
+    double m2 = obj2->Mass_fb;
+    double effective_mass = (m1 * m2) / (m1 + m2);
+    
+    // Calculate spring constant using effective mass and restitution coefficient
+    // For now, we'll keep using the existing spring_constant parameter
+    // but will add proper calculation in future updates
+    
+    // Calculate damping coefficient based on coefficient of restitution
+    // Following Lethe's logarithmic approach
+    double beta = 0.0;
+    
+    // Handle edge cases for restitution coefficient
+    if(restitution_coefficient < 1.0e-6) 
+    {
+        // For near-zero restitution, use critical damping
+        beta = 1.0;
+    }
+    else if(restitution_coefficient >= 1.0) 
+    {
+        // For perfect or super-elastic collisions, no damping
+        beta = 0.0;
+    }
+    else
+    {
+        // Normal case: logarithmic model
+        double log_coeff_restitution = log(restitution_coefficient);
+        beta = log_coeff_restitution / sqrt(log_coeff_restitution * log_coeff_restitution + M_PI * M_PI);
+    }
+    
+    // Calculate damping using the proper formula based on critical damping
+    double critical_damping = 2.0 * sqrt(effective_mass * spring_constant);
+    double damping = -beta * critical_damping;
+    
+    // Calculate normal force using linear spring-dashpot model with proper damping
+    double fn = spring_constant * overlap;
+    
+    // Only apply damping when objects are approaching (v_rel_n < 0)
+    if (v_rel_n < 0)
+    {
+        fn -= damping * v_rel_n;
+    }
+    
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
     // Calculate tangential (friction) force
     double ft = friction_coefficient * fn;
     if(v_rel_t_mag > 1.0e-10)
     {
-        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
+        // Apply tangential force opposite to tangential velocity
+        ft = min(ft, damping * v_rel_t_mag); // Limit friction force
     }
     else
     {
@@ -281,7 +325,7 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     }
     
     // Total force vector
-    force = (fn * normal - ft * t_hat)/1.0e3;
+    force = (fn * normal - ft * t_hat);
     
     // Calculate torque
     torque = r1.cross(force);
