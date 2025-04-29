@@ -36,16 +36,6 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Set default collision model
     contact_model = ContactForceModel::Linear;
     
-    // Initialize material properties for each object
-    obj_material_props.resize(p->X20);
-    for(int i=0; i<p->X20; ++i) {
-        // Initialize with default values - in a real implementation
-        // these would be read from the parameter file
-        obj_material_props[i].youngs_modulus = 1.0e7;    // Default 10 MPa
-        obj_material_props[i].poisson_ratio = 0.3;       // Default Poisson's ratio
-        obj_material_props[i].restitution_coeff = 0.7;   // Default restitution
-    }
-    
     // Initialize common parameters from control file parameters
     // These should be added to the parameter file in a real implementation
     // For now, we set default values
@@ -256,70 +246,42 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Get material properties and calculate effective values
-    const double E1 = obj_material_props[id1].youngs_modulus;
-    const double E2 = obj_material_props[id2].youngs_modulus;
-    const double nu1 = obj_material_props[id1].poisson_ratio;
-    const double nu2 = obj_material_props[id2].poisson_ratio;
-    const double rest1 = obj_material_props[id1].restitution_coeff;
-    const double rest2 = obj_material_props[id2].restitution_coeff;
-    
-    // Calculate effective properties
-    const double E_eff = calculate_effective_young_modulus(E1, E2, nu1, nu2);
-    const double rest_eff = calculate_effective_restitution(rest1, rest2);
-    
-    // Calculate equivalent radius - use the average of the bounding radii as approximation
-    const double r_eff = (bounding_radius[id1] + bounding_radius[id2]) / 2.0;
-    
-    // Calculate equivalent mass
-    const double m1 = obj1->Mass_fb;
-    const double m2 = obj2->Mass_fb;
-    const double m_eff = (m1 * m2) / (m1 + m2);
-    
-    // Calculate spring and damping constants
-    const double k_n = 1.0e6;
-    const double c_n = 1.0e4;
-    //const double k_n = calculate_spring_constant(E_eff, r_eff, m_eff);
-    //const double c_n = calculate_damping_constant(k_n, m_eff, rest_eff);
-    
-    // Calculate normal force using linear spring-dashpot model
-    double fn = k_n * overlap - c_n * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
-    
-    // Calculate tangential spring and damping constants (based on normal constants)
-    const double k_t = 0.4 * k_n;
-    const double c_t = 0.6324555320336759 * c_n; // sqrt(0.4)
-    
-    // Simplified tangential force calculation without history tracking
-    Eigen::Vector3d tangential_force;
-    
-    if(v_rel_t_mag > 1.0e-10) {
-        // Direction of tangential motion
-        Eigen::Vector3d t_hat = v_rel_t / v_rel_t_mag;
-        
-        // Apply viscous damping proportional to tangential velocity
-        Eigen::Vector3d damping_force = -c_t * v_rel_t;
-        
-        // Calculate Coulomb friction limit
-        double ft_coulomb = friction_coefficient * fn;
-        
-        // Calculate magnitude of damping force
-        double damping_magnitude = damping_force.norm();
-        
-        // Apply Coulomb's friction law (capping at μFn)
-        if(damping_magnitude > ft_coulomb) {
-            // Limit to Coulomb friction
-            tangential_force = -ft_coulomb * t_hat;
-        } else {
-            // Use damping directly
-            tangential_force = damping_force;
-        }
-    } else {
-        tangential_force = Eigen::Vector3d::Zero();
+    // Unit vector in tangential direction
+    Eigen::Vector3d t_hat;
+    if(v_rel_t_mag > 1.0e-10)
+    {
+        t_hat = v_rel_t / v_rel_t_mag;
+    }
+    else
+    {
+        // If tangential velocity is close to zero, use a default tangential direction
+        // (perpendicular to normal)
+        if(fabs(normal(0)) > 0.5)
+            t_hat = Eigen::Vector3d(0.0, 1.0, 0.0);
+        else
+            t_hat = Eigen::Vector3d(1.0, 0.0, 0.0);
+            
+        t_hat = t_hat - normal.dot(t_hat) * normal;
+        t_hat.normalize();
     }
     
-    // Total force vector (divide by 1000 to convert from N to kN which is what REEF3D uses)
-    force = (fn * normal + tangential_force)/1.0e3;
+    // Calculate normal force using linear spring-dashpot model
+    double fn = spring_constant * overlap - damping_constant * v_rel_n;
+    fn = max(fn, 0.0); // Ensure normal force is repulsive
+    
+    // Calculate tangential (friction) force
+    double ft = friction_coefficient * fn;
+    if(v_rel_t_mag > 1.0e-10)
+    {
+        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
+    }
+    else
+    {
+        ft = 0.0;
+    }
+    
+    // Total force vector
+    force = (fn * normal - ft * t_hat)/1.0e3;
     
     // Calculate torque
     torque = r1.cross(force);
@@ -663,34 +625,4 @@ double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, si
     
     // Calculate distance between centers
     return (center2 - center1).norm();
-}
-
-double sixdof_collision::calculate_effective_restitution(double e1, double e2)
-{
-    // Calculate effective coefficient of restitution
-    // Using harmonic mean approach
-    return 2.0 * e1 * e2 / (e1 + e2 + 1.0e-10);
-}
-
-double sixdof_collision::calculate_spring_constant(double effective_E, double rp, double mass)
-{
-    // Calculate spring constant based on Hertz theory adapted for linear model
-    // Using the approach from Lethe
-    double rp_sqrt = sqrt(rp);
-    return 1.0667 * rp_sqrt * effective_E * 
-           pow((0.9375 * mass * 1.0 * 1.0 / (rp_sqrt * effective_E)), 0.2);
-}
-
-double sixdof_collision::calculate_beta_from_restitution(double restitution_coeff)
-{
-    // Calculate beta parameter from coefficient of restitution
-    double log_coeff = log(restitution_coeff);
-    return log_coeff / sqrt((log_coeff * log_coeff) + 9.8696);
-}
-
-double sixdof_collision::calculate_damping_constant(double spring_k, double mass, double rest_coeff)
-{
-    // Calculate damping constant based on the coefficient of restitution
-    double beta = calculate_beta_from_restitution(rest_coeff);
-    return 2.0 * beta * sqrt(mass * spring_k);
 } 
