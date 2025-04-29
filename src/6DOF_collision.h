@@ -56,15 +56,6 @@ public:
     
 private:
 
-    // Material properties for 6DOF objects
-    struct MaterialProperties {
-        double youngs_modulus;       // Young's modulus [Pa]
-        double poisson_ratio;        // Poisson's ratio
-        double restitution_coeff;    // Coefficient of restitution
-    };
-    
-    std::vector<MaterialProperties> obj_material_props;  // Material properties for each object
-
     // Detect collision between two 6DOF objects
     bool detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2, 
                          Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
@@ -104,14 +95,6 @@ private:
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
     double calculate_effective_radius(double R1, double R2);
-    double calculate_effective_restitution(double e1, double e2);
-    
-    // Calculate spring and damping constants from material properties
-    double calculate_spring_constant(double effective_E, double rp, double mass);
-    double calculate_damping_constant(double spring_k, double mass, double rest_coeff);
-    
-    // Calculate damping parameter beta from restitution coefficient
-    double calculate_beta_from_restitution(double restitution_coeff);
     
     // Helper function for Hertzian contact
     double calculate_hertz_stiffness(double E_eff, double R_eff);
