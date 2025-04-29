@@ -256,25 +256,6 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Unit vector in tangential direction
-    Eigen::Vector3d t_hat;
-    if(v_rel_t_mag > 1.0e-10)
-    {
-        t_hat = v_rel_t / v_rel_t_mag;
-    }
-    else
-    {
-        // If tangential velocity is close to zero, use a default tangential direction
-        // (perpendicular to normal)
-        if(fabs(normal(0)) > 0.5)
-            t_hat = Eigen::Vector3d(0.0, 1.0, 0.0);
-        else
-            t_hat = Eigen::Vector3d(1.0, 0.0, 0.0);
-            
-        t_hat = t_hat - normal.dot(t_hat) * normal;
-        t_hat.normalize();
-    }
-    
     // Get material properties and calculate effective values
     const double E1 = obj_material_props[id1].youngs_modulus;
     const double E2 = obj_material_props[id2].youngs_modulus;
@@ -307,22 +288,29 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     const double k_t = 0.4 * k_n;
     const double c_t = 0.6324555320336759 * c_n; // sqrt(0.4)
     
-    // Track tangential displacement history
-    // Note: In a complete implementation, we need to add tangential_overlap to the contact_history
-    // For simplicity, here we use the tangential velocity with a spring
+    // Simplified tangential force calculation without history tracking
     Eigen::Vector3d tangential_force;
     
-    // Use tangential velocity for tangential force calculation
     if(v_rel_t_mag > 1.0e-10) {
-        tangential_force = -k_t * v_rel_t * p->dt - c_t * v_rel_t;
+        // Direction of tangential motion
+        Eigen::Vector3d t_hat = v_rel_t / v_rel_t_mag;
         
-        // Apply Coulomb's friction law
-        double ft_mag = tangential_force.norm();
+        // Apply viscous damping proportional to tangential velocity
+        Eigen::Vector3d damping_force = -c_t * v_rel_t;
+        
+        // Calculate Coulomb friction limit
         double ft_coulomb = friction_coefficient * fn;
         
-        if(ft_mag > ft_coulomb) {
-            // Limit tangential force to Coulomb friction
-            tangential_force = ft_coulomb * (tangential_force / ft_mag);
+        // Calculate magnitude of damping force
+        double damping_magnitude = damping_force.norm();
+        
+        // Apply Coulomb's friction law (capping at μFn)
+        if(damping_magnitude > ft_coulomb) {
+            // Limit to Coulomb friction
+            tangential_force = -ft_coulomb * t_hat;
+        } else {
+            // Use damping directly
+            tangential_force = damping_force;
         }
     } else {
         tangential_force = Eigen::Vector3d::Zero();
