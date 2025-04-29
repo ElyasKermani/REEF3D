@@ -36,17 +36,26 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Set default collision model
     contact_model = ContactForceModel::Linear;
     
-    // Initialize common parameters from control file parameters
+    // Initialize material properties with more physically realistic values
     // These should be added to the parameter file in a real implementation
-    // For now, we set default values
-    spring_constant = 1.0e6;            // Default stiffness [N/m]
-    damping_constant = 1.0e4;           // Default damping [N·s/m]
-    friction_coefficient = 0.3;         // Default friction coefficient
-    restitution_coefficient = 0.7;      // Default restitution coefficient
+    // For now, we set default values for common materials (metals/plastics)
     
-    // Initialize Hertzian contact parameters
-    young_modulus = 1.0e7;              // Default Young's modulus [Pa]
-    poisson_ratio = 0.3;                // Default Poisson's ratio
+    // Young's modulus for steel-like material [Pa]
+    young_modulus = 2.0e7;
+    
+    // Poisson's ratio (dimensionless)
+    poisson_ratio = 0.3;
+    
+    // Restitution coefficient (dimensionless)
+    restitution_coefficient = 0.7;
+    
+    // Friction coefficient (dimensionless)
+    friction_coefficient = 0.3;
+    
+    // Legacy parameters - kept for backward compatibility
+    // but no longer used directly in the updated linear model
+    spring_constant = 1.0e6;
+    damping_constant = 1.0e4;
     
     // Initialize DMT model parameters
     surface_energy = 0.05;              // Default surface energy [J/m²]
@@ -265,15 +274,48 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
         t_hat.normalize();
     }
     
-    // Calculate normal force using linear spring-dashpot model
-    double fn = spring_constant * overlap - damping_constant * v_rel_n;
+    // ---- LETHE APPROACH: Material-based coefficients ----
+    
+    // Calculate effective radius (using bounding sphere radii)
+    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
+    
+    // Calculate effective Young's modulus
+    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    
+    // Characteristic velocity (typically set to 1.0 in Lethe)
+    double char_velocity = 1.0;
+    
+    // Calculate effective mass (use reduced mass if masses differ)
+    double effective_mass = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+    
+    // Calculate normal spring constant following Lethe's approach
+    double rp_sqrt = sqrt(R_eff);
+    double normal_spring_constant = 1.0667 * rp_sqrt * E_eff * 
+                                   pow((0.9375 * effective_mass * char_velocity) / 
+                                      (rp_sqrt * E_eff), 0.2);
+    
+    // Calculate normal damping constant using restitution coefficient
+    double log_coeff_restitution = log(restitution_coefficient);
+    double model_parameter_beta = log_coeff_restitution / 
+                                 sqrt(log_coeff_restitution * log_coeff_restitution + 9.8696);
+    double normal_damping_constant = 2.0 * model_parameter_beta * 
+                                    sqrt(effective_mass * normal_spring_constant);
+    
+    // Calculate tangential spring and damping constants
+    double tangential_spring_constant = normal_spring_constant * 0.4;
+    double tangential_damping_constant = normal_damping_constant * sqrt(0.4);
+    
+    // Calculate normal force using spring-dashpot model with the new constants
+    double fn = normal_spring_constant * overlap - normal_damping_constant * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
     // Calculate tangential (friction) force
     double ft = friction_coefficient * fn;
     if(v_rel_t_mag > 1.0e-10)
     {
-        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
+        // Apply tangential damping (simplified, without history)
+        double ft_damping = tangential_damping_constant * v_rel_t_mag;
+        ft = min(ft, ft_damping); // Use the smaller of Coulomb limit or damping force
     }
     else
     {
@@ -281,7 +323,7 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     }
     
     // Total force vector
-    force = (fn * normal - ft * t_hat)/1.0e3;
+    force = (fn * normal - ft * t_hat)/1.0e3;  // Keep the scaling factor from original code
     
     // Calculate torque
     torque = r1.cross(force);
