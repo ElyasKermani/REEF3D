@@ -277,8 +277,10 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     const double m_eff = (m1 * m2) / (m1 + m2);
     
     // Calculate spring and damping constants
-    const double k_n = calculate_spring_constant(E_eff, r_eff, m_eff);
-    const double c_n = calculate_damping_constant(k_n, m_eff, rest_eff);
+    const double k_n = 1.0e6;
+    const double c_n = 1.0e4;
+    //const double k_n = calculate_spring_constant(E_eff, r_eff, m_eff);
+    //const double c_n = calculate_damping_constant(k_n, m_eff, rest_eff);
     
     // Calculate normal force using linear spring-dashpot model
     double fn = k_n * overlap - c_n * v_rel_n;
