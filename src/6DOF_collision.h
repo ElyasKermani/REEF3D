@@ -26,7 +26,6 @@ Author: Elyas Larkermani
 #include<Eigen/Dense>
 #include<vector>
 #include<map>
-#include<float.h>
 
 class lexer;
 class ghostcell;
@@ -96,26 +95,12 @@ private:
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
     double calculate_effective_radius(double R1, double R2);
-    double calculate_effective_restitution(double e1, double e2);
-    double calculate_effective_friction(double f1, double f2);
     
     // Helper function for Hertzian contact
     double calculate_hertz_stiffness(double E_eff, double R_eff);
     
     // Parameters for the collision models
     ContactForceModel contact_model;
-    
-    // Material properties for each object
-    std::vector<double> young_modulus_obj;       // Young's modulus for each object [Pa]
-    std::vector<double> poisson_ratio_obj;       // Poisson's ratio for each object
-    std::vector<double> restitution_coeff_obj;   // Restitution coefficient for each object
-    std::vector<double> friction_coeff_obj;      // Friction coefficient for each object
-    
-    // Derived contact parameters (calculated from material properties)
-    std::map<std::pair<int, int>, double> effective_young_modulus;
-    std::map<std::pair<int, int>, double> effective_restitution;
-    std::map<std::pair<int, int>, double> effective_friction;
-    std::map<std::pair<int, int>, double> model_parameter_beta; // For damping calculation
     
     // Common parameters
     double spring_constant;          // Normal spring stiffness [N/m]
@@ -131,13 +116,11 @@ private:
     double surface_energy;           // Surface energy [J/m²]
     double dmt_cutoff_threshold;     // Cutoff for DMT force
     
-    // Contact history for tangential force calculation
-    // NOTE: Not currently used for the simplified linear model
+    // Contact history for Hertz-Mindlin model
     struct ContactHistory {
-        Eigen::Vector3d tangential_overlap;   // Tangential displacement vector
-        bool in_contact;                      // Whether objects are currently in contact
-        double last_update_time;              // Time of last update (for dt calculation)
-        Eigen::Vector3d rolling_resistance_torque; // For rolling resistance (to be implemented)
+        Eigen::Vector3d tangential_overlap;
+        bool in_contact;
+        double last_update_time;
     };
     
     // Map to store contact history between object pairs

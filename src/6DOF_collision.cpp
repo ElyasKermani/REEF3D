@@ -36,22 +36,9 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Set default collision model
     contact_model = ContactForceModel::Linear;
     
-    // Initialize object property arrays
-    young_modulus_obj.resize(p->X20, 0.0);
-    poisson_ratio_obj.resize(p->X20, 0.0);
-    restitution_coeff_obj.resize(p->X20, 0.0);
-    friction_coeff_obj.resize(p->X20, 0.0);
-    
-    // Set default material properties for all objects
-    for(int i=0; i<p->X20; ++i)
-    {
-        young_modulus_obj[i] = 1.0e7;        // Default Young's modulus [Pa]
-        poisson_ratio_obj[i] = 0.3;          // Default Poisson's ratio
-        restitution_coeff_obj[i] = 0.7;      // Default restitution coefficient
-        friction_coeff_obj[i] = 0.3;         // Default friction coefficient
-    }
-    
-    // Common parameters - kept for backward compatibility
+    // Initialize common parameters from control file parameters
+    // These should be added to the parameter file in a real implementation
+    // For now, we set default values
     spring_constant = 1.0e6;            // Default stiffness [N/m]
     damping_constant = 1.0e4;           // Default damping [N·s/m]
     friction_coefficient = 0.3;         // Default friction coefficient
@@ -74,33 +61,6 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     {
         bounding_radius[i] = 0.12; // Default radius (should be calculated from geometry)
     }
-    
-    // Pre-calculate effective parameters for all possible object pairs
-    for(int i=0; i<p->X20-1; ++i)
-    {
-        for(int j=i+1; j<p->X20; ++j)
-        {
-            std::pair<int, int> object_pair = std::make_pair(i, j);
-            
-            // Calculate effective Young's modulus
-            effective_young_modulus[object_pair] = calculate_effective_young_modulus(
-                young_modulus_obj[i], young_modulus_obj[j],
-                poisson_ratio_obj[i], poisson_ratio_obj[j]);
-            
-            // Calculate effective restitution coefficient
-            effective_restitution[object_pair] = calculate_effective_restitution(
-                restitution_coeff_obj[i], restitution_coeff_obj[j]);
-            
-            // Calculate effective friction coefficient
-            effective_friction[object_pair] = calculate_effective_friction(
-                friction_coeff_obj[i], friction_coeff_obj[j]);
-            
-            // Calculate damping parameter beta using logarithm of restitution coefficient
-            double log_coeff_restitution = log(effective_restitution[object_pair]);
-            model_parameter_beta[object_pair] = log_coeff_restitution / 
-                sqrt(log_coeff_restitution * log_coeff_restitution + M_PI * M_PI);
-        }
-    }
 }
 
 sixdof_collision::~sixdof_collision()
@@ -109,8 +69,8 @@ sixdof_collision::~sixdof_collision()
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // No longer need to update contact history
-    // update_contact_history(p);
+    // Update contact history (remove pairs no longer in contact)
+    update_contact_history(p);
 
     // Check for collisions between all pairs of objects
     for(int i=0; i<p->X20-1; ++i)
@@ -256,9 +216,6 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     int id1 = obj1->n6DOF;
     int id2 = obj2->n6DOF;
     
-    // Get object pair (ensure proper ordering)
-    std::pair<int, int> object_pair = std::make_pair(std::min(id1, id2), std::max(id1, id2));
-    
     // Get object centers, velocities and angular velocities
     Eigen::Vector3d center1 = obj1->c_;
     Eigen::Vector3d center2 = obj2->c_;
@@ -298,6 +255,7 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     else
     {
         // If tangential velocity is close to zero, use a default tangential direction
+        // (perpendicular to normal)
         if(fabs(normal(0)) > 0.5)
             t_hat = Eigen::Vector3d(0.0, 1.0, 0.0);
         else
@@ -307,55 +265,26 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
         t_hat.normalize();
     }
     
-    // Calculate effective mass of the collision
-    double m_eff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+    // Calculate normal force using linear spring-dashpot model
+    double fn = spring_constant * overlap - damping_constant * v_rel_n;
+    fn = max(fn, 0.0); // Ensure normal force is repulsive
     
-    // Calculate effective radius (for spring stiffness calculation)
-    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
-    
-    // Calculate spring stiffness based on material properties and geometry
-    // k = (16/15) * sqrt(R_eff) * E_eff
-    double k_n = (16.0/15.0) * sqrt(R_eff) * effective_young_modulus[object_pair];
-    
-    // Calculate damping coefficient based on restitution coefficient
-    // For critical damping: gamma = 2 * sqrt(m_eff * k_n)
-    // Actual damping: gamma = -2 * ln(e) * sqrt(m_eff * k_n / (ln(e)^2 + pi^2))
-    double gamma_n = -2.0 * sqrt(m_eff * k_n) * model_parameter_beta[object_pair];
-    
-    // Calculate normal force using improved spring-dashpot model
-    double fn = k_n * overlap - gamma_n * v_rel_n;
-    fn = std::max(fn, 0.0); // Ensure normal force is repulsive
-    
-    // Calculate tangential force - simple Coulomb friction without history
-    double ft = effective_friction[object_pair] * fn;
-    Eigen::Vector3d ft_vector;
-    
+    // Calculate tangential (friction) force
+    double ft = friction_coefficient * fn;
     if(v_rel_t_mag > 1.0e-10)
     {
-        // Scale tangential force by velocity direction
-        ft_vector = -ft * (v_rel_t / v_rel_t_mag);
+        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
     }
     else
     {
-        // No tangential velocity, so no friction force
-        ft_vector.setZero();
+        ft = 0.0;
     }
     
     // Total force vector
-    force = fn * normal + ft_vector;
+    force = (fn * normal - ft * t_hat)/1.0e3;
     
     // Calculate torque
     torque = r1.cross(force);
-    
-    // Debug output
-    if(p->mpirank==0 && p->count%p->P12==0)
-    {
-        cout << "  Linear model details:" << endl;
-        cout << "    kn: " << k_n << ", fn: " << fn << endl;
-        cout << "    gamma_n: " << gamma_n << endl;
-        cout << "    Normal force: " << fn << " N" << endl;
-        cout << "    Tangential force mag: " << ft_vector.norm() << " N" << endl;
-    }
 }
 
 void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
@@ -658,18 +587,6 @@ double sixdof_collision::calculate_effective_radius(double R1, double R2)
     return R_eff;
 }
 
-double sixdof_collision::calculate_effective_restitution(double e1, double e2)
-{
-    // Calculate effective restitution coefficient
-    return 2.0 * e1 * e2 / (e1 + e2 + DBL_MIN);
-}
-
-double sixdof_collision::calculate_effective_friction(double f1, double f2)
-{
-    // Calculate effective friction coefficient
-    return 2.0 * f1 * f2 / (f1 + f2 + DBL_MIN);
-}
-
 double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
 {
     // Return the effective stiffness for Hertzian contact
@@ -679,8 +596,25 @@ double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
 
 void sixdof_collision::update_contact_history(lexer *p)
 {
-    // This method is no longer used with the simplified linear contact model
-    // Keeping an empty implementation to avoid breaking existing code
+    // Remove contact history for pairs that are no longer in contact
+    // and haven't been for a while
+    double contact_timeout = 1.0; // seconds
+    
+    for(auto it = contact_history.begin(); it != contact_history.end();)
+    {
+        if(!it->second.in_contact && (p->simtime - it->second.last_update_time) > contact_timeout)
+        {
+            // Remove history for pairs no longer in contact
+            it = contact_history.erase(it);
+        }
+        else
+        {
+            // Reset in_contact for this time step
+            // It will be set to true if contact is detected
+            it->second.in_contact = false;
+            ++it;
+        }
+    }
 }
 
 double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2)
