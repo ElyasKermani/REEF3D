@@ -109,8 +109,8 @@ sixdof_collision::~sixdof_collision()
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // Update contact history (remove pairs no longer in contact)
-    update_contact_history(p);
+    // No longer need to update contact history
+    // update_contact_history(p);
 
     // Check for collisions between all pairs of objects
     for(int i=0; i<p->X20-1; ++i)
@@ -326,55 +326,23 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     double fn = k_n * overlap - gamma_n * v_rel_n;
     fn = std::max(fn, 0.0); // Ensure normal force is repulsive
     
-    // Calculate tangential spring stiffness (typically 2/7 of normal stiffness for linear model)
-    double k_t = 2.0/7.0 * k_n;
+    // Calculate tangential force - simple Coulomb friction without history
+    double ft = effective_friction[object_pair] * fn;
+    Eigen::Vector3d ft_vector;
     
-    // Get or create contact history for this pair
-    auto it = contact_history.find(object_pair);
-    if(it == contact_history.end())
-    {
-        // New contact
-        ContactHistory history;
-        history.tangential_overlap.setZero();
-        history.in_contact = true;
-        history.last_update_time = p->simtime;
-        contact_history[object_pair] = history;
-    }
-    
-    // Get time step
-    double dt = p->simtime - contact_history[object_pair].last_update_time;
-    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
-    
-    // Update contact history
-    contact_history[object_pair].in_contact = true;
-    contact_history[object_pair].last_update_time = p->simtime;
-    
-    // Update tangential overlap
     if(v_rel_t_mag > 1.0e-10)
     {
-        // Increment tangential overlap based on relative velocity
-        contact_history[object_pair].tangential_overlap += v_rel_t * dt;
-        
-        // Project tangential overlap to the current tangential plane
-        contact_history[object_pair].tangential_overlap -= 
-            normal * normal.dot(contact_history[object_pair].tangential_overlap);
+        // Scale tangential force by velocity direction
+        ft_vector = -ft * (v_rel_t / v_rel_t_mag);
     }
-    
-    // Calculate tangential force
-    Eigen::Vector3d ft_vector = k_t * contact_history[object_pair].tangential_overlap;
-    double ft_mag = ft_vector.norm();
-    
-    // Apply Coulomb's friction law (capping the tangential force)
-    double ft_max = effective_friction[object_pair] * fn;
-    if(ft_mag > ft_max)
+    else
     {
-        // Scale tangential overlap and force to the maximum allowed
-        contact_history[object_pair].tangential_overlap *= (ft_max / ft_mag);
-        ft_vector *= (ft_max / ft_mag);
+        // No tangential velocity, so no friction force
+        ft_vector.setZero();
     }
     
     // Total force vector
-    force = fn * normal - ft_vector;
+    force = fn * normal + ft_vector;
     
     // Calculate torque
     torque = r1.cross(force);
@@ -383,7 +351,7 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     if(p->mpirank==0 && p->count%p->P12==0)
     {
         cout << "  Linear model details:" << endl;
-        cout << "    kn: " << k_n << ", kt: " << k_t << endl;
+        cout << "    kn: " << k_n << ", fn: " << fn << endl;
         cout << "    gamma_n: " << gamma_n << endl;
         cout << "    Normal force: " << fn << " N" << endl;
         cout << "    Tangential force mag: " << ft_vector.norm() << " N" << endl;
@@ -711,25 +679,8 @@ double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
 
 void sixdof_collision::update_contact_history(lexer *p)
 {
-    // Remove contact history for pairs that are no longer in contact
-    // and haven't been for a while
-    double contact_timeout = 5.0 * p->dt; // Clear after 5 timesteps without contact
-    
-    for(auto it = contact_history.begin(); it != contact_history.end();)
-    {
-        if(!it->second.in_contact && (p->simtime - it->second.last_update_time) > contact_timeout)
-        {
-            // Remove history for pairs no longer in contact
-            it = contact_history.erase(it);
-        }
-        else
-        {
-            // Reset in_contact for this time step
-            // It will be set to true if contact is detected
-            it->second.in_contact = false;
-            ++it;
-        }
-    }
+    // This method is no longer used with the simplified linear contact model
+    // Keeping an empty implementation to avoid breaking existing code
 }
 
 double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2)

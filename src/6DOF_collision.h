@@ -132,6 +132,7 @@ private:
     double dmt_cutoff_threshold;     // Cutoff for DMT force
     
     // Contact history for tangential force calculation
+    // NOTE: Not currently used for the simplified linear model
     struct ContactHistory {
         Eigen::Vector3d tangential_overlap;   // Tangential displacement vector
         bool in_contact;                      // Whether objects are currently in contact
