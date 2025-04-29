@@ -26,6 +26,7 @@ Author: Elyas Larkermani
 #include<Eigen/Dense>
 #include<vector>
 #include<map>
+#include<float.h>
 
 class lexer;
 class ghostcell;
@@ -53,9 +54,6 @@ public:
     
     // Set the contact force model to use
     void set_contact_force_model(ContactForceModel model) { contact_model = model; }
-    
-    // New function for size-dependent parameter calculation
-    void calculate_size_dependent_parameters(lexer *p, sixdof_obj *obj1, sixdof_obj *obj2);
     
 private:
 
@@ -98,6 +96,8 @@ private:
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
     double calculate_effective_radius(double R1, double R2);
+    double calculate_effective_restitution(double e1, double e2);
+    double calculate_effective_friction(double f1, double f2);
     
     // Helper function for Hertzian contact
     double calculate_hertz_stiffness(double E_eff, double R_eff);
@@ -105,36 +105,38 @@ private:
     // Parameters for the collision models
     ContactForceModel contact_model;
     
-    // Base parameters for scaling
-    double base_spring_constant;
-    double base_damping_constant;
-    double base_young_modulus;
-    double base_surface_energy;
+    // Material properties for each object
+    std::vector<double> young_modulus_obj;       // Young's modulus for each object [Pa]
+    std::vector<double> poisson_ratio_obj;       // Poisson's ratio for each object
+    std::vector<double> restitution_coeff_obj;   // Restitution coefficient for each object
+    std::vector<double> friction_coeff_obj;      // Friction coefficient for each object
     
-    // Current parameters (scaled)
-    double scaled_spring_constant;
-    double scaled_damping_constant;
-    double scaled_young_modulus;
-    double scaled_surface_energy;
-    double effective_young_modulus;
-    double effective_radius;
+    // Derived contact parameters (calculated from material properties)
+    std::map<std::pair<int, int>, double> effective_young_modulus;
+    std::map<std::pair<int, int>, double> effective_restitution;
+    std::map<std::pair<int, int>, double> effective_friction;
+    std::map<std::pair<int, int>, double> model_parameter_beta; // For damping calculation
     
-    // Fixed parameters
-    double poisson_ratio;
-    double friction_coefficient;
-    double restitution_coefficient;
-    double dmt_cutoff_threshold;
+    // Common parameters
+    double spring_constant;          // Normal spring stiffness [N/m]
+    double damping_constant;         // Normal damping coefficient [N·s/m]
+    double friction_coefficient;     // Tangential friction coefficient
+    double restitution_coefficient;  // Coefficient of restitution
     
-    // Rolling resistance parameters
-    double rolling_friction_coefficient;
-    double rolling_viscous_damping;
-    double scaled_rolling_damping;
+    // Hertzian contact parameters
+    double young_modulus;            // Young's modulus [Pa]
+    double poisson_ratio;            // Poisson's ratio
     
-    // Contact history for Hertz-Mindlin model
+    // DMT model parameters
+    double surface_energy;           // Surface energy [J/m²]
+    double dmt_cutoff_threshold;     // Cutoff for DMT force
+    
+    // Contact history for tangential force calculation
     struct ContactHistory {
-        Eigen::Vector3d tangential_overlap;
-        bool in_contact;
-        double last_update_time;
+        Eigen::Vector3d tangential_overlap;   // Tangential displacement vector
+        bool in_contact;                      // Whether objects are currently in contact
+        double last_update_time;              // Time of last update (for dt calculation)
+        Eigen::Vector3d rolling_resistance_torque; // For rolling resistance (to be implemented)
     };
     
     // Map to store contact history between object pairs
