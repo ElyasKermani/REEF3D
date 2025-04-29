@@ -61,6 +61,7 @@ private:
                          Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
     
     // Calculate linear contact force using the linear spring-dashpot model
+    // Improved with proper damping calculation based on coefficient of restitution
     void calculate_linear_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                       const Eigen::Vector3d &contact_point, 
                                       const Eigen::Vector3d &normal, 
@@ -104,9 +105,9 @@ private:
     
     // Common parameters
     double spring_constant;          // Normal spring stiffness [N/m]
-    double damping_constant;         // Normal damping coefficient [N·s/m]
+    double damping_constant;         // Normal damping coefficient [N·s/m] (used as fallback)
     double friction_coefficient;     // Tangential friction coefficient
-    double restitution_coefficient;  // Coefficient of restitution
+    double restitution_coefficient;  // Coefficient of restitution (used for damping calculation)
     
     // Hertzian contact parameters
     double young_modulus;            // Young's modulus [Pa]
