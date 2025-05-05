@@ -40,7 +40,7 @@ public:
 	void clearrhs(lexer*,fdm*);
 	field4 kn,en;
 
-protected:
+private:
     int gcval_kin, gcval_eps;
     int count,q;
     double aii;

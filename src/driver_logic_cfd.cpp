@@ -246,10 +246,6 @@ void driver::logic_cfd()
 
     if(p->T10==33)
 	pturb =new LES_WALE(p,a);
-    
-    // Spalding wall function with kepsilon
-    if(p->T10==9)
-    pturb = new kepsilon_IM1_spalding(p,a,pgc);
 
 //Heat
     if(p->H10==0)
@@ -599,11 +595,8 @@ void driver::logic_cfd()
 	if(p->N40==2)
 	pmom = new momentum_RK2(p,a,pconvec,pdiff,ppress,ppois,pturb,psolv,ppoissonsolv,pflow,pfsi);
     
-    if(p->N40==3 && p->T10!=9)
+    if(p->N40==3)
     pmom = new momentum_RK3(p,a,pconvec,pdiff,ppress,ppois,pturb,psolv,ppoissonsolv,pflow,pfsi);
-    
-    if(p->N40==3 && p->T10==9)
-    pmom = new momentum_RK3_spalding(p,a,pconvec,pdiff,ppress,ppois,pturb,psolv,ppoissonsolv,pflow,pfsi);
     
     if(p->N40==4 && (p->X10==0 && p->Z10==0))
     {
