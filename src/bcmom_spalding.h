@@ -10,7 +10,7 @@ the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
 for more details.
 
@@ -20,32 +20,30 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#ifndef KEPSILON_IM1_H_
-#define KEPSILON_IM1_H_
+#ifndef BCMOM_SPALDING_H_
+#define BCMOM_SPALDING_H_
 
-#include"ikepsilon.h"
-#include"field4.h"
+#include"surftens.h"
+#include"wall_functions.h"
+
+class lexer;
+class fdm;
+class ghostcell;
+class field;
+class turbulence;
 
 using namespace std;
 
-class kepsilon_IM1 : public ikepsilon
+class bcmom_spalding : public surftens, public wall_function_spalding
 {
 public:
-	kepsilon_IM1(lexer*,fdm*,ghostcell*);
-	virtual ~kepsilon_IM1();
-	virtual void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*, vrans*);
-	virtual void ktimesave(lexer*, fdm*, ghostcell*);
-	virtual void etimesave(lexer*, fdm*, ghostcell*);
-	void timesource(lexer*,fdm*,field&);
-	void clearrhs(lexer*,fdm*);
-	field4 kn,en;
+	bcmom_spalding(lexer*);
+	virtual ~bcmom_spalding();
+	virtual void bcmom_start(fdm*, lexer*, ghostcell*, turbulence*, field&, int);
 
-protected:
-    int gcval_kin, gcval_eps;
-    int count,q;
-    double aii;
+private:
+	const double kappa;
+	int gcval_phi, bckin;
 };
 
-#endif
-
-
+#endif 

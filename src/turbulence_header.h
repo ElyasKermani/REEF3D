@@ -27,6 +27,7 @@ Author: Hans Bihs
 #include"EARSM_kw_IM1.h"
 #include"kepsilon_IM1.h"
 #include"kepsilon_void.h"
+#include"kepsilon_IM1_spalding.h"
 
 #include"LES_smagorinsky.h"
 #include"LES_WALE.h"

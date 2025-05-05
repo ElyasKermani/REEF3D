@@ -10,7 +10,7 @@ the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
 for more details.
 
@@ -20,32 +20,23 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Hans Bihs
 --------------------------------------------------------------------*/
 
-#ifndef KEPSILON_IM1_H_
-#define KEPSILON_IM1_H_
+#ifndef KEPSILON_IM1_SPALDING_H_
+#define KEPSILON_IM1_SPALDING_H_
 
-#include"ikepsilon.h"
-#include"field4.h"
+#include"kepsilon_IM1.h"
+#include"bc_ikepsilon_spalding.h"
 
 using namespace std;
 
-class kepsilon_IM1 : public ikepsilon
+class kepsilon_IM1_spalding : public kepsilon_IM1
 {
 public:
-	kepsilon_IM1(lexer*,fdm*,ghostcell*);
-	virtual ~kepsilon_IM1();
+	kepsilon_IM1_spalding(lexer*, fdm*, ghostcell*);
+	virtual ~kepsilon_IM1_spalding();
 	virtual void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*, vrans*);
-	virtual void ktimesave(lexer*, fdm*, ghostcell*);
-	virtual void etimesave(lexer*, fdm*, ghostcell*);
-	void timesource(lexer*,fdm*,field&);
-	void clearrhs(lexer*,fdm*);
-	field4 kn,en;
 
-protected:
-    int gcval_kin, gcval_eps;
-    int count,q;
-    double aii;
+private:
+    bc_ikepsilon_spalding bc_ikep_spalding;
 };
 
-#endif
-
-
+#endif 
