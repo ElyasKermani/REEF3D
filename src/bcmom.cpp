@@ -25,9 +25,14 @@ Author: Hans Bihs
 #include"fdm.h"
 #include"ghostcell.h"
 #include"turbulence.h"
+#include<cmath>
+#include<algorithm>
 
 bcmom::bcmom(lexer* p):surftens(p),roughness(p),kappa(0.4)
 {
+    // Initialize the boundary between viscous sublayer and log layer
+    yPlusLam = 11.0;
+    
 	if(p->F50==1)
 	gcval_phi=51;
 
@@ -87,74 +92,220 @@ void bcmom::bcmom_start(fdm* a, lexer* p,ghostcell *pgc, turbulence *pturb,field
 	surface_tension(a,p,a->phi,gcval);
 }
 
-void bcmom::wall_law_u(fdm* a,lexer* p, turbulence *pturb,field& b,int ii,int jj,int kk,int cs,int bc,double dist)
+void bcmom::wall_law_u(fdm* a, lexer* p, turbulence *pturb, field& b, int ii, int jj, int kk, int cs, int bc, double dist)
 {
-	i=ii;
-	j=jj;
-	k=kk;
+    i = ii;
+    j = jj;
+    k = kk;
     
+    // Calculate the appropriate wall distance based on cell orientation
     if(cs==2 || cs==3)
-    dist=p->DYN[JP];
+        dist = p->DYN[JP];
     
     if(cs==5 || cs==6)
-    dist=p->DZN[KP];
-	
-	
-	ks=ks_val(p,a,ii,jj,kk,cs,bc);
+        dist = p->DZN[KP];
+    
+    // Get wall roughness
+    ks = ks_val(p, a, ii, jj, kk, cs, bc);
+    
+    // Get velocity magnitude at the near-wall cell
+    double magUp = fabs(a->u(i,j,k));
+    
+    // Get fluid properties (use molecular viscosity)
+    double nu = p->W2;  // Kinematic viscosity
+    
+    // Calculate y+ using improved method
+    double yPlus = calculateYPlus(p, a, pturb, magUp, dist, nu, ks);
+    
+    // Calculate wall shear stress based on y+
+    double tau_w = calculateWallShearStress(p, a, magUp, yPlus, dist, nu, ks);
+    
+    // Apply wall shear stress as a source term in momentum equation
+    // Note: we need to preserve the velocity direction
+    a->F(i,j,k) -= tau_w * (a->u(i,j,k) > 0 ? 1.0 : -1.0);
+}
 
+void bcmom::wall_law_v(fdm* a, lexer* p, turbulence *pturb, field& b, int ii, int jj, int kk, int cs, int bc, double dist)
+{
+    i = ii;
+    j = jj;
+    k = kk;
+    
+    // Calculate the appropriate wall distance based on cell orientation
+    if(cs==1 || cs==4)
+        dist = p->DXN[IP];
+    
+    if(cs==5 || cs==6)
+        dist = p->DZN[KP];
+    
+    // Get wall roughness
+    ks = ks_val(p, a, ii, jj, kk, cs, bc);
+    
+    // Get velocity magnitude at the near-wall cell
+    double magUp = fabs(a->v(i,j,k));
+    
+    // Get fluid properties (use molecular viscosity)
+    double nu = p->W2;  // Kinematic viscosity
+    
+    // Calculate y+ using improved method
+    double yPlus = calculateYPlus(p, a, pturb, magUp, dist, nu, ks);
+    
+    // Calculate wall shear stress based on y+
+    double tau_w = calculateWallShearStress(p, a, magUp, yPlus, dist, nu, ks);
+    
+    // Apply wall shear stress as a source term in momentum equation
+    // Note: we need to preserve the velocity direction
+    a->G(i,j,k) -= tau_w * (a->v(i,j,k) > 0 ? 1.0 : -1.0);
+}
 
-		if(30.0*dist<ks)
-		dist=ks/30.0;
+void bcmom::wall_law_w(fdm* a, lexer* p, turbulence *pturb, field& b, int ii, int jj, int kk, int cs, int bc, double dist)
+{
+    i = ii;
+    j = jj;
+    k = kk;
+    
+    // Calculate the appropriate wall distance based on cell orientation
+    if(cs==1 || cs==4)
+        dist = p->DXN[IP];
+    
+    if(cs==2 || cs==3)
+        dist = p->DYN[JP];
+    
+    // Get wall roughness
+    ks = ks_val(p, a, ii, jj, kk, cs, bc);
+    
+    // Get velocity magnitude at the near-wall cell
+    double magUp = fabs(a->w(i,j,k));
+    
+    // Get fluid properties (use molecular viscosity)
+    double nu = p->W2;  // Kinematic viscosity
+    
+    // Calculate y+ using improved method
+    double yPlus = calculateYPlus(p, a, pturb, magUp, dist, nu, ks);
+    
+    // Calculate wall shear stress based on y+
+    double tau_w = calculateWallShearStress(p, a, magUp, yPlus, dist, nu, ks);
+    
+    // Apply wall shear stress as a source term in momentum equation
+    // Note: we need to preserve the velocity direction
+    a->H(i,j,k) -= tau_w * (a->w(i,j,k) > 0 ? 1.0 : -1.0);
+}
 
-		uplus = (1.0/kappa)*log(30.0*(dist/ks));
+// New methods for improved wall function calculations
+
+double bcmom::calculateYPlus(lexer* p, fdm* a, turbulence* pturb, double magUp, double dist, double nu, double ks)
+{
+    // Following OpenFOAM's approach in nutUWallFunction
+    
+    // Estimate initial y+ value
+    double Re = magUp * dist / nu;
+    double initialYp = std::max(std::sqrt(Re), 1.0);
+    
+    // Set up constants
+    double E = 9.8;  // Wall roughness parameter
+    
+    // Calculate roughness effects on E
+    if(ks > 1e-6) {
+        double kPlus = ks * initialYp / dist;
+        if(kPlus < 2.25) {
+            // Hydraulically smooth
+        }
+        else if(kPlus < 90.0) {
+            // Transitionally rough
+            E /= std::pow(kPlus/2.25, 0.4);
+        }
+        else {
+            // Fully rough
+            E /= std::pow(90.0/2.25, 0.4);
+        }
+    }
+    
+    // Iterative solution for y+
+    double yp = initialYp;
+    double yPlusLast = yp;
+    
+    const int maxIter = 10;
+    const double convergenceTol = 0.001;
+    
+    for(int iter = 0; iter < maxIter; iter++) {
+        if(yp > yPlusLam) {
+            // Log region
+            yp = (kappa * Re) / std::log(E * yp);
+        }
+        else {
+            // Viscous sublayer
+            yp = std::sqrt(Re);
+        }
         
-    //cout<<((fabs(a->u(i,j,k))*a->u(i,j,k))/(uplus*uplus*dist))<<" "<<ks<<endl;
-
-	a->F(i,j,k) -= ((fabs(a->u(i,j,k))*a->u(i,j,k))/(uplus*uplus*dist));
+        // Check convergence
+        if(std::fabs(yp - yPlusLast) / std::max(yPlusLast, 1.0e-10) < convergenceTol) {
+            break;
+        }
+        
+        yPlusLast = yp;
+    }
+    
+    return yp;
 }
 
-void bcmom::wall_law_v(fdm* a,lexer* p, turbulence *pturb,field& b,int ii,int jj,int kk,int cs,int bc,double dist)
+double bcmom::calculateWallShearStress(lexer* p, fdm* a, double magUp, double yPlus, double dist, double nu, double ks)
 {
-	i=ii;
-	j=jj;
-	k=kk;
+    // Following OpenFOAM's approach in nutUWallFunction
+    double tau_w = 0.0;
     
-    if(cs==1 || cs==4)
-    dist=p->DXN[IP];
+    // Apply blended wall law to handle transition between sublayer and log-layer
+    double uPlus = blendedWallLaw(yPlus, ks, dist);
     
-    if(cs==5 || cs==6)
-    dist=p->DZN[KP];
+    // Calculate wall shear stress
+    tau_w = (nu * magUp) / (dist * uPlus) * magUp;
     
-	ks=ks_val(p,a,ii,jj,kk,cs,bc);
-
-		if(30.0*dist<ks)
-		dist=ks/30.0;
-
-		uplus = (1.0/kappa)*log(30.0*(dist/ks));
-
-	a->G(i,j,k) -= ((fabs(a->v(i,j,k))*a->v(i,j,k))/(uplus*uplus*dist));
+    return tau_w;
 }
 
-void bcmom::wall_law_w(fdm* a,lexer* p, turbulence *pturb,field& b,int ii,int jj,int kk,int cs,int bc,double dist)
+double bcmom::blendedWallLaw(double yPlus, double ks, double dist)
 {
-	i=ii;
-	j=jj;
-	k=kk;
+    // Implementation of a blended wall law that smoothly transitions between
+    // viscous sublayer and log layer (similar to Spalding's law but simpler)
     
-    if(cs==1 || cs==4)
-    dist=p->DXN[IP];
+    double E = 9.8;  // Default wall roughness parameter
     
-    if(cs==2 || cs==3)
-    dist=p->DYN[JP];
-	
-	ks=ks_val(p,a,ii,jj,kk,cs,bc);
-
-		if(30.0*dist<ks)
-		dist=ks/30.0;
-
-		uplus = (1.0/kappa)*log(30.0*(dist/ks));
-
-	a->H(i,j,k) -= ((fabs(a->w(i,j,k))*a->w(i,j,k))/(uplus*uplus*dist));
+    // Modify E for rough walls
+    if(ks > 1e-6) {
+        double kPlus = ks * yPlus / dist;
+        if(kPlus < 2.25) {
+            // Hydraulically smooth
+        }
+        else if(kPlus < 90.0) {
+            // Transitionally rough
+            E /= std::pow(kPlus/2.25, 0.4);
+        }
+        else {
+            // Fully rough
+            E /= std::pow(90.0/2.25, 0.4);
+        }
+    }
+    
+    // Implement a simple blended law
+    double uPlusViscous = yPlus;
+    double uPlusLog = (1.0/kappa) * std::log(E * yPlus);
+    
+    // Blend functions
+    double blendFactor = 0.0;
+    if(yPlus < yPlusLam-1.0) {
+        // Fully viscous
+        blendFactor = 0.0;
+    }
+    else if(yPlus > yPlusLam+1.0) {
+        // Fully logarithmic
+        blendFactor = 1.0;
+    }
+    else {
+        // Transition region with smooth blending
+        blendFactor = (yPlus - (yPlusLam-1.0)) / 2.0;
+    }
+    
+    // Return blended u+
+    return (1.0 - blendFactor) * uPlusViscous + blendFactor * uPlusLog;
 }
 
 

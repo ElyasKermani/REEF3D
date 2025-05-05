@@ -49,5 +49,14 @@ private:
 	int ii,jj,kk;
 	double value;
 	int gcval_phi, bckin;
+    
+    // New helper methods for improved wall functions
+    double calculateYPlus(lexer*, fdm*, turbulence*, double, double, double, double);
+    double calculateWallShearStress(lexer*, fdm*, double, double, double, double, double);
+    double blendedWallLaw(double, double, double);
+    
+    // New variable for the sublayer/log-law boundary
+    double yPlusLam;
+    int i,j,k;
 };
 #endif
