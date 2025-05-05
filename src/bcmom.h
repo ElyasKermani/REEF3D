@@ -57,6 +57,5 @@ private:
     
     // New variable for the sublayer/log-law boundary
     double yPlusLam;
-    int i,j,k;
 };
 #endif
