@@ -30,6 +30,7 @@ Author: Elyas Larkermani
 class lexer;
 class ghostcell;
 class sixdof_obj;
+class sixdof_collision_grid;
 
 using namespace std;
 
@@ -129,11 +130,31 @@ private:
     // Clear contact history for pairs no longer in contact
     void update_contact_history(lexer *p);
     
-    // Simplified bounding sphere collision detection
+    // Grid-based collision detection system
+    sixdof_collision_grid* collision_grid;
+    
+    // For distance calculation
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
     
-    // For simplified spherical collision (using bounding spheres)
-    vector<double> bounding_radius;
+    // Sub-time stepping for resolving collisions at smaller timesteps
+    void resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                       const Eigen::Vector3d &contact_point, 
+                                       const Eigen::Vector3d &normal, 
+                                       const double overlap,
+                                       Eigen::Vector3d &force, 
+                                       Eigen::Vector3d &torque);
+    
+    // Velocity-Verlet integration step for collision resolution
+    void velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
+                            const Eigen::Vector3d &force, 
+                            const Eigen::Vector3d &torque, 
+                            double dt);
+    
+    // Flag for using sub-stepping
+    bool use_substeps;
+    
+    // Maximum number of sub-steps
+    int max_substeps;
 };
 
 #endif 
