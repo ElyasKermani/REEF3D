@@ -63,6 +63,9 @@ public:
     virtual void isource2D(lexer*,fdm2D*,ghostcell*);
     virtual void jsource2D(lexer*,fdm2D*,ghostcell*);
 
+    // Getter for fb_obj (for testing)
+    vector<sixdof_obj*>& get_fb_obj() { return fb_obj; }
+
 private:
    void setup(lexer*,fdm*,ghostcell*);
    

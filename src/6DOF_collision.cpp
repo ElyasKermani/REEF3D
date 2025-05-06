@@ -25,6 +25,7 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
+#include"6DOF_collision_grid.h"
 #include<math.h>
 #include<iostream>
 
@@ -52,76 +53,98 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     surface_energy = 0.05;              // Default surface energy [J/m²]
     dmt_cutoff_threshold = 0.1;         // Default cutoff threshold for DMT
     
-    // Allocate space for bounding radius for each 6DOF object
-    bounding_radius.resize(p->X20);
+    // Initialize sub-stepping parameters
+    use_substeps = true;
+    max_substeps = 10;
     
-    // Set initial bounding radius for each object
-    // In a real implementation, this would be calculated based on the object geometry
-    for(int i=0; i<p->X20; ++i)
-    {
-        bounding_radius[i] = 0.12; // Default radius (should be calculated from geometry)
-    }
+    // Create a new collision grid
+    collision_grid = new sixdof_collision_grid(p, pgc);
 }
 
 sixdof_collision::~sixdof_collision()
 {
+    // Clean up collision grid
+    if (collision_grid)
+        delete collision_grid;
 }
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
     // Update contact history (remove pairs no longer in contact)
     update_contact_history(p);
-
-    // Check for collisions between all pairs of objects
-    for(int i=0; i<p->X20-1; ++i)
+    
+    // Update the collision grid with current object positions
+    collision_grid->update_grid(p, pgc, fb_obj);
+    
+    // Get potential collision pairs from the grid
+    std::vector<std::pair<int, int>> potential_collisions = 
+        collision_grid->find_potential_collisions(p, pgc, fb_obj);
+    
+    if(p->mpirank==0 && p->count%p->P12==0 && potential_collisions.size() > 0)
     {
-        for(int j=i+1; j<p->X20; ++j)
+        cout<<"6DOF Collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
+    }
+    
+    // Check each potential collision pair
+    for(const auto& pair : potential_collisions)
+    {
+        int i = pair.first;
+        int j = pair.second;
+        
+        // Variables to store collision information
+        Eigen::Vector3d contact_point, normal;
+        double overlap = 0.0;
+        
+        // Detect if collision occurred
+        if(detect_collision(p, pgc, fb_obj[i], fb_obj[j], contact_point, normal, overlap))
         {
-            // Variables to store collision information
-            Eigen::Vector3d contact_point, normal;
-            double overlap = 0.0;
+            // Calculate forces and torques from collision
+            Eigen::Vector3d force, torque;
             
-            // Detect if collision occurred
-            if(detect_collision(p, pgc, fb_obj[i], fb_obj[j], contact_point, normal, overlap))
+            // Apply appropriate contact force model
+            switch(contact_model)
             {
-                // Calculate forces and torques from collision
-                Eigen::Vector3d force, torque;
-                
-                // Apply appropriate contact force model
-                switch(contact_model)
-                {
-                    case ContactForceModel::Linear:
-                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                     contact_point, normal, overlap, 
-                                                     force, torque);
-                        break;
-                        
-                    case ContactForceModel::Hertz:
-                        calculate_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                    contact_point, normal, overlap, 
-                                                    force, torque);
-                        break;
-                        
-                    case ContactForceModel::HertzMindlin:
-                        calculate_hertz_mindlin_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                           contact_point, normal, overlap, 
-                                                           force, torque);
-                        break;
-                        
-                    case ContactForceModel::DMT:
-                        calculate_dmt_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                  contact_point, normal, overlap, 
-                                                  force, torque);
-                        break;
-                        
-                    default:
-                        // Default to linear model if unrecognized
-                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                     contact_point, normal, overlap, 
-                                                     force, torque);
-                        break;
-                }
-                
+                case ContactForceModel::Linear:
+                    calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                 contact_point, normal, overlap, 
+                                                 force, torque);
+                    break;
+                    
+                case ContactForceModel::Hertz:
+                    calculate_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                contact_point, normal, overlap, 
+                                                force, torque);
+                    break;
+                    
+                case ContactForceModel::HertzMindlin:
+                    calculate_hertz_mindlin_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                       contact_point, normal, overlap, 
+                                                       force, torque);
+                    break;
+                    
+                case ContactForceModel::DMT:
+                    calculate_dmt_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                              contact_point, normal, overlap, 
+                                              force, torque);
+                    break;
+                    
+                default:
+                    // Default to linear model if unrecognized
+                    calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                 contact_point, normal, overlap, 
+                                                 force, torque);
+                    break;
+            }
+            
+            // If using sub-stepping for collision resolution
+            if(use_substeps && overlap > 0.01 * fb_obj[i]->radius) // Only use sub-stepping for significant overlaps
+            {
+                resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j], 
+                                             contact_point, normal, overlap, 
+                                             force, torque);
+            }
+            else
+            {
                 // Add collision forces to object i (action)
                 fb_obj[i]->Xext -= force(0);
                 fb_obj[i]->Yext -= force(1);
@@ -139,22 +162,22 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                 fb_obj[j]->Kext += torque(0);
                 fb_obj[j]->Mext += torque(1);
                 fb_obj[j]->Next += torque(2);
-                
-                if(p->mpirank==0 && p->count%p->P12==0)
-                {
-                    cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
-                    cout<<"  Model: ";
-                    switch(contact_model) {
-                        case ContactForceModel::Linear: cout<<"Linear"; break;
-                        case ContactForceModel::Hertz: cout<<"Hertz"; break;
-                        case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
-                        case ContactForceModel::DMT: cout<<"DMT"; break;
-                        default: cout<<"Unknown"; break;
-                    }
-                    cout<<endl;
-                    cout<<"  Overlap: "<<overlap<<endl;
-                    cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
+            }
+            
+            if(p->mpirank==0 && p->count%p->P12==0)
+            {
+                cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
+                cout<<"  Model: ";
+                switch(contact_model) {
+                    case ContactForceModel::Linear: cout<<"Linear"; break;
+                    case ContactForceModel::Hertz: cout<<"Hertz"; break;
+                    case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
+                    case ContactForceModel::DMT: cout<<"DMT"; break;
+                    default: cout<<"Unknown"; break;
                 }
+                cout<<endl;
+                cout<<"  Overlap: "<<overlap<<endl;
+                cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
             }
         }
     }
@@ -163,11 +186,7 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
 bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                       Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
-    // Using simplified spherical collision detection for this example
-    // In a real implementation, this would need to be replaced with proper geometry-based collision detection
-    
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
+    // Using improved spherical collision detection as an initial check
     
     // Get object centers
     Eigen::Vector3d center1 = obj1->c_;
@@ -178,7 +197,7 @@ bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *ob
     double distance = center_diff.norm();
     
     // Calculate sum of bounding radii
-    double sum_radii = bounding_radius[id1] + bounding_radius[id2];
+    double sum_radii = obj1->radius + obj2->radius;
     
     // Check if objects are overlapping
     if(distance < sum_radii)
@@ -198,7 +217,7 @@ bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *ob
         }
         
         // Calculate contact point (midpoint of overlap)
-        contact_point = center1 + normal * (bounding_radius[id1] - 0.5 * overlap);
+        contact_point = center1 + normal * (obj1->radius - 0.5 * overlap);
         
         return true;
     }
@@ -346,7 +365,7 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     }
     
     // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
+    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
     double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
     
     // Calculate Hertzian stiffness
@@ -439,7 +458,7 @@ void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell
     contact_history[contact_pair].last_update_time = p->simtime;
     
     // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
+    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
     double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
     
     // Calculate Hertzian stiffness
@@ -532,7 +551,7 @@ void sixdof_collision::calculate_dmt_contact_force(lexer *p, ghostcell *pgc, six
     double v_rel_t_mag = v_rel_t.norm();
     
     // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(bounding_radius[id1], bounding_radius[id2]);
+    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
     double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
     
     // Calculate Hertzian stiffness

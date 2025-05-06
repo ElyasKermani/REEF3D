@@ -123,6 +123,9 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 
     if(p->mpirank==0)
 	cout<<"Refined surface triangles: "<<tricount<<endl;
+    
+    // Calculate bounding radius for collision detection
+    calculate_bounding_radius(p, pgc);
 }
 
 void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
