@@ -100,31 +100,35 @@ private:
     // Helper function for Hertzian contact
     double calculate_hertz_stiffness(double E_eff, double R_eff);
     
-    // Parameters for the collision models
+    // Contact model parameters
     ContactForceModel contact_model;
     
-    // Common parameters
-    double spring_constant;          // Normal spring stiffness [N/m]
-    double damping_constant;         // Normal damping coefficient [N·s/m]
-    double friction_coefficient;     // Tangential friction coefficient
-    double restitution_coefficient;  // Coefficient of restitution
+    // Linear model parameters
+    double spring_constant_n;        // Normal spring constant
+    double spring_constant_t;        // Tangential spring constant
+    double damping_constant_n;       // Normal damping constant
+    double damping_constant_t;       // Tangential damping constant
+    double friction_coefficient;     // Friction coefficient
+    double restitution_coefficient;  // Restitution coefficient
     
-    // Hertzian contact parameters
-    double young_modulus;            // Young's modulus [Pa]
+    // Hertz model parameters
+    double young_modulus;            // Young's modulus
     double poisson_ratio;            // Poisson's ratio
     
     // DMT model parameters
-    double surface_energy;           // Surface energy [J/m²]
-    double dmt_cutoff_threshold;     // Cutoff for DMT force
+    double surface_energy;           // Surface energy
+    double dmt_cutoff_threshold;     // Cutoff threshold for DMT
     
-    // Contact history for Hertz-Mindlin model
+    // Sub-stepping parameters
+    bool use_substeps;
+    int max_substeps;
+    
+    // Contact history for tangential forces
     struct ContactHistory {
         Eigen::Vector3d tangential_overlap;
         bool in_contact;
         double last_update_time;
     };
-    
-    // Map to store contact history between object pairs
     map<pair<int, int>, ContactHistory> contact_history;
     
     // Clear contact history for pairs no longer in contact
@@ -149,12 +153,6 @@ private:
                             const Eigen::Vector3d &force, 
                             const Eigen::Vector3d &torque, 
                             double dt);
-    
-    // Flag for using sub-stepping
-    bool use_substeps;
-    
-    // Maximum number of sub-steps
-    int max_substeps;
 };
 
 #endif 
