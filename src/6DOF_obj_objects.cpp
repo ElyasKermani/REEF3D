@@ -206,3 +206,13 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
 	p->Iarray(tstart,entity_sum);
 	p->Iarray(tend,entity_sum);
 }
+
+void sixdof_obj::motionext_trans(lexer *p, ghostcell *pgc, Eigen::Vector3d &local_point, Eigen::Vector3d &global_point)
+{
+    // Transform local point to global coordinates using current position and orientation
+    // First rotate the point using quaternion rotation matrix
+    Eigen::Vector3d rotated_point = quatRotMat * local_point;
+    
+    // Then translate by adding the current position
+    global_point = rotated_point + c_;
+}
