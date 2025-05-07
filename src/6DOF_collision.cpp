@@ -40,18 +40,20 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Initialize common parameters from control file parameters
     // These should be added to the parameter file in a real implementation
     // For now, we set default values
-    spring_constant = 1.0e6;            // Default stiffness [N/m]
-    damping_constant = 1.0e4;           // Default damping [N·s/m]
-    friction_coefficient = 0.3;         // Default friction coefficient
-    restitution_coefficient = 0.7;      // Default restitution coefficient
+    spring_constant_n = 1.0e6;            // Default normal stiffness [N/m]
+    spring_constant_t = 0.5e6;            // Default tangential stiffness [N/m]
+    damping_constant_n = 1.0e4;           // Default normal damping [N·s/m]
+    damping_constant_t = 0.5e4;           // Default tangential damping [N·s/m]
+    friction_coefficient = 0.3;           // Default friction coefficient
+    restitution_coefficient = 0.7;        // Default restitution coefficient
     
     // Initialize Hertzian contact parameters
-    young_modulus = 1.0e7;              // Default Young's modulus [Pa]
-    poisson_ratio = 0.3;                // Default Poisson's ratio
+    young_modulus = 1.0e7;                // Default Young's modulus [Pa]
+    poisson_ratio = 0.3;                  // Default Poisson's ratio
     
     // Initialize DMT model parameters
-    surface_energy = 0.05;              // Default surface energy [J/m²]
-    dmt_cutoff_threshold = 0.1;         // Default cutoff threshold for DMT
+    surface_energy = 0.05;                // Default surface energy [J/m²]
+    dmt_cutoff_threshold = 0.1;           // Default cutoff threshold for DMT
     
     // Initialize sub-stepping parameters
     use_substeps = true;
@@ -265,42 +267,66 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Unit vector in tangential direction
-    Eigen::Vector3d t_hat;
-    if(v_rel_t_mag > 1.0e-10)
+    // Get or create contact history for this pair
+    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
+    if(it == contact_history.end())
     {
-        t_hat = v_rel_t / v_rel_t_mag;
+        // New contact
+        ContactHistory history;
+        history.tangential_overlap.setZero();
+        history.in_contact = true;
+        history.last_update_time = p->simtime;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
     }
-    else
-    {
-        // If tangential velocity is close to zero, use a default tangential direction
-        // (perpendicular to normal)
-        if(fabs(normal(0)) > 0.5)
-            t_hat = Eigen::Vector3d(0.0, 1.0, 0.0);
-        else
-            t_hat = Eigen::Vector3d(1.0, 0.0, 0.0);
-            
-        t_hat = t_hat - normal.dot(t_hat) * normal;
-        t_hat.normalize();
-    }
+    
+    // Get time step
+    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
+    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
+    
+    // Update contact history
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
     
     // Calculate normal force using linear spring-dashpot model
-    double fn = spring_constant * overlap - damping_constant * v_rel_n;
+    // Fn = kn * delta - gamma_n * v_rel_n
+    double fn = spring_constant_n * overlap - damping_constant_n * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
-    // Calculate tangential (friction) force
-    double ft = friction_coefficient * fn;
+    // Update tangential overlap based on relative velocity
     if(v_rel_t_mag > 1.0e-10)
     {
-        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
+        // Increment tangential overlap
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
+        
+        // Project tangential overlap to the current tangential plane
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
+            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
+        
+        // Calculate tangential force based on spring and damping
+        Eigen::Vector3d ft_vector = spring_constant_t * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap 
+                                  - damping_constant_t * v_rel_t;
+        
+        // Apply Coulomb's friction law
+        double ft_mag = ft_vector.norm();
+        double ft_max = friction_coefficient * fn;
+        
+        if(ft_mag > ft_max)
+        {
+            // Scale tangential force to the maximum allowed
+            ft_vector *= (ft_max / ft_mag);
+            
+            // Update tangential overlap to match the maximum force
+            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
+        }
+        
+        // Total force vector
+        force = fn * normal - ft_vector;
     }
     else
     {
-        ft = 0.0;
+        // No tangential motion, just apply normal force
+        force = fn * normal;
     }
-    
-    // Total force vector
-    force = (fn * normal - ft * t_hat)/1.0e3;
     
     // Calculate torque
     torque = r1.cross(force);
@@ -346,49 +372,74 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Unit vector in tangential direction
-    Eigen::Vector3d t_hat;
-    if(v_rel_t_mag > 1.0e-10)
-    {
-        t_hat = v_rel_t / v_rel_t_mag;
-    }
-    else
-    {
-        // If tangential velocity is close to zero, use a default tangential direction
-        if(fabs(normal(0)) > 0.5)
-            t_hat = Eigen::Vector3d(0.0, 1.0, 0.0);
-        else
-            t_hat = Eigen::Vector3d(1.0, 0.0, 0.0);
-            
-        t_hat = t_hat - normal.dot(t_hat) * normal;
-        t_hat.normalize();
-    }
-    
-    // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    // Calculate effective radius and Young's modulus
+    double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+    double E_eff = young_modulus / (2.0 * (1.0 - poisson_ratio * poisson_ratio));
     
     // Calculate Hertzian stiffness
     double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
     
-    // Calculate normal force using Hertzian contact model (non-linear spring with damping)
-    // Fn = (4/3) * E* * sqrt(R*) * delta^(3/2) - damping_coefficient * v_rel_n
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant * v_rel_n;
+    // Calculate normal force using Hertzian model
+    // Fn = (4/3) * k_hertz * delta^(3/2) - gamma_n * sqrt(delta) * v_rel_n
+    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant_n * sqrt(overlap) * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
-    // Calculate tangential (friction) force - Coulomb friction
-    double ft = friction_coefficient * fn;
+    // Get or create contact history for this pair
+    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
+    if(it == contact_history.end())
+    {
+        // New contact
+        ContactHistory history;
+        history.tangential_overlap.setZero();
+        history.in_contact = true;
+        history.last_update_time = p->simtime;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
+    }
+    
+    // Get time step
+    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
+    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
+    
+    // Update contact history
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
+    
+    // Update tangential overlap based on relative velocity
     if(v_rel_t_mag > 1.0e-10)
     {
-        ft = min(ft, v_rel_t_mag); // Limit friction to prevent sticking
+        // Increment tangential overlap
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
+        
+        // Project tangential overlap to the current tangential plane
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
+            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
+        
+        // Calculate tangential force based on spring and damping
+        // For Hertzian model, use sqrt(delta) scaling for tangential force
+        Eigen::Vector3d ft_vector = spring_constant_t * sqrt(overlap) * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap 
+                                  - damping_constant_t * sqrt(overlap) * v_rel_t;
+        
+        // Apply Coulomb's friction law
+        double ft_mag = ft_vector.norm();
+        double ft_max = friction_coefficient * fn;
+        
+        if(ft_mag > ft_max)
+        {
+            // Scale tangential force to the maximum allowed
+            ft_vector *= (ft_max / ft_mag);
+            
+            // Update tangential overlap to match the maximum force
+            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
+        }
+        
+        // Total force vector
+        force = fn * normal - ft_vector;
     }
     else
     {
-        ft = 0.0;
+        // No tangential motion, just apply normal force
+        force = fn * normal;
     }
-    
-    // Total force vector
-    force = fn * normal - ft * t_hat;
     
     // Calculate torque
     torque = r1.cross(force);
@@ -465,7 +516,7 @@ void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell
     double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
     
     // Calculate normal force using Hertzian contact model (non-linear spring with damping)
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant * v_rel_n;
+    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant_n * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
     // Calculate tangential spring constant (simplification of Mindlin theory)
@@ -550,41 +601,88 @@ void sixdof_collision::calculate_dmt_contact_force(lexer *p, ghostcell *pgc, six
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+    // Calculate effective radius and Young's modulus
+    double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+    double E_eff = young_modulus / (2.0 * (1.0 - poisson_ratio * poisson_ratio));
     
     // Calculate Hertzian stiffness
     double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
     
-    // Calculate normal force using Hertzian contact model (non-linear spring with damping)
-    double hertz_force = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
+    // Calculate DMT force components
+    // 1. Hertzian repulsive force
+    double f_hertz = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
     
-    // Calculate adhesive force from DMT model
-    double pull_off_force = 2.0 * M_PI * surface_energy * R_eff;
+    // 2. Van der Waals attractive force
+    double f_vdw = 4.0 * M_PI * surface_energy * R_eff;
     
-    // Apply contact force only if we're within the cutoff threshold
-    // In the DMT model, adhesion forces act even at small separations
-    double fn = hertz_force - pull_off_force;
+    // 3. Damping force
+    double f_damp = damping_constant_n * sqrt(overlap) * v_rel_n;
     
-    // Apply damping
-    fn -= damping_constant * v_rel_n;
+    // Total normal force
+    double fn = f_hertz - f_vdw - f_damp;
     
-    // Handle friction
-    Eigen::Vector3d ft_vector = Eigen::Vector3d::Zero();
-    if(v_rel_t_mag > 1.0e-10)
+    // Apply cutoff threshold for DMT model
+    if(overlap < dmt_cutoff_threshold)
     {
-        Eigen::Vector3d t_hat = v_rel_t / v_rel_t_mag;
-        
-        // Calculate the maximum tangential force (Coulomb friction)
-        double ft_max = friction_coefficient * fabs(fn);
-        
-        // Apply tangential force
-        ft_vector = -ft_max * t_hat;
+        fn = 0.0;
     }
     
-    // Total force vector
-    force = fn * normal + ft_vector;
+    // Get or create contact history for this pair
+    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
+    if(it == contact_history.end())
+    {
+        // New contact
+        ContactHistory history;
+        history.tangential_overlap.setZero();
+        history.in_contact = true;
+        history.last_update_time = p->simtime;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
+    }
+    
+    // Get time step
+    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
+    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
+    
+    // Update contact history
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
+    
+    // Update tangential overlap based on relative velocity
+    if(v_rel_t_mag > 1.0e-10)
+    {
+        // Increment tangential overlap
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
+        
+        // Project tangential overlap to the current tangential plane
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
+            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
+        
+        // Calculate tangential force based on spring and damping
+        // For DMT model, use sqrt(delta) scaling for tangential force
+        Eigen::Vector3d ft_vector = spring_constant_t * sqrt(overlap) * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap 
+                                  - damping_constant_t * sqrt(overlap) * v_rel_t;
+        
+        // Apply Coulomb's friction law
+        double ft_mag = ft_vector.norm();
+        double ft_max = friction_coefficient * fn;
+        
+        if(ft_mag > ft_max)
+        {
+            // Scale tangential force to the maximum allowed
+            ft_vector *= (ft_max / ft_mag);
+            
+            // Update tangential overlap to match the maximum force
+            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
+        }
+        
+        // Total force vector
+        force = fn * normal - ft_vector;
+    }
+    else
+    {
+        // No tangential motion, just apply normal force
+        force = fn * normal;
+    }
     
     // Calculate torque
     torque = r1.cross(force);
