@@ -39,7 +39,8 @@ enum class ContactForceModel {
     Linear,      // Linear spring-dashpot model
     Hertz,       // Non-linear Hertzian elastic contact
     HertzMindlin, // Hertz with tangential history
-    DMT         // Derjaguin-Muller-Toporov model for adhesive contacts
+    DMT,         // Derjaguin-Muller-Toporov model for adhesive contacts
+    JKR          // Johnson-Kendall-Roberts model for strong adhesion
 };
 
 class sixdof_collision
@@ -60,6 +61,14 @@ private:
     // Detect collision between two 6DOF objects
     bool detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2, 
                          Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
+    
+    // Detect collision using triangle mesh data
+    bool detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                 Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
+    
+    // Check for intersection between two triangles
+    bool triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
+                                      Eigen::Vector3d &contact, Eigen::Vector3d &normal, double &overlap);
     
     // Calculate linear contact force using the linear spring-dashpot model
     void calculate_linear_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
@@ -93,6 +102,14 @@ private:
                                    Eigen::Vector3d &force, 
                                    Eigen::Vector3d &torque);
     
+    // Calculate JKR contact force (strong adhesion)
+    void calculate_jkr_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                   const Eigen::Vector3d &contact_point, 
+                                   const Eigen::Vector3d &normal, 
+                                   const double overlap,
+                                   Eigen::Vector3d &force, 
+                                   Eigen::Vector3d &torque);
+    
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
     double calculate_effective_radius(double R1, double R2);
@@ -111,6 +128,12 @@ private:
     double friction_coefficient;     // Friction coefficient
     double restitution_coefficient;  // Restitution coefficient
     
+    // Rolling friction parameters
+    double rolling_friction_coefficient;  // Rolling friction coefficient
+    double rolling_stiffness;            // Rolling spring constant
+    double rolling_damping;              // Rolling damping constant
+    double rolling_torque_threshold;     // Threshold for rolling torque activation
+    
     // Hertz model parameters
     double young_modulus;            // Young's modulus
     double poisson_ratio;            // Poisson's ratio
@@ -118,6 +141,10 @@ private:
     // DMT model parameters
     double surface_energy;           // Surface energy
     double dmt_cutoff_threshold;     // Cutoff threshold for DMT
+    
+    // JKR model parameters
+    double surface_energy_jkr;     // Surface energy for JKR model
+    double jkr_cutoff_threshold;   // Cutoff threshold for JKR model
     
     // Sub-stepping parameters
     bool use_substeps;
@@ -153,6 +180,20 @@ private:
                             const Eigen::Vector3d &force, 
                             const Eigen::Vector3d &torque, 
                             double dt);
+    
+    // Calculate rolling friction torque
+    void calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                         const Eigen::Vector3d &contact_point,
+                                         const Eigen::Vector3d &normal,
+                                         const double overlap,
+                                         Eigen::Vector3d &rolling_torque);
+                                         
+    // Calculate twisting resistance
+    void calculate_twisting_resistance(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                     const Eigen::Vector3d &contact_point,
+                                     const Eigen::Vector3d &normal,
+                                     const double overlap,
+                                     Eigen::Vector3d &twisting_torque);
 };
 
 #endif 
