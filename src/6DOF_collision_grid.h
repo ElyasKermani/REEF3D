@@ -32,6 +32,7 @@ Author: Elyas Larkermani
 class lexer;
 class ghostcell;
 class sixdof_obj;
+class boundary_wall_6DOF;
 
 // A specialized grid for efficient collision detection
 class sixdof_collision_grid
@@ -45,6 +46,16 @@ public:
     
     // Find potential collision pairs (broad phase)
     std::vector<std::pair<int, int>> find_potential_collisions(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
+    
+    // Create domain boundary walls
+    void create_domain_walls(lexer *p, ghostcell *pgc);
+    
+    // Check for collisions between objects and walls
+    std::vector<std::pair<int, int>> find_potential_wall_collisions(
+        lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
+        
+    // Vector of domain boundary walls (accessible from collision class)
+    std::vector<boundary_wall_6DOF> boundary_walls;
     
 private:
     // Cell size for the grid (typically largest object diameter)
