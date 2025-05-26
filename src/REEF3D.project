@@ -615,7 +615,6 @@
         <VirtualDirectory Name="Collision">
           <File Name="6DOF_collision.h"/>
           <File Name="6DOF_collision_grid.h"/>
-          <File Name="6DOF_boundary_wall.h"/>
           <File Name="test_collision.h"/>
         </VirtualDirectory>
         <File Name="6DOF.h"/>
@@ -2043,7 +2042,6 @@
           <File Name="6DOF_collision.cpp"/>
           <File Name="6DOF_collision_substeps.cpp"/>
           <File Name="6DOF_collision_grid.cpp"/>
-          <File Name="6DOF_boundary_wall.cpp"/>
           <File Name="test_collision.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Mooring">

@@ -31,7 +31,6 @@ class lexer;
 class ghostcell;
 class sixdof_obj;
 class sixdof_collision_grid;
-class boundary_wall_6DOF;
 
 using namespace std;
 
@@ -58,25 +57,6 @@ public:
     void set_contact_force_model(ContactForceModel model) { contact_model = model; }
     
 private:
-    // Check and handle collisions with domain boundary walls
-    void calculate_wall_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-
-    // Detect collision between an object and a wall
-    bool detect_wall_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
-                              const boundary_wall_6DOF &wall,
-                              Eigen::Vector3d &contact_point, 
-                              Eigen::Vector3d &normal, 
-                              double &overlap);
-    
-    // Calculate linear contact force for wall collision
-    void calculate_wall_linear_contact_force(lexer *p, ghostcell *pgc, 
-                                          sixdof_obj *obj,
-                                          const boundary_wall_6DOF &wall,
-                                          const Eigen::Vector3d &contact_point, 
-                                          const Eigen::Vector3d &normal, 
-                                          const double overlap,
-                                          Eigen::Vector3d &force, 
-                                          Eigen::Vector3d &torque);
 
     // Detect collision between two 6DOF objects
     bool detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2, 

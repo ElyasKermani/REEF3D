@@ -25,7 +25,6 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
-#include"6DOF_boundary_wall.h"
 #include<iostream>
 #include<algorithm>
 #include<cmath>
@@ -54,84 +53,10 @@ sixdof_collision_grid::sixdof_collision_grid(lexer *p, ghostcell *pgc)
         std::cout<<"  Grid dimensions: "<<nx<<" x "<<ny<<" x "<<nz<<std::endl;
         std::cout<<"  Cell size: "<<cell_size<<std::endl;
     }
-    
-    // Create domain boundary walls
-    create_domain_walls(p, pgc);
 }
 
 sixdof_collision_grid::~sixdof_collision_grid()
 {
-}
-
-void sixdof_collision_grid::create_domain_walls(lexer *p, ghostcell *pgc)
-{
-    // Clear existing walls
-    boundary_walls.clear();
-    
-    // Create the six domain walls with appropriate normals and points
-    // xmin wall
-    boundary_walls.emplace_back(0, 
-                               Eigen::Vector3d(1.0, 0.0, 0.0),  // Normal points into domain
-                               Eigen::Vector3d(x_min, 0.0, 0.0));
-    
-    // xmax wall
-    boundary_walls.emplace_back(1, 
-                               Eigen::Vector3d(-1.0, 0.0, 0.0), 
-                               Eigen::Vector3d(x_max, 0.0, 0.0));
-                               
-    // ymin wall
-    boundary_walls.emplace_back(2, 
-                               Eigen::Vector3d(0.0, 1.0, 0.0), 
-                               Eigen::Vector3d(0.0, y_min, 0.0));
-    
-    // ymax wall
-    boundary_walls.emplace_back(3, 
-                               Eigen::Vector3d(0.0, -1.0, 0.0), 
-                               Eigen::Vector3d(0.0, y_max, 0.0));
-    
-    // zmin wall
-    boundary_walls.emplace_back(4, 
-                               Eigen::Vector3d(0.0, 0.0, 1.0), 
-                               Eigen::Vector3d(0.0, 0.0, z_min));
-    
-    // zmax wall
-    boundary_walls.emplace_back(5, 
-                               Eigen::Vector3d(0.0, 0.0, -1.0), 
-                               Eigen::Vector3d(0.0, 0.0, z_max));
-                               
-    if(p->mpirank==0)
-        std::cout<<"Domain boundary walls created for collision detection"<<std::endl;
-}
-
-std::vector<std::pair<int, int>> sixdof_collision_grid::find_potential_wall_collisions(
-    lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
-{
-    std::vector<std::pair<int, int>> wall_collision_pairs;
-    
-    // Check each object against all walls
-    for(int i=0; i<p->X20; ++i)
-    {
-        // Get object center and radius
-        Eigen::Vector3d center = fb_obj[i]->c_;
-        double radius = fb_obj[i]->radius;
-        
-        // Check against each wall
-        for(size_t w=0; w<boundary_walls.size(); ++w)
-        {
-            // Calculate distance from center to wall
-            Eigen::Vector3d wall_to_center = center - boundary_walls[w].reference_point;
-            double distance = wall_to_center.dot(boundary_walls[w].normal_vector);
-            
-            // If distance is less than radius, potential collision
-            if(distance < radius * 1.2) // Use 1.2 as safety factor
-            {
-                // Store object index and wall index
-                wall_collision_pairs.push_back(std::make_pair(i, w));
-            }
-        }
-    }
-    
-    return wall_collision_pairs;
 }
 
 void sixdof_collision_grid::update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
