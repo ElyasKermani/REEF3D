@@ -35,7 +35,7 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     cout<<"6DOF Collision Model startup..."<<endl;
     
     // Set default collision model
-    contact_model = ContactForceModel::Linear;
+    contact_model = ContactForceModel::PacIFiCHertz;
     
     // Initialize common parameters from control file parameters
     // These should be added to the parameter file in a real implementation
@@ -64,6 +64,23 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Initialize JKR model parameters
     surface_energy_jkr = 0.1;             // Default surface energy for JKR [J/m²]
     jkr_cutoff_threshold = 0.2;           // Default cutoff threshold for JKR
+    
+    // NEW: Initialize PacIFiC-style enhanced parameters
+    pacific_Es = 1.0e7;                   // Effective Young's modulus [Pa]
+    pacific_en = 0.7;                     // Normal restitution coefficient
+    pacific_Gs = 4.0e6;                   // Effective shear modulus [Pa] (≈ 4*Es for most materials)
+    pacific_muc = 0.3;                    // Coulomb friction coefficient
+    pacific_kr = 0.1;                     // Rolling resistance coefficient [s/m]
+    pacific_beta = log(pacific_en) / sqrt(M_PI * M_PI + log(pacific_en) * log(pacific_en));
+    pacific_m2sqrt56 = -2.0 * sqrt(5.0 / 6.0);
+    
+    // Initialize Hooke model parameters (PacIFiC style)
+    hooke_kn = 1.0e6;                     // Normal stiffness coefficient [N/m]
+    hooke_kt = 0.5e6;                     // Tangential stiffness coefficient [N/m]
+    hooke_en = 0.7;                       // Normal restitution coefficient
+    hooke_et = -1.0;                      // Tangential restitution coefficient (-1 for auto-calculation)
+    hooke_muc = 0.3;                      // Coulomb friction coefficient
+    hooke_kr = 0.1;                       // Rolling resistance coefficient [s/m]
     
     // Initialize sub-stepping parameters
     use_substeps = true;
@@ -146,6 +163,18 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                                               force, torque);
                     break;
                     
+                case ContactForceModel::PacIFiCHertz:
+                    calculate_pacific_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                       contact_point, normal, overlap, 
+                                                       force, torque);
+                    break;
+                    
+                case ContactForceModel::PacIFiCHooke:
+                    calculate_pacific_hooke_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                       contact_point, normal, overlap, 
+                                                       force, torque);
+                    break;
+                    
                 default:
                     // Default to linear model if unrecognized
                     calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
@@ -204,6 +233,8 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                     case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
                     case ContactForceModel::DMT: cout<<"DMT"; break;
                     case ContactForceModel::JKR: cout<<"JKR"; break;
+                    case ContactForceModel::PacIFiCHertz: cout<<"PacIFiC-Hertz"; break;
+                    case ContactForceModel::PacIFiCHooke: cout<<"PacIFiC-Hooke"; break;
                     default: cout<<"Unknown"; break;
                 }
                 cout<<endl;
@@ -735,9 +766,27 @@ double sixdof_collision::calculate_effective_radius(double R1, double R2)
 
 double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
 {
-    // Return the effective stiffness for Hertzian contact
-    // This is the coefficient in the formula: F = (4/3) * E* * sqrt(R*) * delta^(3/2)
-    return E_eff * sqrt(R_eff);
+    // Calculate Hertzian stiffness: k = (4/3) * E_eff * sqrt(R_eff)
+    return (4.0/3.0) * E_eff * sqrt(R_eff);
+}
+
+// NEW: PacIFiC-style effective properties calculation
+double sixdof_collision::calculate_effective_shear_modulus(double E1, double E2, double nu1, double nu2)
+{
+    // Calculate effective shear modulus based on PacIFiC implementation
+    // G* = 1 / (2(2-ν₀)(1+ν₀)/E₀ + 2(2-ν₁)(1+ν₁)/E₁)
+    double G1 = E1 / (2.0 * (1.0 + nu1));
+    double G2 = E2 / (2.0 * (1.0 + nu2));
+    
+    // For most materials, G* ≈ 4*E* (as noted in PacIFiC documentation)
+    double E_eff = calculate_effective_young_modulus(E1, E2, nu1, nu2);
+    return 4.0 * E_eff;
+}
+
+double sixdof_collision::calculate_effective_mass(double m1, double m2)
+{
+    // Calculate effective mass: m* = 1 / (1/m₁ + 1/m₂)
+    return 1.0 / (1.0/m1 + 1.0/m2);
 }
 
 void sixdof_collision::update_contact_history(lexer *p)
@@ -1008,6 +1057,262 @@ void sixdof_collision::calculate_jkr_contact_force(lexer *p, ghostcell *pgc, six
     
     // Calculate torque
     torque = r1.cross(force);
+}
+
+// NEW: Enhanced PacIFiC-based Hertz contact force model
+void sixdof_collision::calculate_pacific_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                                         const Eigen::Vector3d &contact_point, 
+                                                         const Eigen::Vector3d &normal, 
+                                                         const double overlap,
+                                                         Eigen::Vector3d &force, 
+                                                         Eigen::Vector3d &torque)
+{
+    int id1 = obj1->n6DOF;
+    int id2 = obj2->n6DOF;
+    
+    // Get object centers, velocities and angular velocities
+    Eigen::Vector3d center1 = obj1->c_;
+    Eigen::Vector3d center2 = obj2->c_;
+    
+    // Relative position vectors from centers to contact point
+    Eigen::Vector3d r1 = contact_point - center1;
+    Eigen::Vector3d r2 = contact_point - center2;
+    
+    // Get linear velocities at centers
+    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
+    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
+    
+    // Get angular velocities
+    Eigen::Vector3d omega1 = obj1->omega_I;
+    Eigen::Vector3d omega2 = obj2->omega_I;
+    
+    // Calculate velocities at contact point
+    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
+    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
+    
+    // Relative velocity at contact point
+    Eigen::Vector3d v_rel = v2_contact - v1_contact;
+    
+    // Normal component of relative velocity
+    double v_rel_n = v_rel.dot(normal);
+    
+    // Tangential component of relative velocity
+    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
+    double v_rel_t_mag = v_rel_t.norm();
+    
+    // PacIFiC-style effective properties calculation
+    double Req = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+    double avmass = calculate_effective_mass(obj1->Mass_fb, obj2->Mass_fb);
+    double deltan = overlap;  // Overlap distance (positive for contact)
+    double sqrtReqdeltan = sqrt(Req * deltan);
+    
+    // PacIFiC-style stiffness parameters
+    double Sn = 2.0 * pacific_Es * sqrtReqdeltan;  // Normal stiffness parameter
+    double St = 8.0 * pacific_Gs * sqrtReqdeltan;  // Tangential stiffness parameter
+    
+    // Normal non-linear elastic force (PacIFiC style)
+    double kn = (4.0 / 3.0) * pacific_Es * sqrtReqdeltan;
+    Eigen::Vector3d delFN = kn * overlap * normal;
+    
+    // Normal non-linear dissipative force (PacIFiC style)
+    double gamman = pacific_m2sqrt56 * pacific_beta * sqrt(avmass * Sn);
+    delFN -= gamman * v_rel_n * normal;
+    
+    double normFN = delFN.norm();
+    
+    // Tangential non-linear dissipative force (PacIFiC style)
+    double gammat = pacific_m2sqrt56 * pacific_beta * sqrt(avmass * St);
+    Eigen::Vector3d delFT = -gammat * v_rel_t;
+    
+    // Tangential Coulomb saturation (PacIFiC style)
+    double fn = pacific_muc * normFN;
+    double ft = delFT.norm();
+    
+    if (fn < ft && v_rel_t_mag > 1.0e-10) {
+        // Unit tangential vector in the reverse direction of the relative velocity
+        Eigen::Vector3d tangent = -v_rel_t / v_rel_t_mag;
+        delFT = tangent * fn;
+    }
+    
+    // Total force vector
+    force = delFN + delFT;
+    
+    // PacIFiC-style rolling resistance torque
+    if (pacific_kr > 0.0) {
+        // Relative angular velocity at contact point
+        Eigen::Vector3d wrel = omega1 - omega2;
+        double normwrel = wrel.norm();
+        
+        // Tangential velocity contribution from angular velocities
+        Eigen::Vector3d wt1 = omega1.cross(r1);
+        Eigen::Vector3d wt2 = omega2.cross(r2);
+        Eigen::Vector3d wtrel = wt1 - wt2;
+        double normwtrel = wtrel.norm();
+        
+        if (normwrel > 1.0e-10) {
+            Eigen::Vector3d delM = -(pacific_kr * Req * normFN * normwtrel / normwrel) * wrel;
+            torque = r1.cross(force) + delM;
+        } else {
+            torque = r1.cross(force);
+        }
+    } else {
+        torque = r1.cross(force);
+    }
+    
+    // Update contact history for tangential forces
+    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
+    if(it == contact_history.end()) {
+        ContactHistory history;
+        history.tangential_overlap.setZero();
+        history.in_contact = true;
+        history.last_update_time = p->simtime;
+        history.previous_normal = normal;
+        history.tangential_spring.setZero();
+        history.contact_duration = 0.0;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
+    } else {
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].contact_duration += p->dt;
+    }
+}
+
+// NEW: Enhanced PacIFiC-based Hooke contact force model
+void sixdof_collision::calculate_pacific_hooke_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                                         const Eigen::Vector3d &contact_point, 
+                                                         const Eigen::Vector3d &normal, 
+                                                         const double overlap,
+                                                         Eigen::Vector3d &force, 
+                                                         Eigen::Vector3d &torque)
+{
+    int id1 = obj1->n6DOF;
+    int id2 = obj2->n6DOF;
+    
+    // Get object centers, velocities and angular velocities
+    Eigen::Vector3d center1 = obj1->c_;
+    Eigen::Vector3d center2 = obj2->c_;
+    
+    // Relative position vectors from centers to contact point
+    Eigen::Vector3d r1 = contact_point - center1;
+    Eigen::Vector3d r2 = contact_point - center2;
+    
+    // Get linear velocities at centers
+    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
+    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
+    
+    // Get angular velocities
+    Eigen::Vector3d omega1 = obj1->omega_I;
+    Eigen::Vector3d omega2 = obj2->omega_I;
+    
+    // Calculate velocities at contact point
+    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
+    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
+    
+    // Relative velocity at contact point
+    Eigen::Vector3d v_rel = v2_contact - v1_contact;
+    
+    // Normal component of relative velocity
+    double v_rel_n = v_rel.dot(normal);
+    
+    // Tangential component of relative velocity
+    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
+    double v_rel_t_mag = v_rel_t.norm();
+    
+    // PacIFiC-style effective properties calculation
+    double avmass = calculate_effective_mass(obj1->Mass_fb, obj2->Mass_fb);
+    
+    // Normal linear elastic force (PacIFiC Hooke style)
+    Eigen::Vector3d delFN = hooke_kn * overlap * normal;
+    
+    // Normal dissipative force (PacIFiC Hooke style)
+    double gamman = -2.0 * hooke_en * sqrt(avmass * hooke_kn);
+    delFN -= gamman * v_rel_n * normal;
+    
+    double normFN = delFN.norm();
+    
+    // Get or create contact history for this pair
+    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
+    if(it == contact_history.end()) {
+        ContactHistory history;
+        history.tangential_overlap.setZero();
+        history.in_contact = true;
+        history.last_update_time = p->simtime;
+        history.previous_normal = normal;
+        history.tangential_spring.setZero();
+        history.contact_duration = 0.0;
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
+    }
+    
+    // Get time step
+    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
+    if(dt <= 0.0) dt = p->dt;
+    
+    // Update contact history
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
+    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].contact_duration += p->dt;
+    
+    // Tangential force calculation with memory effects (PacIFiC Hooke style)
+    Eigen::Vector3d delFT;
+    
+    if(v_rel_t_mag > 1.0e-10) {
+        // Update tangential overlap based on relative velocity
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
+        
+        // Project tangential overlap to the current tangential plane
+        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
+            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
+        
+        // Calculate the tangential force based on tangential spring
+        Eigen::Vector3d ft_spring = hooke_kt * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap;
+        
+        // Calculate the tangential damping force
+        double etat = (hooke_et == -1.0) ? -hooke_en * sqrt(hooke_kn / avmass) : hooke_et;
+        double gammat = 2.0 * etat * avmass;
+        Eigen::Vector3d ft_damp = -gammat * v_rel_t;
+        
+        delFT = ft_spring + ft_damp;
+        
+        // Tangential Coulomb saturation
+        double ft_mag = delFT.norm();
+        double ft_max = hooke_muc * normFN;
+        
+        if(ft_mag > ft_max) {
+            // Scale tangential force to the maximum allowed
+            delFT *= (ft_max / ft_mag);
+            
+            // Update tangential overlap to match the maximum force
+            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
+        }
+    } else {
+        delFT.setZero();
+    }
+    
+    // Total force vector
+    force = delFN + delFT;
+    
+    // PacIFiC-style rolling resistance torque
+    if (hooke_kr > 0.0) {
+        // Relative angular velocity at contact point
+        Eigen::Vector3d wrel = omega1 - omega2;
+        double normwrel = wrel.norm();
+        
+        // Tangential velocity contribution from angular velocities
+        Eigen::Vector3d wt1 = omega1.cross(r1);
+        Eigen::Vector3d wt2 = omega2.cross(r2);
+        Eigen::Vector3d wtrel = wt1 - wt2;
+        double normwtrel = wtrel.norm();
+        
+        if (normwrel > 1.0e-10) {
+            double Req = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+            Eigen::Vector3d delM = -(hooke_kr * Req * normFN * normwtrel / normwrel) * wrel;
+            torque = r1.cross(force) + delM;
+        } else {
+            torque = r1.cross(force);
+        }
+    } else {
+        torque = r1.cross(force);
+    }
 }
 
 void sixdof_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,

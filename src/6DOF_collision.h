@@ -40,7 +40,9 @@ enum class ContactForceModel {
     Hertz,       // Non-linear Hertzian elastic contact
     HertzMindlin, // Hertz with tangential history
     DMT,         // Derjaguin-Muller-Toporov model for adhesive contacts
-    JKR          // Johnson-Kendall-Roberts model for strong adhesion
+    JKR,         // Johnson-Kendall-Roberts model for strong adhesion
+    PacIFiCHertz, // Enhanced Hertz model based on PacIFiC implementation
+    PacIFiCHooke  // Enhanced Hooke model based on PacIFiC implementation
 };
 
 class sixdof_collision
@@ -110,12 +112,32 @@ private:
                                    Eigen::Vector3d &force, 
                                    Eigen::Vector3d &torque);
     
+    // NEW: Enhanced PacIFiC-based Hertz contact force model
+    void calculate_pacific_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                             const Eigen::Vector3d &contact_point, 
+                                             const Eigen::Vector3d &normal, 
+                                             const double overlap,
+                                             Eigen::Vector3d &force, 
+                                             Eigen::Vector3d &torque);
+    
+    // NEW: Enhanced PacIFiC-based Hooke contact force model
+    void calculate_pacific_hooke_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                             const Eigen::Vector3d &contact_point, 
+                                             const Eigen::Vector3d &normal, 
+                                             const double overlap,
+                                             Eigen::Vector3d &force, 
+                                             Eigen::Vector3d &torque);
+    
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
     double calculate_effective_radius(double R1, double R2);
     
     // Helper function for Hertzian contact
     double calculate_hertz_stiffness(double E_eff, double R_eff);
+    
+    // NEW: PacIFiC-style effective properties calculation
+    double calculate_effective_shear_modulus(double E1, double E2, double nu1, double nu2);
+    double calculate_effective_mass(double m1, double m2);
     
     // Contact model parameters
     ContactForceModel contact_model;
@@ -146,6 +168,23 @@ private:
     double surface_energy_jkr;     // Surface energy for JKR model
     double jkr_cutoff_threshold;   // Cutoff threshold for JKR model
     
+    // NEW: PacIFiC-style enhanced parameters
+    double pacific_Es;              // Effective Young's modulus (PacIFiC style)
+    double pacific_en;              // Normal restitution coefficient
+    double pacific_Gs;              // Effective shear modulus
+    double pacific_muc;             // Coulomb friction coefficient
+    double pacific_kr;              // Rolling resistance coefficient
+    double pacific_beta;            // Damping factor: log(en)/sqrt(π² + log²(en))
+    double pacific_m2sqrt56;        // Constant: -2*sqrt(5/6)
+    
+    // Hooke model parameters (PacIFiC style)
+    double hooke_kn;                // Normal stiffness coefficient
+    double hooke_kt;                // Tangential stiffness coefficient
+    double hooke_en;                // Normal restitution coefficient
+    double hooke_et;                // Tangential restitution coefficient
+    double hooke_muc;               // Coulomb friction coefficient
+    double hooke_kr;                // Rolling resistance coefficient
+    
     // Sub-stepping parameters
     bool use_substeps;
     int max_substeps;
@@ -155,6 +194,10 @@ private:
         Eigen::Vector3d tangential_overlap;
         bool in_contact;
         double last_update_time;
+        // NEW: Enhanced contact history for PacIFiC-style models
+        Eigen::Vector3d previous_normal;      // Previous contact normal
+        Eigen::Vector3d tangential_spring;    // Tangential spring displacement
+        double contact_duration;              // Duration of contact
     };
     map<pair<int, int>, ContactHistory> contact_history;
     
@@ -194,6 +237,14 @@ private:
                                      const Eigen::Vector3d &normal,
                                      const double overlap,
                                      Eigen::Vector3d &twisting_torque);
+    
+    // NEW: PacIFiC-style rolling resistance calculation
+    void calculate_pacific_rolling_resistance(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                            const Eigen::Vector3d &contact_point,
+                                            const Eigen::Vector3d &normal,
+                                            const double overlap,
+                                            const double normFN,
+                                            Eigen::Vector3d &rolling_torque);
 };
 
 #endif 
