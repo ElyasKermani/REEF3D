@@ -86,6 +86,9 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     use_substeps = true;
     max_substeps = 10;
     
+    // NEW: Set default synchronization method
+    sync_method = SyncMethod::GlobalSum;  // Most robust approach
+    
     // Create a new collision grid
     collision_grid = new sixdof_collision_grid(p, pgc);
 }
@@ -99,6 +102,12 @@ sixdof_collision::~sixdof_collision()
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
+    // Early return if no objects or only one object
+    if(fb_obj.size() < 2)
+    {
+        return;
+    }
+    
     // Update contact history (remove pairs no longer in contact)
     update_contact_history(p);
     
@@ -119,6 +128,12 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
     {
         int i = pair.first;
         int j = pair.second;
+        
+        // Safety check for valid indices
+        if(i < 0 || i >= fb_obj.size() || j < 0 || j >= fb_obj.size() || i == j)
+        {
+            continue;
+        }
         
         // Variables to store collision information
         Eigen::Vector3d contact_point, normal;
@@ -241,6 +256,56 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                 cout<<"  Overlap: "<<overlap<<endl;
                 cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
             }
+        }
+    }
+    
+    // CRITICAL FIX: Synchronize collision forces across all processors
+    // This ensures consistent results regardless of processor count
+    synchronize_collision_forces(p, pgc, fb_obj);
+}
+
+// NEW: Function to synchronize collision forces across all processors
+void sixdof_collision::synchronize_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
+{
+    if(sync_method == SyncMethod::GlobalSum)
+    {
+        // Method 1: Global sum (most robust, ensures consistency)
+        // This is the same approach used by hydrodynamic forces in REEF3D
+        for(int nb = 0; nb < p->X20; ++nb)
+        {
+            fb_obj[nb]->Xext = pgc->globalsum(fb_obj[nb]->Xext);
+            fb_obj[nb]->Yext = pgc->globalsum(fb_obj[nb]->Yext);
+            fb_obj[nb]->Zext = pgc->globalsum(fb_obj[nb]->Zext);
+            
+            fb_obj[nb]->Kext = pgc->globalsum(fb_obj[nb]->Kext);
+            fb_obj[nb]->Mext = pgc->globalsum(fb_obj[nb]->Mext);
+            fb_obj[nb]->Next = pgc->globalsum(fb_obj[nb]->Next);
+        }
+        
+        if(p->mpirank==0 && p->count%p->P12==0)
+        {
+            cout<<"6DOF Collision: Forces synchronized using GlobalSum across "<<p->mpi_size<<" processors"<<endl;
+        }
+    }
+    else if(sync_method == SyncMethod::Broadcast)
+    {
+        // Method 2: Broadcast from rank 0 (faster, but requires rank 0 to have all data)
+        // This approach is similar to mooring forces in REEF3D
+        for(int nb = 0; nb < p->X20; ++nb)
+        {
+            // Broadcast forces from rank 0 to all other processors
+            MPI_Bcast(&fb_obj[nb]->Xext, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+            MPI_Bcast(&fb_obj[nb]->Yext, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+            MPI_Bcast(&fb_obj[nb]->Zext, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+            
+            MPI_Bcast(&fb_obj[nb]->Kext, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+            MPI_Bcast(&fb_obj[nb]->Mext, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+            MPI_Bcast(&fb_obj[nb]->Next, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
+        }
+        
+        if(p->mpirank==0 && p->count%p->P12==0)
+        {
+            cout<<"6DOF Collision: Forces synchronized using Broadcast across "<<p->mpi_size<<" processors"<<endl;
         }
     }
 }
