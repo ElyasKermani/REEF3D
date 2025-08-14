@@ -28,8 +28,6 @@ Author: Elyas Larkermani
 #include"6DOF_collision_grid.h"
 #include<math.h>
 #include<iostream>
-#include<mpi.h>  // Explicit MPI include to ensure functions are available
-#include<algorithm>  // For std::fill
 
 sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
 {
@@ -40,11 +38,6 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     max_objects = p->X20;
     collision_forces.resize(max_objects);
     collision_torques.resize(max_objects);
-    
-    // Initialize raw arrays for MPI communication (3 components per object)
-    collision_forces_raw.resize(3 * max_objects);
-    collision_torques_raw.resize(3 * max_objects);
-    
     clear_collision_forces();
     
     // Set default collision model
@@ -101,30 +94,6 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     
     // Create a new collision grid
     collision_grid = new sixdof_collision_grid(p, pgc);
-    
-    // Test MPI communication to ensure it's working
-    if(p->mpirank == 0)
-    {
-        cout<<"6DOF Collision: Testing MPI communication..."<<endl;
-    }
-    
-    // Simple MPI test: broadcast a test value
-    double test_value = 42.0;
-    if(p->mpirank == 0)
-    {
-        test_value = 123.456;
-        cout<<"6DOF Collision: Rank 0 sending test value: "<<test_value<<endl;
-    }
-    
-    MPI_Bcast(&test_value, 1, MPI_DOUBLE, 0, pgc->mpi_comm);
-    
-    cout<<"6DOF Collision: Rank "<<p->mpirank<<" received test value: "<<test_value<<endl;
-    
-    // Verify all ranks got the same value
-    if(p->mpirank == 0)
-    {
-        cout<<"6DOF Collision: MPI test completed. All ranks should have value 123.456"<<endl;
-    }
 }
 
 sixdof_collision::~sixdof_collision()
@@ -315,9 +284,6 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
         
         // Uncomment the next line for debugging MPI synchronization (adds computational overhead)
         // verify_collision_forces_synchronization(p, pgc);
-        
-        // Enable verification for debugging MPI issues
-        verify_collision_forces_synchronization(p, pgc);
     }
 }
 
@@ -1493,93 +1459,19 @@ void sixdof_collision::clear_collision_forces()
         collision_forces[i].setZero();
         collision_torques[i].setZero();
     }
-    
-    // Also clear raw arrays
-    std::fill(collision_forces_raw.begin(), collision_forces_raw.end(), 0.0);
-    std::fill(collision_torques_raw.begin(), collision_torques_raw.end(), 0.0);
-}
-
-// NEW: Convert Eigen vectors to raw arrays for MPI communication
-void sixdof_collision::sync_eigen_to_raw_arrays()
-{
-    for(int i = 0; i < max_objects; ++i)
-    {
-        int base_idx = 3 * i;
-        collision_forces_raw[base_idx + 0] = collision_forces[i](0);  // x
-        collision_forces_raw[base_idx + 1] = collision_forces[i](1);  // y
-        collision_forces_raw[base_idx + 2] = collision_forces[i](2);  // z
-        
-        collision_torques_raw[base_idx + 0] = collision_torques[i](0); // x
-        collision_torques_raw[base_idx + 1] = collision_torques[i](1); // y
-        collision_torques_raw[base_idx + 2] = collision_torques[i](2); // z
-    }
-}
-
-// NEW: Convert raw arrays back to Eigen vectors after MPI communication
-void sixdof_collision::sync_raw_to_eigen_arrays()
-{
-    for(int i = 0; i < max_objects; ++i)
-    {
-        int base_idx = 3 * i;
-        collision_forces[i](0) = collision_forces_raw[base_idx + 0];  // x
-        collision_forces[i](1) = collision_forces_raw[base_idx + 1];  // y
-        collision_forces[i](2) = collision_forces_raw[base_idx + 2];  // z
-        
-        collision_torques[i](0) = collision_torques_raw[base_idx + 0]; // x
-        collision_torques[i](1) = collision_torques_raw[base_idx + 1]; // y
-        collision_torques[i](2) = collision_torques_raw[base_idx + 2]; // z
-    }
 }
 
 // NEW: Broadcast collision forces and torques from rank 0 to all processors
 void sixdof_collision::broadcast_collision_forces(lexer *p, ghostcell *pgc)
 {
-    // First, convert Eigen vectors to raw arrays for safe MPI communication
-    sync_eigen_to_raw_arrays();
-    
-    // Debug: Print what rank 0 is about to broadcast
-    if(p->mpirank == 0)
+    // Broadcast collision forces and torques for all objects
+    for(int i = 0; i < max_objects; ++i)
     {
-        cout<<"6DOF Collision: Rank 0 broadcasting forces for "<<max_objects<<" objects:"<<endl;
-        for(int i = 0; i < max_objects; ++i)
-        {
-            int base_idx = 3 * i;
-            double fx = collision_forces_raw[base_idx + 0];
-            double fy = collision_forces_raw[base_idx + 1];
-            double fz = collision_forces_raw[base_idx + 2];
-            double tx = collision_torques_raw[base_idx + 0];
-            double ty = collision_torques_raw[base_idx + 1];
-            double tz = collision_torques_raw[base_idx + 2];
-            
-            if(sqrt(fx*fx + fy*fy + fz*fz) > 1.0e-10 || sqrt(tx*tx + ty*ty + tz*tz) > 1.0e-10)
-            {
-                cout<<"  Object "<<i<<": Force=["<<fx<<", "<<fy<<", "<<fz<<"]"<<endl;
-                cout<<"            Torque=["<<tx<<", "<<ty<<", "<<tz<<"]"<<endl;
-            }
-        }
-    }
-    
-    // Broadcast raw force data (all components at once)
-    MPI_Bcast(collision_forces_raw.data(), 3 * max_objects, MPI_DOUBLE, 0, pgc->mpi_comm);
-    
-    // Broadcast raw torque data (all components at once)
-    MPI_Bcast(collision_torques_raw.data(), 3 * max_objects, MPI_DOUBLE, 0, pgc->mpi_comm);
-    
-    // Convert raw arrays back to Eigen vectors on all processors
-    sync_raw_to_eigen_arrays();
-    
-    // Debug: Print after broadcast on all ranks
-    if(p->count%p->P12==0)
-    {
-        cout<<"6DOF Collision: Rank "<<p->mpirank<<" received forces for "<<max_objects<<" objects"<<endl;
-        for(int i = 0; i < max_objects; ++i)
-        {
-            if(collision_forces[i].norm() > 1.0e-10 || collision_torques[i].norm() > 1.0e-10)
-            {
-                cout<<"  Object "<<i<<": Force=["<<collision_forces[i](0)<<", "<<collision_forces[i](1)<<", "<<collision_forces[i](2)<<"]"<<endl;
-                cout<<"            Torque=["<<collision_torques[i](0)<<", "<<collision_torques[i](1)<<", "<<collision_torques[i](2)<<"]"<<endl;
-            }
-        }
+        // Broadcast forces (3 components: x, y, z)
+        MPI_Bcast(&collision_forces[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
+        
+        // Broadcast torques (3 components: x, y, z)
+        MPI_Bcast(&collision_torques[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
     }
     
     if(p->mpirank==0 && p->count%p->P12==0)
@@ -1594,38 +1486,45 @@ void sixdof_collision::verify_collision_forces_synchronization(lexer *p, ghostce
     // This function can be called to verify that MPI communication worked correctly
     // It's useful for debugging but not needed for normal operation
     
-    // First sync to raw arrays to check what was actually communicated
-    sync_eigen_to_raw_arrays();
-    
     bool forces_synchronized = true;
     
-    // Check raw arrays (what was actually sent via MPI)
-    for(int i = 0; i < 3 * max_objects; ++i)
+    for(int i = 0; i < max_objects; ++i)
     {
-        double force_sum = 0.0, torque_sum = 0.0;
+        // Check if forces are synchronized across all processors
+        double force_x_sum = 0.0, force_y_sum = 0.0, force_z_sum = 0.0;
+        double torque_x_sum = 0.0, torque_y_sum = 0.0, torque_z_sum = 0.0;
         
-        // Sum across all processors
-        MPI_Allreduce(&collision_forces_raw[i], &force_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        MPI_Allreduce(&collision_torques_raw[i], &torque_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        // Sum forces across all processors
+        MPI_Allreduce(&collision_forces[i](0), &force_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_forces[i](1), &force_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_forces[i](2), &force_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
         
-        // Get number of processors
+        MPI_Allreduce(&collision_torques[i](0), &torque_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_torques[i](1), &torque_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_torques[i](2), &torque_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        
+        // Check if the sum equals the value times number of processors
         int num_procs;
         MPI_Comm_size(pgc->mpi_comm, &num_procs);
         
-        // Check if the sum equals the value times number of processors
-        double expected_force = collision_forces_raw[i] * num_procs;
-        double expected_torque = collision_torques_raw[i] * num_procs;
+        double expected_force_x = collision_forces[i](0) * num_procs;
+        double expected_force_y = collision_forces[i](1) * num_procs;
+        double expected_force_z = collision_forces[i](2) * num_procs;
+        
+        double expected_torque_x = collision_torques[i](0) * num_procs;
+        double expected_torque_y = collision_torques[i](1) * num_procs;
+        double expected_torque_z = collision_torques[i](2) * num_procs;
         
         // Check for synchronization (allow small numerical tolerance)
         double tolerance = 1.0e-10;
-        if(fabs(force_sum - expected_force) > tolerance || fabs(torque_sum - expected_torque) > tolerance)
+        if(fabs(force_x_sum - expected_force_x) > tolerance || 
+           fabs(force_y_sum - expected_force_y) > tolerance || 
+           fabs(force_z_sum - expected_force_z) > tolerance ||
+           fabs(torque_x_sum - expected_torque_x) > tolerance || 
+           fabs(torque_y_sum - expected_torque_y) > tolerance || 
+           fabs(torque_z_sum - expected_torque_z) > tolerance)
         {
             forces_synchronized = false;
-            if(p->mpirank == 0)
-            {
-                cout<<"  MPI sync error at index "<<i<<": force_sum="<<force_sum<<", expected="<<expected_force<<endl;
-                cout<<"  MPI sync error at index "<<i<<": torque_sum="<<torque_sum<<", expected="<<expected_torque<<endl;
-            }
         }
     }
     
