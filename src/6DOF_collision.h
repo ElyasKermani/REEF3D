@@ -212,10 +212,16 @@ private:
     std::vector<Eigen::Vector3d> collision_torques;    // Collision torques for each object
     int max_objects;                                    // Maximum number of objects supported
     
+    // NEW: Raw arrays for MPI communication (ensures contiguous memory layout)
+    std::vector<double> collision_forces_raw;           // Raw force data for MPI [x1,y1,z1,x2,y2,z2,...]
+    std::vector<double> collision_torques_raw;          // Raw torque data for MPI [x1,y1,z1,x2,y2,z2,...]
+    
     // NEW: MPI communication functions
     void broadcast_collision_forces(lexer *p, ghostcell *pgc);
     void clear_collision_forces();
     void verify_collision_forces_synchronization(lexer *p, ghostcell *pgc); // Debug function
+    void sync_eigen_to_raw_arrays();  // Convert Eigen vectors to raw arrays for MPI
+    void sync_raw_to_eigen_arrays();  // Convert raw arrays back to Eigen vectors after MPI
     
     // For distance calculation
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
