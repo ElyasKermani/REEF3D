@@ -207,6 +207,16 @@ private:
     // Grid-based collision detection system
     sixdof_collision_grid* collision_grid;
     
+    // NEW: Storage for collision forces and torques (for MPI communication)
+    std::vector<Eigen::Vector3d> collision_forces;      // Collision forces for each object
+    std::vector<Eigen::Vector3d> collision_torques;    // Collision torques for each object
+    int max_objects;                                    // Maximum number of objects supported
+    
+    // NEW: MPI communication functions
+    void broadcast_collision_forces(lexer *p, ghostcell *pgc);
+    void clear_collision_forces();
+    void verify_collision_forces_synchronization(lexer *p, ghostcell *pgc); // Debug function
+    
     // For distance calculation
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
     

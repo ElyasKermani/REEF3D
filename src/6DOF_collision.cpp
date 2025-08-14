@@ -34,6 +34,12 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     if(p->mpirank==0)
     cout<<"6DOF Collision Model startup..."<<endl;
     
+    // Set maximum number of objects and initialize storage
+    max_objects = p->X20;
+    collision_forces.resize(max_objects);
+    collision_torques.resize(max_objects);
+    clear_collision_forces();
+    
     // Set default collision model
     contact_model = ContactForceModel::PacIFiCHertz;
     
@@ -99,149 +105,185 @@ sixdof_collision::~sixdof_collision()
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // Update contact history (remove pairs no longer in contact)
-    update_contact_history(p);
+    // Clear collision forces for all objects on all processors
+    clear_collision_forces();
     
-    // Update the collision grid with current object positions
-    collision_grid->update_grid(p, pgc, fb_obj);
-    
-    // Get potential collision pairs from the grid
-    std::vector<std::pair<int, int>> potential_collisions = 
-        collision_grid->find_potential_collisions(p, pgc, fb_obj);
-    
-    if(p->mpirank==0 && p->count%p->P12==0 && potential_collisions.size() > 0)
+    // Only rank 0 calculates collision forces
+    if(p->mpirank == 0)
     {
-        cout<<"6DOF Collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
-    }
-    
-    // Check each potential collision pair
-    for(const auto& pair : potential_collisions)
-    {
-        int i = pair.first;
-        int j = pair.second;
+        // Update contact history (remove pairs no longer in contact)
+        update_contact_history(p);
         
-        // Variables to store collision information
-        Eigen::Vector3d contact_point, normal;
-        double overlap = 0.0;
+        // Update the collision grid with current object positions
+        collision_grid->update_grid(p, pgc, fb_obj);
         
-        // Detect if collision occurred
-        if(detect_collision(p, pgc, fb_obj[i], fb_obj[j], contact_point, normal, overlap))
+        // Get potential collision pairs from the grid
+        std::vector<std::pair<int, int>> potential_collisions = 
+            collision_grid->find_potential_collisions(p, pgc, fb_obj);
+        
+        if(p->count%p->P12==0 && potential_collisions.size() > 0)
         {
-            // Calculate contact forces and torques
-            Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
+            cout<<"6DOF Collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
+        }
+        
+        // Check each potential collision pair
+        for(const auto& pair : potential_collisions)
+        {
+            int i = pair.first;
+            int j = pair.second;
             
-            // Apply appropriate contact force model
-            switch(contact_model)
+            // Variables to store collision information
+            Eigen::Vector3d contact_point, normal;
+            double overlap = 0.0;
+            
+            // Detect if collision occurred
+            if(detect_collision(p, pgc, fb_obj[i], fb_obj[j], contact_point, normal, overlap))
             {
-                case ContactForceModel::Linear:
-                    calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                 contact_point, normal, overlap, 
-                                                 force, torque);
-                    break;
-                    
-                case ContactForceModel::Hertz:
-                    calculate_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                contact_point, normal, overlap, 
-                                                force, torque);
-                    break;
-                    
-                case ContactForceModel::HertzMindlin:
-                    calculate_hertz_mindlin_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                       contact_point, normal, overlap, 
-                                                       force, torque);
-                    break;
-                    
-                case ContactForceModel::DMT:
-                    calculate_dmt_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                              contact_point, normal, overlap, 
-                                              force, torque);
-                    break;
-                    
-                case ContactForceModel::JKR:
-                    calculate_jkr_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                              contact_point, normal, overlap, 
-                                              force, torque);
-                    break;
-                    
-                case ContactForceModel::PacIFiCHertz:
-                    calculate_pacific_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                       contact_point, normal, overlap, 
-                                                       force, torque);
-                    break;
-                    
-                case ContactForceModel::PacIFiCHooke:
-                    calculate_pacific_hooke_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                       contact_point, normal, overlap, 
-                                                       force, torque);
-                    break;
-                    
-                default:
-                    // Default to linear model if unrecognized
-                    calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                 contact_point, normal, overlap, 
-                                                 force, torque);
-                    break;
-            }
-            
-            // Calculate rolling friction and twisting resistance
-            calculate_rolling_friction_torque(p, pgc, fb_obj[i], fb_obj[j],
-                                            contact_point, normal, overlap,
-                                            rolling_torque);
-                                            
-            calculate_twisting_resistance(p, pgc, fb_obj[i], fb_obj[j],
-                                        contact_point, normal, overlap,
-                                        twisting_torque);
-            
-            // Add rolling friction and twisting resistance to total torque
-            torque += rolling_torque + twisting_torque;
-            
-            // If using sub-stepping for collision resolution
-            if(use_substeps && overlap > 0.01 * fb_obj[i]->radius) // Only use sub-stepping for significant overlaps
-            {
-                resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j], 
-                                             contact_point, normal, overlap, 
-                                             force, torque);
-            }
-            else
-            {
-                // Add collision forces to object i (action)
-                fb_obj[i]->Xext -= force(0);
-                fb_obj[i]->Yext -= force(1);
-                fb_obj[i]->Zext -= force(2);
+                // Calculate contact forces and torques
+                Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
                 
-                fb_obj[i]->Kext -= torque(0);
-                fb_obj[i]->Mext -= torque(1);
-                fb_obj[i]->Next -= torque(2);
-                
-                // Add collision forces to object j (reaction)
-                fb_obj[j]->Xext += force(0);
-                fb_obj[j]->Yext += force(1);
-                fb_obj[j]->Zext += force(2);
-                
-                fb_obj[j]->Kext += torque(0);
-                fb_obj[j]->Mext += torque(1);
-                fb_obj[j]->Next += torque(2);
-            }
-            
-            if(p->mpirank==0 && p->count%p->P12==0)
-            {
-                cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
-                cout<<"  Model: ";
-                switch(contact_model) {
-                    case ContactForceModel::Linear: cout<<"Linear"; break;
-                    case ContactForceModel::Hertz: cout<<"Hertz"; break;
-                    case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
-                    case ContactForceModel::DMT: cout<<"DMT"; break;
-                    case ContactForceModel::JKR: cout<<"JKR"; break;
-                    case ContactForceModel::PacIFiCHertz: cout<<"PacIFiC-Hertz"; break;
-                    case ContactForceModel::PacIFiCHooke: cout<<"PacIFiC-Hooke"; break;
-                    default: cout<<"Unknown"; break;
+                // Apply appropriate contact force model
+                switch(contact_model)
+                {
+                    case ContactForceModel::Linear:
+                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                     contact_point, normal, overlap, 
+                                                     force, torque);
+                        break;
+                        
+                    case ContactForceModel::Hertz:
+                        calculate_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                    contact_point, normal, overlap, 
+                                                    force, torque);
+                        break;
+                        
+                    case ContactForceModel::HertzMindlin:
+                        calculate_hertz_mindlin_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                           contact_point, normal, overlap, 
+                                                           force, torque);
+                        break;
+                        
+                    case ContactForceModel::DMT:
+                        calculate_dmt_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                  contact_point, normal, overlap, 
+                                                  force, torque);
+                        break;
+                        
+                    case ContactForceModel::JKR:
+                        calculate_jkr_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                  contact_point, normal, overlap, 
+                                                  force, torque);
+                        break;
+                        
+                    case ContactForceModel::PacIFiCHertz:
+                        calculate_pacific_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                           contact_point, normal, overlap, 
+                                                           force, torque);
+                        break;
+                        
+                    case ContactForceModel::PacIFiCHooke:
+                        calculate_pacific_hooke_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                           contact_point, normal, overlap, 
+                                                           force, torque);
+                        break;
+                        
+                    default:
+                        // Default to linear model if unrecognized
+                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
+                                                     contact_point, normal, overlap, 
+                                                     force, torque);
+                        break;
                 }
-                cout<<endl;
-                cout<<"  Overlap: "<<overlap<<endl;
-                cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
+                
+                // Calculate rolling friction and twisting resistance
+                calculate_rolling_friction_torque(p, pgc, fb_obj[i], fb_obj[j],
+                                                contact_point, normal, overlap,
+                                                rolling_torque);
+                                                
+                calculate_twisting_resistance(p, pgc, fb_obj[i], fb_obj[j],
+                                            contact_point, normal, overlap,
+                                            twisting_torque);
+                
+                // Add rolling friction and twisting resistance to total torque
+                torque += rolling_torque + twisting_torque;
+                
+                // If using sub-stepping for collision resolution
+                if(use_substeps && overlap > 0.01 * fb_obj[i]->radius) // Only use sub-stepping for significant overlaps
+                {
+                    resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j], 
+                                                 contact_point, normal, overlap, 
+                                                 force, torque);
+                }
+                
+                // Store collision forces and torques (instead of directly applying to Xext, etc.)
+                // Object i gets negative force (action)
+                collision_forces[i] -= force;
+                collision_torques[i] -= torque;
+                
+                // Object j gets positive force (reaction)
+                collision_forces[j] += force;
+                collision_torques[j] += torque;
+                
+                if(p->count%p->P12==0)
+                {
+                    cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
+                    cout<<"  Model: ";
+                    switch(contact_model) {
+                        case ContactForceModel::Linear: cout<<"Linear"; break;
+                        case ContactForceModel::Hertz: cout<<"Hertz"; break;
+                        case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
+                        case ContactForceModel::DMT: cout<<"DMT"; break;
+                        case ContactForceModel::JKR: cout<<"JKR"; break;
+                        case ContactForceModel::PacIFiCHertz: cout<<"PacIFiC-Hertz"; break;
+                        case ContactForceModel::PacIFiCHooke: cout<<"PacIFiC-Hooke"; break;
+                        default: cout<<"Unknown"; break;
+                    }
+                    cout<<endl;
+                    cout<<"  Overlap: "<<overlap<<endl;
+                    cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
+                }
             }
         }
+    }
+    
+    // Broadcast collision forces and torques from rank 0 to all processors
+    broadcast_collision_forces(p, pgc);
+    
+    // Apply collision forces to external force variables on ALL processors
+    for(int i = 0; i < max_objects; ++i)
+    {
+        fb_obj[i]->Xext += collision_forces[i](0);
+        fb_obj[i]->Yext += collision_forces[i](1);
+        fb_obj[i]->Zext += collision_forces[i](2);
+        
+        fb_obj[i]->Kext += collision_torques[i](0);
+        fb_obj[i]->Mext += collision_torques[i](1);
+        fb_obj[i]->Next += collision_torques[i](2);
+    }
+    
+    // Debug output to verify MPI communication (only print occasionally)
+    if(p->count%p->P12==0)
+    {
+        if(p->mpirank == 0)
+        {
+            cout<<"6DOF Collision: Applied forces to all objects on rank 0:"<<endl;
+            for(int i = 0; i < max_objects; ++i)
+            {
+                if(collision_forces[i].norm() > 1.0e-10 || collision_torques[i].norm() > 1.0e-10)
+                {
+                    cout<<"  Object "<<i<<": Force=["<<collision_forces[i](0)<<", "<<collision_forces[i](1)<<", "<<collision_forces[i](2)<<"]"<<endl;
+                    cout<<"            Torque=["<<collision_torques[i](0)<<", "<<collision_torques[i](1)<<", "<<collision_torques[i](2)<<"]"<<endl;
+                }
+            }
+        }
+        else
+        {
+            // Verify that non-rank-0 processors received the forces
+            cout<<"6DOF Collision: Rank "<<p->mpirank<<" received forces for "<<max_objects<<" objects"<<endl;
+        }
+        
+        // Uncomment the next line for debugging MPI synchronization (adds computational overhead)
+        // verify_collision_forces_synchronization(p, pgc);
     }
 }
 
@@ -1406,5 +1448,95 @@ void sixdof_collision::calculate_twisting_resistance(lexer *p, ghostcell *pgc, s
     else
     {
         twisting_torque.setZero();
+    }
+} 
+
+// NEW: Clear collision forces and torques for all objects
+void sixdof_collision::clear_collision_forces()
+{
+    for(int i = 0; i < max_objects; ++i)
+    {
+        collision_forces[i].setZero();
+        collision_torques[i].setZero();
+    }
+}
+
+// NEW: Broadcast collision forces and torques from rank 0 to all processors
+void sixdof_collision::broadcast_collision_forces(lexer *p, ghostcell *pgc)
+{
+    // Broadcast collision forces and torques for all objects
+    for(int i = 0; i < max_objects; ++i)
+    {
+        // Broadcast forces (3 components: x, y, z)
+        MPI_Bcast(&collision_forces[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
+        
+        // Broadcast torques (3 components: x, y, z)
+        MPI_Bcast(&collision_torques[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
+    }
+    
+    if(p->mpirank==0 && p->count%p->P12==0)
+    {
+        cout<<"6DOF Collision: Broadcasted forces and torques to all processors"<<endl;
+    }
+}
+
+// NEW: Verify that all processors have synchronized collision forces (debug function)
+void sixdof_collision::verify_collision_forces_synchronization(lexer *p, ghostcell *pgc)
+{
+    // This function can be called to verify that MPI communication worked correctly
+    // It's useful for debugging but not needed for normal operation
+    
+    bool forces_synchronized = true;
+    
+    for(int i = 0; i < max_objects; ++i)
+    {
+        // Check if forces are synchronized across all processors
+        double force_x_sum = 0.0, force_y_sum = 0.0, force_z_sum = 0.0;
+        double torque_x_sum = 0.0, torque_y_sum = 0.0, torque_z_sum = 0.0;
+        
+        // Sum forces across all processors
+        MPI_Allreduce(&collision_forces[i](0), &force_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_forces[i](1), &force_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_forces[i](2), &force_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        
+        MPI_Allreduce(&collision_torques[i](0), &torque_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_torques[i](1), &torque_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&collision_torques[i](2), &torque_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        
+        // Check if the sum equals the value times number of processors
+        int num_procs;
+        MPI_Comm_size(pgc->mpi_comm, &num_procs);
+        
+        double expected_force_x = collision_forces[i](0) * num_procs;
+        double expected_force_y = collision_forces[i](1) * num_procs;
+        double expected_force_z = collision_forces[i](2) * num_procs;
+        
+        double expected_torque_x = collision_torques[i](0) * num_procs;
+        double expected_torque_y = collision_torques[i](1) * num_procs;
+        double expected_torque_z = collision_torques[i](2) * num_procs;
+        
+        // Check for synchronization (allow small numerical tolerance)
+        double tolerance = 1.0e-10;
+        if(fabs(force_x_sum - expected_force_x) > tolerance || 
+           fabs(force_y_sum - expected_force_y) > tolerance || 
+           fabs(force_z_sum - expected_force_z) > tolerance ||
+           fabs(torque_x_sum - expected_torque_x) > tolerance || 
+           fabs(torque_y_sum - expected_torque_y) > tolerance || 
+           fabs(torque_z_sum - expected_torque_z) > tolerance)
+        {
+            forces_synchronized = false;
+        }
+    }
+    
+    if(p->mpirank == 0)
+    {
+        if(forces_synchronized)
+        {
+            cout<<"6DOF Collision: SUCCESS - All collision forces are synchronized across processors"<<endl;
+        }
+        else
+        {
+            cout<<"6DOF Collision: ERROR - Collision forces are NOT synchronized across processors!"<<endl;
+        }
     }
 } 
