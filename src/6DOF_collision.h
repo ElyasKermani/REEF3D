@@ -189,13 +189,6 @@ private:
     bool use_substeps;
     int max_substeps;
     
-    // NEW: Collision force synchronization method
-    enum class SyncMethod {
-        GlobalSum,      // Use pgc->globalsum (most robust, slower)
-        Broadcast       // Use MPI_Bcast from rank 0 (faster, requires rank 0 calculation)
-    };
-    SyncMethod sync_method;
-    
     // Contact history for tangential forces
     struct ContactHistory {
         Eigen::Vector3d tangential_overlap;
@@ -252,21 +245,6 @@ private:
                                             const double overlap,
                                             const double normFN,
                                             Eigen::Vector3d &rolling_torque);
-    
-    // NEW: Function to synchronize collision forces across all processors
-    void synchronize_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-    
-    // NEW: Set synchronization method for performance tuning
-    void set_sync_method(SyncMethod method) { sync_method = method; }
-    
-    // NEW: Get current synchronization method
-    SyncMethod get_sync_method() const { return sync_method; }
-    
-    // Set contact force model
-    void set_contact_force_model(ContactForceModel model) { contact_model = model; }
-    
-    // Get current contact force model
-    ContactForceModel get_contact_force_model() const { return contact_model; }
 };
 
 #endif 
