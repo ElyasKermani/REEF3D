@@ -149,6 +149,10 @@ private:
     double damping_constant_t;       // Tangential damping constant
     double friction_coefficient;     // Friction coefficient
     double restitution_coefficient;  // Restitution coefficient
+    // Optional: compute linear damping from restitution
+    bool linear_use_restitution;     // If true, compute c from e
+    double linear_en;                // Normal restitution for linear model
+    double linear_et;                // Tangential restitution for linear model (-1 => use linear_en)
     
     // Rolling friction parameters
     double rolling_friction_coefficient;  // Rolling friction coefficient

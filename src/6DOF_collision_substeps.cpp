@@ -91,22 +91,8 @@ void sixdof_collision::resolve_collision_with_substeps(lexer *p, ghostcell *pgc,
     obj2->h_ = orig_h2;
     obj2->e_ = orig_e2;
     
-    // The forces have been applied through sub-stepping for accurate collision resolution
-    // Now we add these forces to the main simulation
-    // Note: In the new single-processor approach, these forces are stored in collision_forces arrays
-    // and will be applied later after MPI broadcasting
-    
-    // Store collision forces for later application (instead of directly modifying Xext, etc.)
-    // This ensures consistency with the new MPI-based approach
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
-    
-    // Store forces in the collision arrays (will be applied after MPI broadcast)
-    collision_forces[id1] -= force;
-    collision_torques[id1] -= torque;
-    
-    collision_forces[id2] += force;
-    collision_torques[id2] += torque;
+    // The forces have been applied through sub-stepping for accurate collision resolution.
+    // Do not store forces/torques here to avoid double counting; storage happens in the main loop.
 }
 
 void sixdof_collision::velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 

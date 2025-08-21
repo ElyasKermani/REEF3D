@@ -62,6 +62,11 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     // Initialize Hertzian contact parameters
     young_modulus = 1.0e7;                // Default Young's modulus [Pa]
     poisson_ratio = 0.3;                  // Default Poisson's ratio
+
+    // Initialize Linear model restitution-based damping options (disabled by default)
+    linear_use_restitution = false;
+    linear_en = restitution_coefficient;   // Default to same as global restitution
+    linear_et = -1.0;                      // Use linear_en if not provided
     
     // Initialize DMT model parameters
     surface_energy = 0.05;                // Default surface energy [J/m²]
@@ -390,8 +395,16 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
     contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
     
     // Calculate normal force using linear spring-dashpot model
-    // Fn = kn * delta - gamma_n * v_rel_n
-    double fn = spring_constant_n * overlap - damping_constant_n * v_rel_n;
+    // Optionally compute damping from restitution: c = 2*zeta*sqrt(k*meff)
+    double c_n = damping_constant_n;
+    if (linear_use_restitution) {
+        const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
+        const double zeta = -std::log(en_lin) / std::sqrt(M_PI*M_PI + std::log(en_lin)*std::log(en_lin));
+        const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+        c_n = 2.0 * zeta * std::sqrt(spring_constant_n * meff);
+    }
+    // Fn = kn * delta - c_n * v_rel_n
+    double fn = spring_constant_n * overlap - c_n * v_rel_n;
     fn = max(fn, 0.0); // Ensure normal force is repulsive
     
     // Update tangential overlap based on relative velocity
@@ -405,8 +418,21 @@ void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, 
             normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
         
         // Calculate tangential force based on spring and damping
-        Eigen::Vector3d ft_vector = spring_constant_t * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap 
-                                  - damping_constant_t * v_rel_t;
+        double c_t = damping_constant_t;
+        if (linear_use_restitution) {
+            double et_lin;
+            if (linear_et == -1.0) {
+                const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
+                et_lin = en_lin;
+            } else {
+                et_lin = std::min(std::max(linear_et, 1.0e-6), 0.999999);
+            }
+            const double zeta_t = -std::log(et_lin) / std::sqrt(M_PI*M_PI + std::log(et_lin)*std::log(et_lin));
+            const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+            c_t = 2.0 * zeta_t * std::sqrt(spring_constant_t * meff);
+        }
+        Eigen::Vector3d ft_vector = spring_constant_t * contact_history[std::make_pair(std::min(id1, id2), std::max(id1, id2))].tangential_overlap 
+                                  - c_t * v_rel_t;
         
         // Apply Coulomb's friction law
         double ft_mag = ft_vector.norm();
@@ -474,17 +500,26 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
     
-    // Calculate effective radius and Young's modulus
-    double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
-    double E_eff = young_modulus / (2.0 * (1.0 - poisson_ratio * poisson_ratio));
-    
-    // Calculate Hertzian stiffness
-    double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
-    
-    // Calculate normal force using Hertzian model
-    // Fn = (4/3) * k_hertz * delta^(3/2) - gamma_n * sqrt(delta) * v_rel_n
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant_n * sqrt(overlap) * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
+    // Calculate effective radius and effective Young's modulus (identical materials assumed)
+    const double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+    const double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+
+    // Hertz contact elastic term
+    const double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
+    const double fn_elastic = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
+
+    // Mindlin-style normal damping consistent with LIGGGHTS
+    // Sn = 2*E_eff*sqrt(R_eff*delta)
+    const double Sn = 2.0 * E_eff * sqrt(R_eff * overlap);
+    const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+    // beta from restitution coefficient (clamped)
+    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
+    const double beta = std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
+    const double sqrtFiveOverSix = 0.9128709291752769;
+    const double gamman = -2.0 * sqrtFiveOverSix * beta * std::sqrt(Sn * meff);
+    const double fn_damping = -gamman * v_rel_n;
+    double fn = fn_elastic + fn_damping;
+    fn = std::max(fn, 0.0); // Ensure normal force is repulsive
     
     // Get or create contact history for this pair
     auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
@@ -509,32 +544,31 @@ void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, s
     // Update tangential overlap based on relative velocity
     if(v_rel_t_mag > 1.0e-10)
     {
-        // Increment tangential overlap
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
-        
-        // Project tangential overlap to the current tangential plane
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
-            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
-        
-        // Calculate tangential force based on spring and damping
-        // For Hertzian model, use sqrt(delta) scaling for tangential force
-        Eigen::Vector3d ft_vector = spring_constant_t * sqrt(overlap) * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap 
-                                  - damping_constant_t * sqrt(overlap) * v_rel_t;
-        
-        // Apply Coulomb's friction law
-        double ft_mag = ft_vector.norm();
-        double ft_max = friction_coefficient * fn;
-        
+        // Increment and project tangential overlap into tangential plane
+        auto &th = contact_history[std::make_pair(std::min(id1, id2), std::max(id1, id2))].tangential_overlap;
+        th += v_rel_t * dt;
+        th -= normal * normal.dot(th);
+
+        // Mindlin tangential stiffness and damping
+        // G = E/(2(1+nu)); for identical materials: G* = G / (2(2 - nu))
+        const double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
+        const double Geff_mindlin = G / (2.0 * (2.0 - poisson_ratio));
+        const double kt = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+        const double St = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+        const double gammat = -2.0 * sqrtFiveOverSix * beta * std::sqrt(St * meff);
+
+        Eigen::Vector3d ft_vector = kt * th - gammat * v_rel_t;
+
+        // Coulomb limit
+        const double ft_mag = ft_vector.norm();
+        const double ft_max = friction_coefficient * fn;
         if(ft_mag > ft_max)
         {
-            // Scale tangential force to the maximum allowed
             ft_vector *= (ft_max / ft_mag);
-            
-            // Update tangential overlap to match the maximum force
-            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
+            th *= (ft_max / ft_mag);
         }
-        
-        // Total force vector
+
+        // Total force
         force = fn * normal - ft_vector;
     }
     else
@@ -610,20 +644,29 @@ void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell
     contact_history[contact_pair].in_contact = true;
     contact_history[contact_pair].last_update_time = p->simtime;
     
-    // Calculate effective radius and effective Young's modulus
-    double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
-    
-    // Calculate Hertzian stiffness
-    double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
-    
-    // Calculate normal force using Hertzian contact model (non-linear spring with damping)
-    double fn = (4.0/3.0) * k_hertz * pow(overlap, 1.5) - damping_constant_n * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
-    
-    // Calculate tangential spring constant (simplification of Mindlin theory)
-    double G_eff = 0.5 * E_eff / (2.0 * (1.0 + poisson_ratio)); // Effective shear modulus
-    double k_t = 8.0 * G_eff * sqrt(R_eff * overlap); // Tangential stiffness
+    // Calculate effective radius and moduli (identical materials assumed)
+    const double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
+    const double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
+
+    // Hertz normal component with LIGGGHTS-like damping
+    const double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
+    const double fn_elastic = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
+    const double Sn = 2.0 * E_eff * std::sqrt(R_eff * overlap);
+    const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
+    const double beta = std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
+    const double sqrtFiveOverSix = 0.9128709291752769;
+    const double gamman = -2.0 * sqrtFiveOverSix * beta * std::sqrt(Sn * meff);
+    const double fn_damping = -gamman * v_rel_n;
+    double fn = fn_elastic + fn_damping;
+    fn = std::max(fn, 0.0);
+
+    // Mindlin tangential stiffness and damping
+    const double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
+    const double Geff_mindlin = G / (2.0 * (2.0 - poisson_ratio));
+    const double k_t = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+    const double St = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+    const double gammat = -2.0 * sqrtFiveOverSix * beta * std::sqrt(St * meff);
     
     // Update tangential overlap (displacement)
     if(v_rel_t_mag > 1.0e-10)
@@ -637,8 +680,8 @@ void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell
         contact_history[contact_pair].tangential_overlap -= 
             normal * normal.dot(contact_history[contact_pair].tangential_overlap);
         
-        // Calculate the tangential force based on tangential spring
-        Eigen::Vector3d ft_vector = k_t * contact_history[contact_pair].tangential_overlap;
+        // Calculate the tangential force based on tangential spring plus viscous term
+        Eigen::Vector3d ft_vector = k_t * contact_history[contact_pair].tangential_overlap - gammat * v_rel_t;
         double ft_mag = ft_vector.norm();
         
         // Apply Coulomb's friction law (capping the tangential force)
@@ -808,8 +851,9 @@ double sixdof_collision::calculate_effective_radius(double R1, double R2)
 
 double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
 {
-    // Calculate Hertzian stiffness: k = (4/3) * E_eff * sqrt(R_eff)
-    return (4.0/3.0) * E_eff * sqrt(R_eff);
+    // Calculate base Hertzian stiffness factor (without 4/3): k = E_eff * sqrt(R_eff)
+    // The (4/3) factor is applied at the point of computing the normal force.
+    return E_eff * sqrt(R_eff);
 }
 
 // NEW: PacIFiC-style effective properties calculation
@@ -1266,8 +1310,11 @@ void sixdof_collision::calculate_pacific_hooke_contact_force(lexer *p, ghostcell
     // Normal linear elastic force (PacIFiC Hooke style)
     Eigen::Vector3d delFN = hooke_kn * overlap * normal;
     
-    // Normal dissipative force (PacIFiC Hooke style)
-    double gamman = -2.0 * hooke_en * sqrt(avmass * hooke_kn);
+    // Normal dissipative force (derive damping ratio from restitution)
+    // zeta = -ln(e) / sqrt(pi^2 + ln^2(e)); c = 2*zeta*sqrt(k*meff)
+    const double en = std::min(std::max(hooke_en, 1.0e-6), 0.999999);
+    const double zeta = -std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
+    double gamman = 2.0 * zeta * std::sqrt(hooke_kn * avmass);
     delFN -= gamman * v_rel_n * normal;
     
     double normFN = delFN.norm();
@@ -1309,8 +1356,15 @@ void sixdof_collision::calculate_pacific_hooke_contact_force(lexer *p, ghostcell
         Eigen::Vector3d ft_spring = hooke_kt * contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap;
         
         // Calculate the tangential damping force
-        double etat = (hooke_et == -1.0) ? -hooke_en * sqrt(hooke_kn / avmass) : hooke_et;
-        double gammat = 2.0 * etat * avmass;
+        // Tangential damping from a tangential restitution or by mirroring normal zeta
+        double zeta_t;
+        if (hooke_et == -1.0) {
+            zeta_t = zeta; // use same damping ratio if not provided
+        } else {
+            const double et = std::min(std::max(hooke_et, 1.0e-6), 0.999999);
+            zeta_t = -std::log(et) / std::sqrt(M_PI*M_PI + std::log(et)*std::log(et));
+        }
+        double gammat = 2.0 * zeta_t * std::sqrt(hooke_kt * avmass);
         Eigen::Vector3d ft_damp = -gammat * v_rel_t;
         
         delFT = ft_spring + ft_damp;
