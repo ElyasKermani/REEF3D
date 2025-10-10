@@ -42,7 +42,11 @@ enum class ContactForceModel {
     DMT,         // Derjaguin-Muller-Toporov model for adhesive contacts
     JKR,         // Johnson-Kendall-Roberts model for strong adhesion
     PacIFiCHertz, // Enhanced Hertz model based on PacIFiC implementation
-    PacIFiCHooke  // Enhanced Hooke model based on PacIFiC implementation
+    PacIFiCHooke,  // Enhanced Hooke model based on PacIFiC implementation
+    PhasicFlowLinearLimited,      // phasicFlow linear model with history limiting
+    PhasicFlowLinearNonLimited,   // phasicFlow linear model without history limiting
+    PhasicFlowNonLinearLimited,   // phasicFlow Hertz–Mindlin with history limiting (no tangential damping)
+    PhasicFlowNonLinearNonLimited // phasicFlow Hertz–Mindlin without history limiting
 };
 
 class sixdof_collision
@@ -127,6 +131,35 @@ private:
                                              const double overlap,
                                              Eigen::Vector3d &force, 
                                              Eigen::Vector3d &torque);
+
+    // phasicFlow-equivalent models
+    void calculate_phasicflow_linear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                           const Eigen::Vector3d &contact_point,
+                                           const Eigen::Vector3d &normal,
+                                           const double overlap,
+                                           Eigen::Vector3d &force,
+                                           Eigen::Vector3d &torque);
+
+    void calculate_phasicflow_linear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                              const Eigen::Vector3d &contact_point,
+                                              const Eigen::Vector3d &normal,
+                                              const double overlap,
+                                              Eigen::Vector3d &force,
+                                              Eigen::Vector3d &torque);
+
+    void calculate_phasicflow_nonlinear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                              const Eigen::Vector3d &contact_point,
+                                              const Eigen::Vector3d &normal,
+                                              const double overlap,
+                                              Eigen::Vector3d &force,
+                                              Eigen::Vector3d &torque);
+
+    void calculate_phasicflow_nonlinear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                                 const Eigen::Vector3d &contact_point,
+                                                 const Eigen::Vector3d &normal,
+                                                 const double overlap,
+                                                 Eigen::Vector3d &force,
+                                                 Eigen::Vector3d &torque);
     
     // Calculate effective material properties
     double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
