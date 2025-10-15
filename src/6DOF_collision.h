@@ -34,6 +34,38 @@ class sixdof_collision_grid;
 
 using namespace std;
 
+// AABB (Axis-Aligned Bounding Box) structure for fast collision pre-filtering
+struct AABB {
+    Eigen::Vector3d min;  // Minimum corner (x_min, y_min, z_min)
+    Eigen::Vector3d max;  // Maximum corner (x_max, y_max, z_max)
+    
+    // Default constructor
+    AABB() : min(0,0,0), max(0,0,0) {}
+    
+    // Update AABB from center and radius (sphere)
+    inline void update_from_sphere(const Eigen::Vector3d& center, double radius) {
+        min = center - Eigen::Vector3d(radius, radius, radius);
+        max = center + Eigen::Vector3d(radius, radius, radius);
+    }
+    
+    // Check if two AABBs overlap (fast early rejection test)
+    inline bool overlaps(const AABB& other) const {
+        return (max.x() >= other.min.x() && min.x() <= other.max.x()) &&
+               (max.y() >= other.min.y() && min.y() <= other.max.y()) &&
+               (max.z() >= other.min.z() && min.z() <= other.max.z());
+    }
+    
+    // Expand AABB by a margin (useful for tolerance)
+    inline void expand(double margin) {
+        min.x() -= margin;
+        min.y() -= margin;
+        min.z() -= margin;
+        max.x() += margin;
+        max.y() += margin;
+        max.z() += margin;
+    }
+};
+
 // Enumeration for different collision models
 enum class ContactForceModel {
     Linear,      // Linear spring-dashpot model
@@ -71,6 +103,10 @@ private:
     // Detect collision using triangle mesh data
     bool detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
+    
+    // HYBRID: Adaptive collision detection - chooses best algorithm based on object complexity
+    bool detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
     
     // Check for intersection between two triangles
     bool triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
@@ -226,6 +262,11 @@ private:
     bool use_substeps;
     int max_substeps;
     
+    // HYBRID: Adaptive collision detection thresholds
+    int collision_simple_threshold;      // Triangle count below which to use sphere-sphere
+    int collision_moderate_threshold;    // Triangle count below which to use triangle-triangle
+    bool use_adaptive_collision;         // Enable adaptive algorithm selection
+    
     // Contact history for tangential forces
     struct ContactHistory {
         Eigen::Vector3d tangential_overlap;
@@ -248,6 +289,10 @@ private:
     std::vector<Eigen::Vector3d> collision_forces;      // Collision forces for each object
     std::vector<Eigen::Vector3d> collision_torques;    // Collision torques for each object
     int max_objects;                                    // Maximum number of objects supported
+    
+    // NEW: AABB storage for fast pre-filtering
+    std::vector<AABB> object_aabbs;                     // AABB for each object
+    void update_aabbs(std::vector<sixdof_obj*> &fb_obj); // Update AABBs before collision detection
     
     // NEW: MPI communication functions
     void broadcast_collision_forces(lexer *p, ghostcell *pgc);

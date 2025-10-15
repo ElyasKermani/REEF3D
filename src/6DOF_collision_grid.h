@@ -46,6 +46,9 @@ public:
     // Find potential collision pairs (broad phase)
     std::vector<std::pair<int, int>> find_potential_collisions(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
     
+    // Compute optimal cell size based on object radii
+    double compute_optimal_cell_size(lexer *p, std::vector<sixdof_obj*> &fb_obj);
+    
 private:
     // Cell size for the grid (typically largest object diameter)
     double cell_size;

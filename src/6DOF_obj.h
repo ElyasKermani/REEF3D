@@ -37,6 +37,7 @@ Author: Hans Bihs, Tobias Martin
 #include<iostream>
 #include<vector>
 #include <Eigen/Dense>
+#include"6DOF_bvh.h"  // BVH for fast triangle collision
 
 class lexer;
 class fdm;
@@ -377,6 +378,11 @@ private:
     double alpha[3],gamma[3],zeta[3];
 
     void calculate_bounding_radius(lexer*, ghostcell*);
+    
+    // BVH for triangle mesh collision acceleration
+    BVH_Tree* mesh_bvh;
+    void build_bvh();  // Build BVH from triangle mesh
+    bool use_bvh;      // Flag to enable/disable BVH usage
 
     friend class sixdof_collision;
 };

@@ -38,6 +38,7 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     max_objects = p->X20;
     collision_forces.resize(max_objects);
     collision_torques.resize(max_objects);
+    object_aabbs.resize(max_objects);  // Allocate AABB storage
     clear_collision_forces();
     
     // Set default collision model
@@ -97,6 +98,19 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     use_substeps = true;
     max_substeps = 10;
     
+    // HYBRID: Initialize adaptive collision detection parameters
+    use_adaptive_collision = true;           // Enable by default
+    collision_simple_threshold = 50;         // < 50 triangles: use sphere-sphere (very fast)
+    collision_moderate_threshold = 500;      // < 500 triangles: use triangle-triangle with BVH
+    // >= 500 triangles: use triangle-triangle with BVH (still fast due to BVH)
+    
+    if(p->mpirank==0)
+    {
+        cout<<"6DOF Collision: Adaptive algorithm selection enabled"<<endl;
+        cout<<"  Simple threshold (sphere-sphere): < "<<collision_simple_threshold<<" triangles"<<endl;
+        cout<<"  Moderate threshold (triangle-mesh): < "<<collision_moderate_threshold<<" triangles"<<endl;
+    }
+    
     // Create a new collision grid
     collision_grid = new sixdof_collision_grid(p, pgc);
 }
@@ -108,6 +122,15 @@ sixdof_collision::~sixdof_collision()
         delete collision_grid;
 }
 
+void sixdof_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
+{
+    // Update AABB for each object based on current position and radius
+    for(int i = 0; i < max_objects; ++i)
+    {
+        object_aabbs[i].update_from_sphere(fb_obj[i]->c_, fb_obj[i]->radius);
+    }
+}
+
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
     // Clear collision forces for all objects on all processors
@@ -116,6 +139,9 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
     // Only rank 0 calculates collision forces
     if(p->mpirank == 0)
     {
+        // Update AABBs for fast pre-filtering
+        update_aabbs(fb_obj);
+        
         // Update contact history (remove pairs no longer in contact)
         update_contact_history(p);
         
@@ -141,8 +167,29 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
             Eigen::Vector3d contact_point, normal;
             double overlap = 0.0;
             
-            // Detect if collision occurred
-            if(detect_collision(p, pgc, fb_obj[i], fb_obj[j], contact_point, normal, overlap))
+            // AABB pre-check for fast rejection (avoids expensive collision tests)
+            if(!object_aabbs[i].overlaps(object_aabbs[j]))
+            {
+                continue;  // AABBs don't overlap, skip this pair
+            }
+            
+            // Detect collision using adaptive algorithm selection
+            bool collision_detected = false;
+            
+            if(use_adaptive_collision)
+            {
+                // HYBRID: Automatically choose best algorithm based on complexity
+                collision_detected = detect_collision_adaptive(p, pgc, fb_obj[i], fb_obj[j], 
+                                                              contact_point, normal, overlap);
+            }
+            else
+            {
+                // Fallback: Use original sphere-sphere method
+                collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j], 
+                                                     contact_point, normal, overlap);
+            }
+            
+            if(collision_detected)
             {
                 // Calculate contact forces and torques
                 Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
@@ -1199,6 +1246,25 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     // First do a quick sphere-sphere check
     if(!detect_collision(p, pgc, obj1, obj2, contact_point, normal, overlap))
         return false;
+    
+    // BVH-accelerated path: if both objects have BVH, use it for fast rejection
+    if(obj1->use_bvh && obj1->mesh_bvh && obj1->mesh_bvh->is_built())
+    {
+        // Check if obj2's sphere intersects obj1's BVH
+        if(!obj1->mesh_bvh->intersects_sphere(obj2->c_, obj2->radius))
+        {
+            return false;  // BVH says no collision possible
+        }
+    }
+    
+    if(obj2->use_bvh && obj2->mesh_bvh && obj2->mesh_bvh->is_built())
+    {
+        // Check if obj1's sphere intersects obj2's BVH
+        if(!obj2->mesh_bvh->intersects_sphere(obj1->c_, obj1->radius))
+        {
+            return false;  // BVH says no collision possible
+        }
+    }
         
     // If sphere-sphere check passes, do detailed triangle-triangle check
     double min_overlap = 1e10;
@@ -1258,45 +1324,196 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
 bool sixdof_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
                                                     Eigen::Vector3d &contact, Eigen::Vector3d &normal, double &overlap)
 {
+    // INDUSTRY-STANDARD TRIANGLE-TRIANGLE INTERSECTION
+    // Based on: Ericson "Real-Time Collision Detection" (2005), Chapter 5.3.4
+    // Uses Separating Axis Theorem (SAT) with 11 potential separating axes
+    //
+    // Theory: Two convex objects don't intersect IFF there exists a separating axis
+    //         where their projections don't overlap.
+    //
+    // For triangles, potential separating axes are:
+    //   1-2:  Face normals of both triangles (2 axes)
+    //   3-11: Cross products of all edge pairs (3×3 = 9 axes)
+    //
+    // This is the same algorithm used in: PhysX, Bullet, Unity, Unreal Engine
+    
+    const double EPSILON = 1e-8;
+    
     // Calculate triangle normals
-    Eigen::Vector3d n1 = (v1[1] - v1[0]).cross(v1[2] - v1[0]).normalized();
-    Eigen::Vector3d n2 = (v2[1] - v2[0]).cross(v2[2] - v2[0]).normalized();
+    Eigen::Vector3d n1 = (v1[1] - v1[0]).cross(v1[2] - v1[0]);
+    Eigen::Vector3d n2 = (v2[1] - v2[0]).cross(v2[2] - v2[0]);
     
-    // Check if triangles are coplanar
-    if(fabs(n1.dot(n2)) > 0.999)
-        return false;
-        
-    // Calculate intersection line
-    Eigen::Vector3d line_dir = n1.cross(n2).normalized();
+    // Check for degenerate triangles (zero area)
+    double n1_len = n1.norm();
+    double n2_len = n2.norm();
+    if(n1_len < EPSILON || n2_len < EPSILON)
+        return false;  // Degenerate triangle
     
-    // Project vertices onto intersection line
-    double t1[3], t2[3];
-    for(int i=0; i<3; ++i)
+    n1 /= n1_len;  // Normalize
+    n2 /= n2_len;
+    
+    // Calculate triangle edges
+    Eigen::Vector3d e1[3], e2[3];
+    e1[0] = v1[1] - v1[0];
+    e1[1] = v1[2] - v1[1];
+    e1[2] = v1[0] - v1[2];
+    
+    e2[0] = v2[1] - v2[0];
+    e2[1] = v2[2] - v2[1];
+    e2[2] = v2[0] - v2[2];
+    
+    // Track minimum penetration depth and corresponding axis
+    double min_penetration = 1e10;
+    Eigen::Vector3d best_axis;
+    bool found_separation = false;
+    
+    // Helper lambda: Test separation along an axis
+    auto test_axis = [&](const Eigen::Vector3d& axis) -> bool
     {
-        t1[i] = v1[i].dot(line_dir);
-        t2[i] = v2[i].dot(line_dir);
+        double axis_len = axis.norm();
+        if(axis_len < EPSILON)
+            return true;  // Degenerate axis, skip
+        
+        Eigen::Vector3d axis_norm = axis / axis_len;
+        
+        // Project triangle 1 vertices onto axis
+        double proj1[3];
+        for(int i = 0; i < 3; ++i)
+            proj1[i] = v1[i].dot(axis_norm);
+        
+        double min1 = std::min({proj1[0], proj1[1], proj1[2]});
+        double max1 = std::max({proj1[0], proj1[1], proj1[2]});
+        
+        // Project triangle 2 vertices onto axis
+        double proj2[3];
+        for(int i = 0; i < 3; ++i)
+            proj2[i] = v2[i].dot(axis_norm);
+        
+        double min2 = std::min({proj2[0], proj2[1], proj2[2]});
+        double max2 = std::max({proj2[0], proj2[1], proj2[2]});
+        
+        // Check for separation
+        if(max1 < min2 - EPSILON || max2 < min1 - EPSILON)
+        {
+            found_separation = true;
+            return false;  // Separating axis found - no collision
+        }
+        
+        // Calculate penetration depth along this axis
+        double penetration = std::min(max1 - min2, max2 - min1);
+        
+        // Track axis with minimum penetration (this gives us the best contact normal)
+        if(penetration < min_penetration)
+        {
+            min_penetration = penetration;
+            best_axis = axis_norm;
+            
+            // Make sure normal points from triangle 2 to triangle 1
+            Eigen::Vector3d center1 = (v1[0] + v1[1] + v1[2]) / 3.0;
+            Eigen::Vector3d center2 = (v2[0] + v2[1] + v2[2]) / 3.0;
+            if((center1 - center2).dot(best_axis) < 0)
+                best_axis = -best_axis;
+        }
+        
+        return true;  // Continue testing
+    };
+    
+    // TEST 1-2: Face normals (2 axes)
+    if(!test_axis(n1)) return false;
+    if(!test_axis(n2)) return false;
+    
+    // TEST 3-11: Edge-edge cross products (9 axes)
+    // For each edge of triangle 1 crossed with each edge of triangle 2
+    for(int i = 0; i < 3; ++i)
+    {
+        for(int j = 0; j < 3; ++j)
+        {
+            Eigen::Vector3d axis = e1[i].cross(e2[j]);
+            if(!test_axis(axis)) return false;
+        }
     }
     
-    // Check for overlap in projections
-    double min1 = std::min({t1[0], t1[1], t1[2]});
-    double max1 = std::max({t1[0], t1[1], t1[2]});
-    double min2 = std::min({t2[0], t2[1], t2[2]});
-    double max2 = std::max({t2[0], t2[1], t2[2]});
+    // If we get here, no separating axis was found → triangles intersect!
     
-    if(max1 < min2 || max2 < min1)
-        return false;
+    // Set output parameters
+    overlap = min_penetration;
+    normal = best_axis;
+    
+    // Calculate contact point as the average of the closest points
+    // For simplicity, use the centroid of the overlapping region
+    // (More sophisticated methods exist, but this is sufficient for collision response)
+    
+    // Find vertices of triangle 1 that are "inside" triangle 2 (based on normal)
+    std::vector<Eigen::Vector3d> contact_points;
+    
+    for(int i = 0; i < 3; ++i)
+    {
+        // Simple heuristic: check if vertex is close to the other triangle's plane
+        double dist = (v1[i] - v2[0]).dot(n2);
+        if(fabs(dist) < min_penetration + EPSILON)
+            contact_points.push_back(v1[i]);
         
-    // Calculate overlap
-    overlap = std::min(max1, max2) - std::max(min1, min2);
+        dist = (v2[i] - v1[0]).dot(n1);
+        if(fabs(dist) < min_penetration + EPSILON)
+            contact_points.push_back(v2[i]);
+    }
     
-    // Calculate contact point (midpoint of overlap)
-    double t_contact = 0.5 * (std::max(min1, min2) + std::min(max1, max2));
-    contact = line_dir * t_contact;
+    // Calculate contact point
+    if(contact_points.empty())
+    {
+        // Fallback: use midpoint of triangle centroids
+        Eigen::Vector3d center1 = (v1[0] + v1[1] + v1[2]) / 3.0;
+        Eigen::Vector3d center2 = (v2[0] + v2[1] + v2[2]) / 3.0;
+        contact = 0.5 * (center1 + center2);
+    }
+    else
+    {
+        // Average of contact points
+        contact = Eigen::Vector3d::Zero();
+        for(const auto& pt : contact_points)
+            contact += pt;
+        contact /= contact_points.size();
+    }
     
-    // Calculate normal (average of triangle normals)
-    normal = (n1 + n2).normalized();
+    return true;  // Collision detected!
+}
+
+bool sixdof_collision::detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+                                                 Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
+{
+    // HYBRID ADAPTIVE COLLISION DETECTION
+    // Automatically selects the best algorithm based on object complexity
     
-    return true;
+    // Get triangle counts for both objects
+    int tri_count_1 = obj1->tricount;
+    int tri_count_2 = obj2->tricount;
+    int max_tri_count = std::max(tri_count_1, tri_count_2);
+    
+    // Strategy selection based on complexity
+    if(max_tri_count < collision_simple_threshold)
+    {
+        // CASE 1: Both objects are simple (< 50 triangles)
+        // Use fast sphere-sphere approximation
+        // This is very fast and good enough for simple geometries
+        
+        return detect_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
+    }
+    else if(max_tri_count < collision_moderate_threshold)
+    {
+        // CASE 2: Moderate complexity (50-500 triangles)
+        // Use triangle-triangle with BVH acceleration
+        // BVH makes this fast enough for real-time
+        
+        return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
+    }
+    else
+    {
+        // CASE 3: High complexity (> 500 triangles)
+        // Use triangle-triangle with BVH acceleration
+        // BVH is essential here - without it this would be too slow
+        
+        return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
+    }
 }
 
 void sixdof_collision::calculate_jkr_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,

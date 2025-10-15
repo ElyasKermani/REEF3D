@@ -39,10 +39,10 @@ sixdof_collision_grid::sixdof_collision_grid(lexer *p, ghostcell *pgc)
     z_min = p->originz;
     z_max = p->originz + p->zmax*p->DZM;
     
-    // Default cell size - this can be adjusted based on object sizes
+    // Default cell size - will be updated adaptively on first update_grid call
     cell_size = 2.0 * p->DXM; // Start with twice the grid cell size
     
-    // Calculate grid dimensions
+    // Calculate grid dimensions (will be updated when cell_size is adjusted)
     nx = static_cast<int>(std::ceil((x_max - x_min) / cell_size));
     ny = static_cast<int>(std::ceil((y_max - y_min) / cell_size));
     nz = static_cast<int>(std::ceil((z_max - z_min) / cell_size));
@@ -51,7 +51,8 @@ sixdof_collision_grid::sixdof_collision_grid(lexer *p, ghostcell *pgc)
     {
         std::cout<<"6DOF Collision Grid initialized..."<<std::endl;
         std::cout<<"  Grid dimensions: "<<nx<<" x "<<ny<<" x "<<nz<<std::endl;
-        std::cout<<"  Cell size: "<<cell_size<<std::endl;
+        std::cout<<"  Initial cell size: "<<cell_size<<std::endl;
+        std::cout<<"  Note: Cell size will be adapted based on object radii"<<std::endl;
     }
 }
 
@@ -59,8 +60,49 @@ sixdof_collision_grid::~sixdof_collision_grid()
 {
 }
 
+double sixdof_collision_grid::compute_optimal_cell_size(lexer *p, std::vector<sixdof_obj*> &fb_obj)
+{
+    // Find the maximum object radius
+    double max_radius = 0.0;
+    for(int i = 0; i < p->X20; ++i)
+    {
+        if(fb_obj[i]->radius > max_radius)
+        {
+            max_radius = fb_obj[i]->radius;
+        }
+    }
+    
+    // Cell size should be 2.5-3.0 times the max radius
+    // This ensures objects spanning multiple cells are properly captured
+    // while minimizing the number of cells
+    double optimal_size = 2.5 * max_radius;
+    
+    // Ensure minimum cell size (at least 2x grid cell size for stability)
+    double min_size = 2.0 * std::max({p->DXM, p->DYM, p->DZM});
+    
+    return std::max(optimal_size, min_size);
+}
+
 void sixdof_collision_grid::update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
 {
+    // Adaptively compute optimal cell size based on object radii
+    double new_cell_size = compute_optimal_cell_size(p, fb_obj);
+    
+    // Update grid dimensions if cell size changed significantly
+    if(std::abs(new_cell_size - cell_size) > 0.1 * cell_size)
+    {
+        cell_size = new_cell_size;
+        nx = static_cast<int>(std::ceil((x_max - x_min) / cell_size));
+        ny = static_cast<int>(std::ceil((y_max - y_min) / cell_size));
+        nz = static_cast<int>(std::ceil((z_max - z_min) / cell_size));
+        
+        if(p->mpirank == 0 && p->count % p->P12 == 0)
+        {
+            std::cout << "6DOF Collision Grid: Adapted cell size to " << cell_size << std::endl;
+            std::cout << "  New grid dimensions: " << nx << " x " << ny << " x " << nz << std::endl;
+        }
+    }
+    
     // Clear the grid
     grid_cells.clear();
     

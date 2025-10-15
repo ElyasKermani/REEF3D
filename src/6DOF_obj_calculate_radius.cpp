@@ -73,4 +73,42 @@ void sixdof_obj::calculate_bounding_radius(lexer *p, ghostcell *pgc)
     
     if(p->mpirank==0)
         cout<<"6DOF object "<<n6DOF<<" bounding radius: "<<radius<<endl;
+}
+
+void sixdof_obj::build_bvh()
+{
+    // Build BVH for triangle mesh (for detailed collision detection)
+    // Only build if we have enough triangles to benefit from BVH
+    
+    const int BVH_THRESHOLD = 50;  // Build BVH only if more than 50 triangles
+    
+    if(tricount < BVH_THRESHOLD)
+    {
+        use_bvh = false;
+        if(mesh_bvh)
+        {
+            delete mesh_bvh;
+            mesh_bvh = nullptr;
+        }
+        
+        // Inform user about algorithm selection
+        cout << "6DOF object " << n6DOF << ": " << tricount 
+             << " triangles (< " << BVH_THRESHOLD 
+             << ") - will use SPHERE-SPHERE collision (fast)" << endl;
+        return;
+    }
+    
+    // Create or rebuild BVH
+    if(!mesh_bvh)
+    {
+        mesh_bvh = new BVH_Tree(4);  // Max 4 triangles per leaf
+    }
+    
+    // Build the BVH from triangle data
+    mesh_bvh->build(tri_x, tri_y, tri_z, tricount);
+    use_bvh = true;
+    
+    // Inform user about algorithm selection
+    cout << "6DOF object " << n6DOF << ": Built BVH with " 
+         << tricount << " triangles - will use TRIANGLE-MESH collision (accurate)" << endl;
 } 

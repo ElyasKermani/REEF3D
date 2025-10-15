@@ -47,6 +47,10 @@ sixdof_obj::sixdof_obj(lexer *p, ghostcell *pgc, int number) : ddweno_f_nug(p), 
     triangle_token=0;
     printnormal_count=0;
     
+    // Initialize BVH for collision detection
+    mesh_bvh = nullptr;
+    use_bvh = false;
+    
     alpha[0] = 8.0/15.0;
     alpha[1] = 2.0/15.0;
     alpha[2] = 2.0/6.0;
@@ -128,5 +132,11 @@ sixdof_obj::sixdof_obj(lexer *p, ghostcell *pgc, int number) : ddweno_f_nug(p), 
 
 sixdof_obj::~sixdof_obj()
 {
+    // Clean up BVH if allocated
+    if(mesh_bvh)
+    {
+        delete mesh_bvh;
+        mesh_bvh = nullptr;
+    }
 }
     
