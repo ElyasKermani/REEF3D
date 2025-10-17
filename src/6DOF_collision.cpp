@@ -339,6 +339,11 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
         fb_obj[i]->Next += collision_torques[i](2);
     }
     
+    // *** NEW: Calculate ground contact forces for all objects ***
+    // This runs on ALL processors (no MPI needed - each calculates independently)
+    // Uses same ground contact model as mooring system (mooring_dynamic_rhs.cpp)
+    calculate_ground_contact_forces(p, pgc, fb_obj);
+    
     // Debug output to verify MPI communication (only print occasionally)
     if(p->count%p->P12==0)
     {
@@ -2093,6 +2098,114 @@ void sixdof_collision::verify_collision_forces_synchronization(lexer *p, ghostce
         else
         {
             cout<<"6DOF Collision: ERROR - Collision forces are NOT synchronized across processors!"<<endl;
+        }
+    }
+}
+
+// ============================================================================
+// GROUND CONTACT FORCES
+// ============================================================================
+// Based on mooring_dynamic_rhs.cpp implementation (lines 96-105)
+// Uses the same ground contact model as mooring lines for consistency
+// ============================================================================
+
+void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
+{
+    // Ground contact parameters (same as mooring system)
+    // From: src/mooring_dynamic_rhs.cpp
+    double zg = 0.0;        // Ground z-coordinate (seabed level)
+    double Kg = 3.0e6;      // Ground stiffness [N/m²]
+    double mu = 0.3;        // Friction coefficient (cable/object on seabed)
+    double xi = 1.0;        // Damping ratio (critical damping)
+    double nu = 0.01;       // Velocity threshold for friction normalization [m/s]
+    
+    int obj_count = fb_obj.size();
+    
+    // Loop through all 6DOF objects
+    for(int i = 0; i < obj_count; i++)
+    {
+        sixdof_obj* obj = fb_obj[i];
+        
+        // Get object position (center of mass)
+        double z_center = obj->c_(2);
+        
+        // Estimate lowest point using bounding radius
+        // For complex objects, this is a conservative approximation
+        double z_bottom = z_center - obj->radius;
+        
+        // *** GROUND CONTACT DETECTION ***
+        // Check if object is below or penetrating the ground
+        if((zg - z_bottom) > 0.0)
+        {
+            double overlap = zg - z_bottom;
+            
+            // ------------------------------------------------------------------
+            // NORMAL FORCE (Vertical, z-direction)
+            // ------------------------------------------------------------------
+            // Same spring-damper model as mooring system
+            
+            // Effective stiffness scaled by contact size (similar to mooring: Kg * d_c)
+            double k_eff = Kg * obj->radius;  // [N/m²] * [m] = [N/m]
+            
+            // Mass for damping calculation
+            double m_eff = obj->Mass_fb;
+            
+            // Damping coefficient: c = 2*xi*sqrt(k*m)
+            // Same formulation as mooring: 2.0*xi*sqrt(Kg*rho_c*A*d_c)
+            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
+            
+            // Vertical velocity (positive = upward)
+            double v_normal = obj->u_fb(2);
+            
+            // Spring-damper force (one-way damping - only when penetrating)
+            // F_normal = k*overlap - c*max(v_down, 0)
+            // Note: max(v_normal, 0.0) ensures damping only opposes penetration
+            double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
+            
+            // Apply normal force (upward, opposing penetration)
+            obj->Ze += F_normal;
+            
+            // ------------------------------------------------------------------
+            // FRICTION FORCE (Horizontal, x-y plane)
+            // ------------------------------------------------------------------
+            // Smooth Coulomb friction using sin function (same as mooring)
+            
+            // Get horizontal velocities
+            double v_x = obj->u_fb(0);
+            double v_y = obj->u_fb(1);
+            
+            // Magnitude of horizontal velocity
+            double v_horiz = sqrt(v_x*v_x + v_y*v_y);
+            
+            // Normalize velocities (prevents division by zero)
+            // Same approach as mooring: v / max(nu, |v_horiz|)
+            double vx_norm = v_x / max(nu, v_horiz);
+            double vy_norm = v_y / max(nu, v_horiz);
+            
+            // Smooth Coulomb friction model
+            // F_friction = -mu * F_normal * sin(PI/2 * v_normalized)
+            // This smoothly transitions from linear (small v) to saturated (large v)
+            double F_friction_mag = mu * F_normal;
+            double Fx_friction = -F_friction_mag * sin(PI/2.0 * vx_norm);
+            double Fy_friction = -F_friction_mag * sin(PI/2.0 * vy_norm);
+            
+            // Apply friction forces (oppose horizontal motion)
+            obj->Xe += Fx_friction;
+            obj->Ye += Fy_friction;
+            
+            // ------------------------------------------------------------------
+            // DIAGNOSTIC OUTPUT
+            // ------------------------------------------------------------------
+            if(p->mpirank == 0 && p->count % 100 == 0)
+            {
+                cout << "Ground Contact - Object " << i 
+                     << ": z_bottom=" << z_bottom 
+                     << " overlap=" << overlap*1000.0 << " mm"
+                     << " F_normal=" << F_normal << " N"
+                     << " F_friction=" << sqrt(Fx_friction*Fx_friction + Fy_friction*Fy_friction) << " N"
+                     << " v_z=" << v_normal << " m/s"
+                     << endl;
+            }
         }
     }
 } 

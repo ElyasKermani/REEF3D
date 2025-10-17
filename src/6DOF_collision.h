@@ -91,6 +91,9 @@ public:
     // Calculate collision forces between all 6DOF objects
     void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
     
+    // NEW: Calculate ground contact forces for all 6DOF objects
+    void calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
+    
     // Set the contact force model to use
     void set_contact_force_model(ContactForceModel model) { contact_model = model; }
     
