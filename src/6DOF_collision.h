@@ -90,6 +90,9 @@ public:
     // NEW: Calculate ground contact forces for all 6DOF objects
     void calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
     
+    // NEW: Calculate boundary wall contact forces (side walls)
+    void calculate_boundary_wall_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
+    
     // Set the contact force model to use
     void set_contact_force_model(ContactForceModel model) { contact_model = model; }
     
@@ -103,7 +106,7 @@ private:
     bool detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
     
-    // HYBRID: Adaptive collision detection - chooses best algorithm based on object complexity
+    // Adaptive collision detection - chooses algorithm based on object complexity
     bool detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                   Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
     
@@ -210,7 +213,7 @@ private:
         Eigen::Vector3d tangential_overlap;
         bool in_contact;
         double last_update_time;
-        // NEW: Enhanced contact history for PacIFiC-style models
+        // Enhanced contact history
         Eigen::Vector3d previous_normal;      // Previous contact normal
         Eigen::Vector3d tangential_spring;    // Tangential spring displacement
         double contact_duration;              // Duration of contact
