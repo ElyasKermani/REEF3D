@@ -25,12 +25,17 @@ Author: Tobias Martin
 #include"fdm.h"
 #include"ghostcell.h"
 #include"mooring.h"
-#include"net_interface.h"
+#include"net.h"
+#include"vrans.h"
+
+void sixdof_obj::clearExternalForces()
+{
+    Xext = Yext = Zext = Kext = Mext = Next = 0.0;
+}
 
 void sixdof_obj::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double alpha)
 {
-    Xext = Yext = Zext = Kext = Mext = Next = 0.0;
-    
+    //Xext = Yext = Zext = Kext = Mext = Next = 0.0;
     // Mooring forces
 	if (p->X310>0)
 	mooringForces(p,pgc,alpha);
@@ -42,7 +47,7 @@ void sixdof_obj::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double alp
 
 void sixdof_obj::externalForces_nhflow(lexer *p, fdm_nhf* d, ghostcell *pgc, double alpha)
 {
-    Xext = Yext = Zext = Kext = Mext = Next = 0.0;
+    clearExternalForces();
 
     // Mooring forces
 	if (p->X310>0)

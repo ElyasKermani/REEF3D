@@ -34,26 +34,38 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 	
 	for(qn=0;qn<p->X110;++qn)
     {
-        box(p,pgc,qn);
-        ++entity_count;
+        if(p->X110_objID[qn]==n6DOF)
+        {
+            box(p,pgc,qn);
+            ++entity_count;
+        }
     }
     
     for(qn=0;qn<p->X131;++qn)
     {
-        cylinder_x(p,pgc,qn);
-        ++entity_count;
+        if(p->X131_objID[qn]==n6DOF)
+        {
+            cylinder_x(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X132;++qn)
     {
-        cylinder_y(p,pgc,qn);
-        ++entity_count;
+        if(p->X132_objID[qn]==n6DOF)
+        {
+            cylinder_y(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X133;++qn)
     {
-        cylinder_z(p,pgc,qn);
-        ++entity_count;
+        if(p->X133_objID[qn]==n6DOF)
+        {
+            cylinder_z(p,pgc,qn);
+            ++entity_count;
+        }
     }
 	
 	for(qn=0;qn<p->X153;++qn)
@@ -72,6 +84,15 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
     {
         hexahedron(p,pgc,qn);
         ++entity_count;
+    }
+    
+    for(qn=0;qn<p->X165;++qn)
+    {
+        if(p->X165_objID[qn]==n6DOF)
+        {
+            sphere(p,pgc,qn);
+            ++entity_count;
+        }
     }
     
     if(p->X180==1)
@@ -103,39 +124,64 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 
     if(p->mpirank==0)
 	cout<<"Refined surface triangles: "<<tricount<<endl;
+    
+    // Calculate bounding radius for collision detection
+    calculate_bounding_radius(p, pgc);
+    
+    // Build BVH for adaptive collision detection (if object is complex enough)
+    build_bvh();
 }
 
 void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
 {
+    int qn;
     double U,ds,phi,r,snum,trisum;
     
-    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164;
-	tricount=0;
+    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X165;
+    tricount=0;
     trisum=0;
     
     // box
     trisum+=12*p->X110;
     
     // cylinder_x   
-    r=p->X131_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-	trisum+=5*(snum+1)*p->X131;
+    if(p->X131>0)
+    {
+        for(qn=0;qn<p->X131;++qn)
+        {
+            r=p->X131_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // cylinder_y
-    r=p->X132_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-	trisum+=5*(snum+1)*p->X132;
+    if(p->X132>0)
+    {
+        for(qn=0;qn<p->X132;++qn)
+        {
+            r=p->X132_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // cylinder_z
-    r=p->X133_rad;
-	U = 2.0 * PI * r;
-	ds = 0.75*(U*p->dx);
-	snum = int(U/ds);
-    trisum+=5*(snum+1)*p->X133;
+    if(p->X133>0)
+    {
+        for(qn=0;qn<p->X133;++qn)
+        {
+            r=p->X133_rad[qn];
+            U = 2.0 * PI * r;
+            ds = 0.75*(U*p->dx);
+            snum = int(U/ds);
+            trisum+=5*(snum+1);
+        }
+    }
     
     // wedge sym
     trisum+=12*p->X153;
@@ -145,6 +191,9 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     
     // hexahedron
     trisum+=12*p->X164;
+    
+    // sphere
+    trisum+=400*p->X165;  // 20*10*2 triangles per sphere
     
     // STL
     if(p->X180==1)
@@ -160,4 +209,14 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     
 	p->Iarray(tstart,entity_sum);
 	p->Iarray(tend,entity_sum);
+}
+
+void sixdof_obj::motionext_trans(lexer *p, ghostcell *pgc, Eigen::Vector3d &local_point, Eigen::Vector3d &global_point)
+{
+    // Transform local point to global coordinates using current position and orientation
+    // First rotate the point using quaternion rotation matrix
+    Eigen::Vector3d rotated_point = quatRotMat * local_point;
+    
+    // Then translate by adding the current position
+    global_point = rotated_point + c_;
 }

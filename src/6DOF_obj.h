@@ -37,6 +37,7 @@ Author: Hans Bihs, Tobias Martin
 #include<iostream>
 #include<vector>
 #include <Eigen/Dense>
+#include"6DOF_bvh.h"  // BVH for fast triangle collision
 
 class lexer;
 class fdm;
@@ -78,6 +79,7 @@ public:
     void update_position_2D(lexer*, ghostcell*,slice&);
     
     void solve_eqmotion_oneway_onestep(lexer*,ghostcell*);
+    void clearExternalForces();
     
     // NHFLOW
     virtual void solve_eqmotion_nhflow(lexer*,fdm_nhf*,ghostcell*,int);
@@ -108,6 +110,8 @@ public:
     void solve_eqmotion_oneway_sflow(lexer*,ghostcell*,int);
     
     double Mass_fb, Vfb, Rfb;
+    double radius;  // Bounding radius for collision detection
+    Eigen::Vector3d c_;  // Position of the center of mass in inertial system
 
 private:
 
@@ -136,6 +140,7 @@ private:
 	void wedge_sym(lexer*, ghostcell*,int);
     void wedge(lexer*, ghostcell*,int);
     void hexahedron(lexer*, ghostcell*,int);
+    void sphere(lexer*, ghostcell*,int);
     void read_stl(lexer*, ghostcell*);
     void triangle_switch_lsm(lexer*, ghostcell*);
     void triangle_switch_ray(lexer*, ghostcell*);
@@ -289,7 +294,7 @@ private:
         - p: velocity of mass centre in inertial system
     */
     Eigen::Vector3d p_, pk_, pn1_, pn2_, pn3_, dp_, dpk_, dpn1_, dpn2_, dpn3_; 
-    Eigen::Vector3d c_, ck_, cn1_, cn2_, cn3_, dc_, dck_, dcn1_, dcn2_, dcn3_;
+    Eigen::Vector3d ck_, cn1_, cn2_, cn3_, dc_, dck_, dcn1_, dcn2_, dcn3_;
     Eigen::Vector3d h_, hk_, hn1_, hn2_, hn3_, dh_, dhk_, dhn1_, dhn2_, dhn3_;
     Eigen::Vector4d e_, ek_, en1_, en2_, en3_, de_, dek_, den1_, den2_, den3_;
     Eigen::Matrix<double, 3, 4> E_, G_, Gdot_;
@@ -373,6 +378,15 @@ private:
     int triangle_token,printnormal_count;
     
     double alpha[3],gamma[3],zeta[3];
+
+    void calculate_bounding_radius(lexer*, ghostcell*);
+    
+    // BVH for triangle mesh collision acceleration
+    BVH_Tree* mesh_bvh;
+    void build_bvh();  // Build BVH from triangle mesh
+    bool use_bvh;      // Flag to enable/disable BVH usage
+
+    friend class sixdof_collision;
 };
 
 #endif

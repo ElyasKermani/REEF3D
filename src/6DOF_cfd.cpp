@@ -22,6 +22,7 @@ Authors: Tobias Martin, Hans Bihs
 
 #include"6DOF_cfd.h"
 #include"6DOF_obj.h"
+#include"6DOF_collision.h"
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
@@ -36,15 +37,35 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
     
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj.push_back(new sixdof_obj(p,pgc,nb));
+    
+    // Initialize the collision model
+    p_collision = new sixdof_collision(p,pgc);
+    
+    // Set collision model based on parameters (in a real implementation, would use parameter file)
+    // Default is Linear - could be set to ContactForceModel::Hertz, ContactForceModel::HertzMindlin, or ContactForceModel::DMT
+    p_collision->set_contact_force_model(ContactForceModel::Linear);
 }
     
 sixdof_cfd::~sixdof_cfd()
 {
+    for (int nb = 0; nb < number6DOF; nb++)
+    delete fb_obj[nb];
+    
+    delete p_collision;
 }
 
 void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uvel, field &vvel, field &wvel, field &fx, field &fy, field &fz, bool finalize)
 {
     setup(p,a,pgc);
+
+    for (int nb=0; nb<number6DOF;++nb)
+    fb_obj[nb]->clearExternalForces();
+    
+    // Calculate collision forces between objects
+    if(p->X20 > 1) // Only calculate collisions if there's more than one object
+    {
+        p_collision->calculate_collision_forces(p, pgc, fb_obj);
+    }
     
     for (int nb=0; nb<number6DOF;++nb)
     {
