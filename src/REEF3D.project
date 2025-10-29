@@ -920,6 +920,11 @@
           <File Name="net_void.h"/>
           <File Name="net.h"/>
         </VirtualDirectory>
+        <VirtualDirectory Name="Collision">
+          <File Name="6DOF_collision.h"/>
+          <File Name="6DOF_collision_grid.h"/>
+          <File Name="test_collision.h"/>
+        </VirtualDirectory>
         <File Name="6DOF.h"/>
         <File Name="6DOF_void.h"/>
       </VirtualDirectory>
@@ -2509,6 +2514,8 @@
             <File Name="6DOF_obj_geometry.cpp"/>
             <File Name="6DOF_obj_cylinder.cpp"/>
             <File Name="6DOF_obj_box.cpp"/>
+            <File Name="6DOF_obj_sphere.cpp"/>
+            <File Name="6DOF_obj_calculate_radius.cpp"/>
           </VirtualDirectory>
         </VirtualDirectory>
         <VirtualDirectory Name="Net">
@@ -2553,6 +2560,12 @@
             <File Name="net_barDyn.cpp"/>
           </VirtualDirectory>
           <File Name="net_void.cpp"/>
+        </VirtualDirectory>
+        <VirtualDirectory Name="Collision">
+          <File Name="6DOF_collision.cpp"/>
+          <File Name="6DOF_collision_substeps.cpp"/>
+          <File Name="6DOF_collision_grid.cpp"/>
+          <File Name="test_collision.cpp"/>
         </VirtualDirectory>
         <VirtualDirectory Name="Mooring">
           <VirtualDirectory Name="Spring">

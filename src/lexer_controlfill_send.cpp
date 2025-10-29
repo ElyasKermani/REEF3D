@@ -1810,40 +1810,10 @@ void lexer::ctrlsend()
     dd++;
     ictrl[ii] = X131;
     ii++;
-    dctrl[dd] = X131_rad;
-    dd++;
-    dctrl[dd] = X131_h;
-    dd++;
-    dctrl[dd] = X131_xc;
-    dd++;
-    dctrl[dd] = X131_yc;
-    dd++;
-    dctrl[dd] = X131_zc;
-    dd++;
     ictrl[ii] = X132;
     ii++;
-    dctrl[dd] = X132_rad;
-    dd++;
-    dctrl[dd] = X132_h;
-    dd++;
-    dctrl[dd] = X132_xc;
-    dd++;
-    dctrl[dd] = X132_yc;
-    dd++;
-    dctrl[dd] = X132_zc;
-    dd++;
     ictrl[ii] = X133;
     ii++;
-    dctrl[dd] = X133_rad;
-    dd++;
-    dctrl[dd] = X133_h;
-    dd++;
-    dctrl[dd] = X133_xc;
-    dd++;
-    dctrl[dd] = X133_yc;
-    dd++;
-    dctrl[dd] = X133_zc;
-    dd++;
     ictrl[ii] = X153;
     ii++;
     dctrl[dd] = X153_xs;
@@ -1861,7 +1831,9 @@ void lexer::ctrlsend()
     ictrl[ii] = X163;
 	ii++;
     ictrl[ii] = X164;
-	ii++;
+    ii++;
+    ictrl[ii] = X165;
+    ++ii;
     ictrl[ii] = X180;
 	ii++;
     ictrl[ii] = X181;
@@ -3236,6 +3208,8 @@ void lexer::ctrlsend()
     dd++;
     dctrl[dd] = X102_w[n];
     dd++;
+    ictrl[ii] = X102_objID[n];
+    ii++;
     }
 
     for(n=0;n<X110;++n)
@@ -3252,6 +3226,56 @@ void lexer::ctrlsend()
     dd++;
     dctrl[dd] = X110_ze[n];
     dd++;
+    ictrl[ii] = X110_objID[n];
+    ii++;
+    }
+
+    for(n=0;n<X131;++n)
+    {
+        dctrl[dd] = X131_rad[n];
+        dd++;
+        dctrl[dd] = X131_h[n];
+        dd++;
+        dctrl[dd] = X131_xc[n];
+        dd++;
+        dctrl[dd] = X131_yc[n];
+        dd++;
+        dctrl[dd] = X131_zc[n];
+        dd++;
+        ictrl[ii] = X131_objID[n];
+        ii++;
+    }
+
+    for(n=0;n<X132;++n)
+    {
+        dctrl[dd] = X132_rad[n];
+        dd++;
+        dctrl[dd] = X132_h[n];
+        dd++;
+        dctrl[dd] = X132_xc[n];
+        dd++;
+        dctrl[dd] = X132_yc[n];
+        dd++;
+        dctrl[dd] = X132_zc[n];
+        dd++;
+        ictrl[ii] = X132_objID[n];
+        ii++;
+    }
+
+    for(n=0;n<X133;++n)
+    {
+        dctrl[dd] = X133_rad[n];
+        dd++;
+        dctrl[dd] = X133_h[n];
+        dd++;
+        dctrl[dd] = X133_xc[n];
+        dd++;
+        dctrl[dd] = X133_yc[n];
+        dd++;
+        dctrl[dd] = X133_zc[n];
+        dd++;
+        ictrl[ii] = X133_objID[n];
+        ii++;
     }
     
     for(n=0;n<X163;++n)
@@ -3344,6 +3368,20 @@ void lexer::ctrlsend()
     dd++;
     dctrl[dd] = X164_z8[n];
     dd++;
+    }
+
+    for(n=0;n<X165;++n)
+    {
+    dctrl[dd] = X165_x[n];
+    dd++;
+    dctrl[dd] = X165_y[n];
+    dd++;
+    dctrl[dd] = X165_z[n];
+    dd++;
+    dctrl[dd] = X165_rad[n];
+    dd++;
+    ictrl[ii] = X165_objID[n];
+    ii++;
     }
    
     for(n=0;n<X311;++n)

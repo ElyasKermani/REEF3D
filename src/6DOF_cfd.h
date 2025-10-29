@@ -25,10 +25,12 @@ Authors: Hans Bihs, Tobias Martin
 
 #include"6DOF.h"
 #include"6DOF_obj.h"
+#include"6DOF_collision.h"
 #include<vector>
 
 class mooring;
 class ddweno_f_nug;
+class sixdof_collision;
 
 using namespace std;
 
@@ -60,12 +62,17 @@ public:
     void isource2D(lexer*,fdm2D*,ghostcell*) override;
     void jsource2D(lexer*,fdm2D*,ghostcell*) override;
 
+    // Getter for fb_obj (for testing)
+    vector<sixdof_obj*>& get_fb_obj() { return fb_obj; }
+
 private:
    void setup(lexer*,fdm*,ghostcell*);
    
     int number6DOF;
     vector<sixdof_obj*> fb_obj;
-
+    
+    // Collision model
+    sixdof_collision *p_collision;
 };
 
 #endif
