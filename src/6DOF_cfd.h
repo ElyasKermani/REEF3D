@@ -67,12 +67,16 @@ public:
 
 private:
    void setup(lexer*,fdm*,ghostcell*);
+   void update_combined_levelset(lexer*, fdm*, ghostcell*);
    
     int number6DOF;
     vector<sixdof_obj*> fb_obj;
     
     // Collision model
     sixdof_collision *p_collision;
+    
+    // Temporary field for combined level set computation
+    field4a fb_temp;
 };
 
 #endif

@@ -28,7 +28,7 @@ Authors: Tobias Martin, Hans Bihs
 #include"ghostcell.h"
 #include"ddweno_f_nug.h"
 
-sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
+sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc) : fb_temp(p)
 {
     if(p->mpirank==0)
     cout<<"6DOF startup ..."<<endl;
@@ -67,22 +67,31 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uv
         p_collision->calculate_collision_forces(p, pgc, fb_obj);
     }
     
+    // Update all body positions first (without level set updates)
     for (int nb=0; nb<number6DOF;++nb)
     {
-        // Calculate forces
-        fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
-        
         // Advance body in time
         fb_obj[nb]->solve_eqmotion_cfd(p,a,pgc,iter);
          
         // Update transformation matrices
         fb_obj[nb]->quat_matrices(p);
         
-        // Update position and trimesh
-        fb_obj[nb]->update_position_3D(p,a,pgc,finalize);  //----> main time consumer
-
+        // Update position and trimesh (without level set - much faster!)
+        fb_obj[nb]->update_position_3D_no_levelset(p,a,pgc,finalize);
+        
         // Save
         fb_obj[nb]->update_fbvel(p,pgc);
+    }
+    
+    // Single combined level set update for all bodies (major optimization!)
+    if(number6DOF > 0)
+    update_combined_levelset(p, a, pgc);
+    
+    // Now compute forces and forcing terms using combined level set
+    for (int nb=0; nb<number6DOF;++nb)
+    {
+        // Calculate forces
+        fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
         
         // Update forcing terms
         fb_obj[nb]->update_forcing(p,a,pgc,uvel,vvel,wvel,fx,fy,fz,iter);
@@ -114,4 +123,43 @@ void sixdof_cfd::start_sflow(lexer *p, fdm2D *b, ghostcell *pgc, int iter, slice
 void sixdof_cfd::start_nhflow(lexer* p, fdm_nhf* d, ghostcell* pgc, int iter, 
                                         double *U, double *V, double *W, double *FX, double *FY, double *FZ, slice &WL, slice &fe, bool finalize)
 {
+}
+
+void sixdof_cfd::update_combined_levelset(lexer *p, fdm *a, ghostcell *pgc)
+{
+    if(p->mpirank==0 && p->count%p->P12==0)
+    cout<<"6DOF: Updating combined level set for "<<number6DOF<<" bodies..."<<endl;
+    
+    // Initialize combined level set to far field
+    ALOOP
+    {
+        a->fb(i,j,k) = 10.0 * p->DXM;  // Far field (outside all bodies)
+    }
+    
+    // Narrow-band width: process cells within this distance of any body
+    double narrow_band_width = 3.0 * p->DXM;  // Can be adjusted based on body size
+    
+    // For each body, compute its distance field and take minimum
+    for (int nb=0; nb<number6DOF; ++nb)
+    {
+        // Compute distance to this body in narrow band only
+        fb_obj[nb]->ray_cast_narrowband(p, a, pgc, fb_temp, narrow_band_width);
+        
+        // Take minimum distance (closest body)
+        ALOOP
+        {
+            a->fb(i,j,k) = MIN(a->fb(i,j,k), fb_temp(i,j,k));
+        }
+    }
+    
+    // Single reinitialization for the combined level set
+    if(number6DOF > 0)
+    {
+        // Use the first object's reini function (they're all the same)
+        fb_obj[0]->reini_RK2(p, a, pgc, a->fb);
+        pgc->start4a(p, a->fb, 50);
+    }
+    
+    if(p->mpirank==0 && p->count%p->P12==0)
+    cout<<"6DOF: Combined level set updated."<<endl;
 }

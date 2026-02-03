@@ -77,9 +77,17 @@ public:
     void update_position_3D(lexer*, fdm*, ghostcell*, bool);
     void update_position_nhflow(lexer*, fdm_nhf*, ghostcell*,slice&, bool);
     void update_position_2D(lexer*, ghostcell*,slice&);
+    void update_position_3D_no_levelset(lexer*, fdm*, ghostcell*, bool);
+    void update_trimesh_3D_no_levelset(lexer*, fdm*, ghostcell*, bool);
     
     void solve_eqmotion_oneway_onestep(lexer*,ghostcell*);
     void clearExternalForces();
+    
+    // Narrow-band and combined level set support (public for sixdof_cfd)
+    void ray_cast_narrowband(lexer*, fdm*, ghostcell*, field&, double);
+    void ray_cast_to_field(lexer*, fdm*, ghostcell*, field&);
+    double distance_to_body_center(lexer*, int, int, int);
+    void reini_RK2(lexer*, fdm*, ghostcell*, field&);
     
     // NHFLOW
     virtual void solve_eqmotion_nhflow(lexer*,fdm_nhf*,ghostcell*,int);
@@ -206,7 +214,6 @@ private:
 	void ray_cast_y(lexer*, fdm*, ghostcell*,int,int);
 	void ray_cast_z(lexer*, fdm*, ghostcell*,int,int);
     void ray_cast_direct(lexer*, fdm*, ghostcell*,int,int);
-    void reini_RK2(lexer*, fdm*, ghostcell*, field&);
     
     // Raycast 3D
     fieldint5 cutl,cutr,fbio;
