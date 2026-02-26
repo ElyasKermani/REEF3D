@@ -26,6 +26,7 @@ Author: Tobias Martin
 #include"ghostcell.h"
 #include"mooring.h"
 #include"net.h"
+#include"net_interface.h"
 #include"vrans.h"
 
 void sixdof_obj::clearExternalForces()
