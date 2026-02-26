@@ -269,6 +269,12 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
                 }
             }
         }
+        
+        // Calculate ground contact forces (add to collision_forces, broadcast with object-object)
+        calculate_ground_contact_forces(p, pgc, fb_obj);
+        
+        // Calculate boundary wall contact forces (add to collision_forces, broadcast with object-object)
+        calculate_boundary_wall_contact_forces(p, pgc, fb_obj);
     }
     
     // Broadcast collision forces and torques from rank 0 to all processors
@@ -285,12 +291,6 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
         fb_obj[i]->Mext += collision_torques[i](1);
         fb_obj[i]->Next += collision_torques[i](2);
     }
-    
-    // Calculate ground contact forces for all objects
-    calculate_ground_contact_forces(p, pgc, fb_obj);
-    
-    // Calculate boundary wall contact forces for all objects
-    calculate_boundary_wall_contact_forces(p, pgc, fb_obj);
     
     // Debug output to verify MPI communication (only print occasionally)
     if(p->count%p->P12==0)
@@ -1052,11 +1052,12 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     if(!detect_collision(p, pgc, obj1, obj2, contact_point, normal, overlap))
         return false;
     
-    // BVH-accelerated path: if both objects have BVH, use it for fast rejection
+    // BVH-accelerated path: BVH stores body-frame triangles; transform query to body frame
     if(obj1->use_bvh && obj1->mesh_bvh && obj1->mesh_bvh->is_built())
     {
-        // Check if obj2's sphere intersects obj1's BVH
-        if(!obj1->mesh_bvh->intersects_sphere(obj2->c_, obj2->radius))
+        // Transform obj2's sphere center to obj1's body frame
+        Eigen::Vector3d center_in_obj1_body = obj1->Rinv_ * (obj2->c_ - obj1->c_);
+        if(!obj1->mesh_bvh->intersects_sphere(center_in_obj1_body, obj2->radius))
         {
             return false;  // BVH says no collision possible
         }
@@ -1064,8 +1065,9 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     
     if(obj2->use_bvh && obj2->mesh_bvh && obj2->mesh_bvh->is_built())
     {
-        // Check if obj1's sphere intersects obj2's BVH
-        if(!obj2->mesh_bvh->intersects_sphere(obj1->c_, obj1->radius))
+        // Transform obj1's sphere center to obj2's body frame
+        Eigen::Vector3d center_in_obj2_body = obj2->Rinv_ * (obj1->c_ - obj2->c_);
+        if(!obj2->mesh_bvh->intersects_sphere(center_in_obj2_body, obj1->radius))
         {
             return false;  // BVH says no collision possible
         }
@@ -1493,8 +1495,8 @@ void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc,
 {
     // Ground contact parameters (same as mooring system)
     // From: src/mooring_dynamic_rhs.cpp
-    double zg = 0.0;        // Ground z-coordinate (seabed level)
-    double Kg = 3.0e6;      // Ground stiffness [N/m²]
+    double zg = p->zcoormin;  // Ground z-coordinate (seabed = domain bottom)
+    double Kg = 3.0e6;        // Ground stiffness [N/m²]
     double mu = 0.3;        // Friction coefficient (cable/object on seabed)
     double xi = 1.0;        // Damping ratio (critical damping)
     double nu = 0.01;       // Velocity threshold for friction normalization [m/s]
@@ -1542,8 +1544,8 @@ void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc,
             // Note: max(v_normal, 0.0) ensures damping only opposes penetration
             double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
             
-            // Apply normal force (upward, opposing penetration)
-            obj->Ze += F_normal;
+            // Apply normal force (upward, opposing penetration) - add to collision_forces for broadcast
+            collision_forces[i](2) += F_normal;
             
             // ------------------------------------------------------------------
             // FRICTION FORCE (Horizontal, x-y plane)
@@ -1569,14 +1571,14 @@ void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc,
             double Fx_friction = -F_friction_mag * sin(PI/2.0 * vx_norm);
             double Fy_friction = -F_friction_mag * sin(PI/2.0 * vy_norm);
             
-            // Apply friction forces (oppose horizontal motion)
-            obj->Xe += Fx_friction;
-            obj->Ye += Fy_friction;
+            // Apply friction forces (oppose horizontal motion) - add to collision_forces for broadcast
+            collision_forces[i](0) += Fx_friction;
+            collision_forces[i](1) += Fy_friction;
             
             // ------------------------------------------------------------------
-            // DIAGNOSTIC OUTPUT
+            // DIAGNOSTIC OUTPUT (runs on rank 0 only)
             // ------------------------------------------------------------------
-            if(p->mpirank == 0 && p->count % 100 == 0)
+            if(p->count % 100 == 0)
             {
                 cout << "Ground Contact - Object " << i 
                      << ": z_bottom=" << z_bottom 
@@ -1630,13 +1632,13 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
             double m_eff = obj->Mass_fb;
             double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
             
-            // Normal velocity (toward wall is negative)
+            // Normal velocity: v_x (positive = moving right, away from left wall)
             double v_normal = obj->u_fb(0);
-            
-            // Normal force (push away from wall)
+            // Damping: oppose penetration (v_x < 0 when moving into wall)
             double F_normal = k_eff * overlap - c_eff * min(v_normal, 0.0);
             
-            obj->Xe += F_normal;
+            // Normal force (push away from wall) - add to collision_forces for broadcast
+            collision_forces[i](0) += F_normal;
             
             // Friction in y-z plane
             double v_y = obj->u_fb(1);
@@ -1649,12 +1651,12 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
                 double vy_norm = v_y / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
                 
-                obj->Ye -= F_friction_mag * sin(PI/2.0 * vy_norm);
-                obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
+                collision_forces[i](1) -= F_friction_mag * sin(PI/2.0 * vy_norm);
+                collision_forces[i](2) -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
             
             // Diagnostic output
-            if(p->mpirank == 0 && p->count % 100 == 0)
+            if(p->count % 100 == 0)
             {
                 cout << "Wall Contact (X-min) - Object " << i 
                      << ": overlap=" << overlap*1000.0 << " mm"
@@ -1673,12 +1675,13 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
             double m_eff = obj->Mass_fb;
             double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
             
+            // Normal velocity: v_x (positive = moving right, into wall)
             double v_normal = obj->u_fb(0);
+            // Damping: oppose penetration (v_x > 0 when moving into wall) -> use min(-v_x, 0)
+            double F_normal = k_eff * overlap - c_eff * min(-v_normal, 0.0);
             
-            // Normal force (push away from wall)
-            double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
-            
-            obj->Xe -= F_normal;
+            // Normal force (push away from wall) - add to collision_forces for broadcast
+            collision_forces[i](0) -= F_normal;
             
             // Friction in y-z plane
             double v_y = obj->u_fb(1);
@@ -1691,11 +1694,11 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
                 double vy_norm = v_y / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
                 
-                obj->Ye -= F_friction_mag * sin(PI/2.0 * vy_norm);
-                obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
+                collision_forces[i](1) -= F_friction_mag * sin(PI/2.0 * vy_norm);
+                collision_forces[i](2) -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
             
-            if(p->mpirank == 0 && p->count % 100 == 0)
+            if(p->count % 100 == 0)
             {
                 cout << "Wall Contact (X-max) - Object " << i 
                      << ": overlap=" << overlap*1000.0 << " mm"
@@ -1718,12 +1721,13 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
             double m_eff = obj->Mass_fb;
             double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
             
+            // Normal velocity: v_y (positive = moving in +y, away from front wall)
             double v_normal = obj->u_fb(1);
-            
-            // Normal force (push away from wall)
+            // Damping: oppose penetration (v_y < 0 when moving into wall)
             double F_normal = k_eff * overlap - c_eff * min(v_normal, 0.0);
             
-            obj->Ye += F_normal;
+            // Normal force (push away from wall) - add to collision_forces for broadcast
+            collision_forces[i](1) += F_normal;
             
             // Friction in x-z plane
             double v_x = obj->u_fb(0);
@@ -1736,11 +1740,11 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
                 double vx_norm = v_x / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
                 
-                obj->Xe -= F_friction_mag * sin(PI/2.0 * vx_norm);
-                obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
+                collision_forces[i](0) -= F_friction_mag * sin(PI/2.0 * vx_norm);
+                collision_forces[i](2) -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
             
-            if(p->mpirank == 0 && p->count % 100 == 0)
+            if(p->count % 100 == 0)
             {
                 cout << "Wall Contact (Y-min) - Object " << i 
                      << ": overlap=" << overlap*1000.0 << " mm"
@@ -1759,12 +1763,13 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
             double m_eff = obj->Mass_fb;
             double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
             
+            // Normal velocity: v_y (positive = moving in +y, into wall)
             double v_normal = obj->u_fb(1);
+            // Damping: oppose penetration (v_y > 0 when moving into wall) -> use min(-v_y, 0)
+            double F_normal = k_eff * overlap - c_eff * min(-v_normal, 0.0);
             
-            // Normal force (push away from wall)
-            double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
-            
-            obj->Ye -= F_normal;
+            // Normal force (push away from wall) - add to collision_forces for broadcast
+            collision_forces[i](1) -= F_normal;
             
             // Friction in x-z plane
             double v_x = obj->u_fb(0);
@@ -1777,11 +1782,11 @@ void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcel
                 double vx_norm = v_x / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
                 
-                obj->Xe -= F_friction_mag * sin(PI/2.0 * vx_norm);
-                obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
+                collision_forces[i](0) -= F_friction_mag * sin(PI/2.0 * vx_norm);
+                collision_forces[i](2) -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
             
-            if(p->mpirank == 0 && p->count % 100 == 0)
+            if(p->count % 100 == 0)
             {
                 cout << "Wall Contact (Y-max) - Object " << i 
                      << ": overlap=" << overlap*1000.0 << " mm"

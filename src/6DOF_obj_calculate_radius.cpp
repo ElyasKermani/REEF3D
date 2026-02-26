@@ -104,8 +104,9 @@ void sixdof_obj::build_bvh()
         mesh_bvh = new BVH_Tree(4);  // Max 4 triangles per leaf
     }
     
-    // Build the BVH from triangle data
-    mesh_bvh->build(tri_x, tri_y, tri_z, tricount);
+    // Build the BVH from body-frame triangle data (tri_x0, tri_y0, tri_z0)
+    // Body-frame is static; query transforms sphere to body frame for correct collision
+    mesh_bvh->build(tri_x0, tri_y0, tri_z0, tricount);
     use_bvh = true;
     
     // Inform user about algorithm selection

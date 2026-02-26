@@ -38,12 +38,8 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc)
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj.push_back(new sixdof_obj(p,pgc,nb));
     
-    // Initialize the collision model
+    // Initialize the collision model (uses default PhasicFlowNonLinearNonLimited from constructor)
     p_collision = new sixdof_collision(p,pgc);
-    
-    // Set collision model based on parameters (in a real implementation, would use parameter file)
-    // Default is Linear - could be set to ContactForceModel::Hertz, ContactForceModel::HertzMindlin, or ContactForceModel::DMT
-    p_collision->set_contact_force_model(ContactForceModel::Linear);
 }
     
 sixdof_cfd::~sixdof_cfd()
@@ -61,8 +57,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uv
     for (int nb=0; nb<number6DOF;++nb)
     fb_obj[nb]->clearExternalForces();
     
-    // Calculate collision forces between objects
-    if(p->X20 > 1) // Only calculate collisions if there's more than one object
+    // Calculate collision forces (object-object, ground contact, wall contact)
+    // Called for X20 >= 1: object-object collision only when > 1 object; ground/wall contact always
+    if(p->X20 >= 1)
     {
         p_collision->calculate_collision_forces(p, pgc, fb_obj);
     }

@@ -112,5 +112,9 @@ void sixdof_obj::iniPosition_RBM(lexer *p, ghostcell *pgc)
 
     // Initialise rotation matrices
     quat_matrices(p);
+    
+    // Build BVH from body-frame triangles (tri_x0) for collision detection
+    // Must be after tri_x0 is set and initial rotation applied to tri_x
+    build_bvh();
 }
 

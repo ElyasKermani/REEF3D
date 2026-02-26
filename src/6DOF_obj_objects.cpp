@@ -127,8 +127,7 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
     // Calculate bounding radius for collision detection
     calculate_bounding_radius(p, pgc);
     
-    // Build BVH for adaptive collision detection (if object is complex enough)
-    build_bvh();
+    // BVH is built in iniPosition_RBM (after tri_x0 is set) for body-frame geometry
 }
 
 void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
