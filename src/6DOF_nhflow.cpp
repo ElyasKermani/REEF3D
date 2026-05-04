@@ -21,6 +21,9 @@ Author: Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"6DOF_nhflow.h"
+#include"dem_nhflow.h"
+#include"dem_nhflow_void.h"
+#include"dem_nhflow_collision.h"
 #include"lexer.h"
 #include"fdm.h"
 #include"fdm_nhf.h"
@@ -35,10 +38,19 @@ sixdof_nhflow::sixdof_nhflow(lexer *p, ghostcell *pgc) : press(p)
     
     for (int nb = 0; nb < number6DOF; nb++)
     fb_obj.push_back(new sixdof_obj(p,pgc,nb));
+
+    if(number6DOF>1)
+    p_dem = new dem_nhflow_collision(p,pgc);
+    else
+    p_dem = new dem_nhflow_void();
 }
 
 sixdof_nhflow::~sixdof_nhflow()
 {
+    for (int nb = 0; nb < number6DOF; nb++)
+    delete fb_obj[nb];
+
+    delete p_dem;
 }
 
 void sixdof_nhflow::start_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter, 
@@ -61,6 +73,8 @@ void sixdof_nhflow::start_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter,
 void sixdof_nhflow::start_twoway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter, 
                                 double *FX, double *FY, double *FZ, slice &WL, slice &fe, bool finalize)
 {
+    p_dem->start(p,d,pgc,fb_obj,iter,finalize);
+
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Calculate forces
@@ -99,6 +113,8 @@ void sixdof_nhflow::start_twoway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter,
 
 void sixdof_nhflow::start_oneway(lexer *p, fdm_nhf *d, ghostcell *pgc, int iter, double *FX, double *FY, double *FZ, slice &WL, slice &fe, bool finalize)
 {
+    p_dem->start(p,d,pgc,fb_obj,iter,finalize);
+
     for (int nb=0; nb<number6DOF;++nb)
     {
         // Advance body in time

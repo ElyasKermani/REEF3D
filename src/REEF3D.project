@@ -920,11 +920,6 @@
           <File Name="net_void.h"/>
           <File Name="net.h"/>
         </VirtualDirectory>
-        <VirtualDirectory Name="Collision">
-          <File Name="6DOF_collision.h"/>
-          <File Name="6DOF_collision_grid.h"/>
-          <File Name="test_collision.h"/>
-        </VirtualDirectory>
         <File Name="6DOF.h"/>
         <File Name="6DOF_void.h"/>
       </VirtualDirectory>
@@ -952,6 +947,37 @@
         <File Name="rheology.h"/>
         <File Name="rheology_f.h"/>
         <File Name="rheology_v.h"/>
+      </VirtualDirectory>
+    </VirtualDirectory>
+    <VirtualDirectory Name="DEM">
+      <VirtualDirectory Name="Interface CFD">
+        <File Name="dem_cfd.h"/>
+        <File Name="dem_cfd_void.h"/>
+        <File Name="dem_cfd_collision.h"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Interface NHFLOW">
+        <File Name="dem_nhflow.h"/>
+        <File Name="dem_nhflow_void.h"/>
+        <File Name="dem_nhflow_collision.h"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Policy">
+        <File Name="dem_policy.h"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Contact Force">
+        <File Name="contact_history.h"/>
+        <File Name="contact_force.h"/>
+        <File Name="contact_force_linear.h"/>
+        <File Name="contact_force_hertz.h"/>
+        <File Name="contact_force_hertz_mindlin.h"/>
+        <File Name="contact_force_phasicflow_linear_limited.h"/>
+        <File Name="contact_force_phasicflow_linear_nonlimited.h"/>
+        <File Name="contact_force_phasicflow_nonlinear_limited.h"/>
+        <File Name="contact_force_phasicflow_nonlinear_nonlimited.h"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Collision Core">
+        <File Name="6DOF_collision.h"/>
+        <File Name="6DOF_collision_grid.h"/>
+        <File Name="test_collision.h"/>
       </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="Main">
@@ -2561,12 +2587,6 @@
           </VirtualDirectory>
           <File Name="net_void.cpp"/>
         </VirtualDirectory>
-        <VirtualDirectory Name="Collision">
-          <File Name="6DOF_collision.cpp"/>
-          <File Name="6DOF_collision_substeps.cpp"/>
-          <File Name="6DOF_collision_grid.cpp"/>
-          <File Name="test_collision.cpp"/>
-        </VirtualDirectory>
         <VirtualDirectory Name="Mooring">
           <VirtualDirectory Name="Spring">
             <File Name="mooring_Spring_print.cpp"/>
@@ -2762,6 +2782,35 @@
       </VirtualDirectory>
       <VirtualDirectory Name="CDS Grid2D">
         <File Name="gc_sizeS_update.cpp"/>
+      </VirtualDirectory>
+    </VirtualDirectory>
+    <VirtualDirectory Name="DEM">
+      <VirtualDirectory Name="Interface CFD">
+        <File Name="dem_cfd_void.cpp"/>
+        <File Name="dem_cfd_collision.cpp"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Interface NHFLOW">
+        <File Name="dem_nhflow_void.cpp"/>
+        <File Name="dem_nhflow_collision.cpp"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Policy">
+        <File Name="dem_policy.cpp"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Contact Force">
+        <File Name="contact_force.cpp"/>
+        <File Name="contact_force_linear.cpp"/>
+        <File Name="contact_force_hertz.cpp"/>
+        <File Name="contact_force_hertz_mindlin.cpp"/>
+        <File Name="contact_force_phasicflow_linear_limited.cpp"/>
+        <File Name="contact_force_phasicflow_linear_nonlimited.cpp"/>
+        <File Name="contact_force_phasicflow_nonlinear_limited.cpp"/>
+        <File Name="contact_force_phasicflow_nonlinear_nonlimited.cpp"/>
+      </VirtualDirectory>
+      <VirtualDirectory Name="Collision Core">
+        <File Name="6DOF_collision.cpp"/>
+        <File Name="6DOF_collision_substeps.cpp"/>
+        <File Name="6DOF_collision_grid.cpp"/>
+        <File Name="test_collision.cpp"/>
       </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="Main">

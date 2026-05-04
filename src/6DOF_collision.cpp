@@ -26,6 +26,14 @@ Author: Elyas Larkermani
 #include"fdm.h"
 #include"ghostcell.h"
 #include"6DOF_collision_grid.h"
+#include"contact_force.h"
+#include"contact_force_linear.h"
+#include"contact_force_hertz.h"
+#include"contact_force_hertz_mindlin.h"
+#include"contact_force_phasicflow_linear_limited.h"
+#include"contact_force_phasicflow_linear_nonlimited.h"
+#include"contact_force_phasicflow_nonlinear_limited.h"
+#include"contact_force_phasicflow_nonlinear_nonlimited.h"
 #include<math.h>
 #include<iostream>
 
@@ -34,221 +42,229 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     if(p->mpirank==0)
     cout<<"6DOF Collision Model startup..."<<endl;
     
-    // Set maximum number of objects and initialize storage
-    max_objects = p->X20;
-    collision_forces.resize(max_objects);
-    collision_torques.resize(max_objects);
-    object_aabbs.resize(max_objects);  // Allocate AABB storage
-    clear_collision_forces();
-    
-    // Set default collision model
-    contact_model = ContactForceModel::PhasicFlowNonLinearNonLimited;
-    
-    // Initialize common parameters from control file parameters
-    // These should be added to the parameter file in a real implementation
-    // For now, we set default values
-    spring_constant_n = 1.0e6;            // Default normal stiffness [N/m]
-    spring_constant_t = 0.5e6;            // Default tangential stiffness [N/m]
-    damping_constant_n = 1.0e4;           // Default normal damping [N·s/m]
-    damping_constant_t = 0.5e4;           // Default tangential damping [N·s/m]
-    friction_coefficient = 0.3;           // Default friction coefficient
-    restitution_coefficient = 0.8;        // Default restitution coefficient
-    
-    // Initialize rolling friction parameters
-    rolling_friction_coefficient = 0.2;    // Default rolling friction coefficient
-    rolling_stiffness = 0.5e6;             // Default rolling stiffness [N·m/rad]
-    rolling_damping = 0.5e4;               // Default rolling damping [N·m·s/rad]
-    rolling_torque_threshold = 1.0e-3;     // Default rolling torque threshold [N·m]
-    
-    // Initialize Hertzian contact parameters
-    young_modulus = 1.0e6;                // Default Young's modulus [Pa]
-    poisson_ratio = 0.25;                  // Default Poisson's ratio
+    p_lexer = p;
+    p_force = 0;
 
-    // Initialize Linear model restitution-based damping options (disabled by default)
-    linear_use_restitution = true;
-    linear_en = restitution_coefficient;   // Default to same as global restitution
-    linear_et = -1.0;                      // Use linear_en if not provided
-    
-    // Initialize sub-stepping parameters
+    nobj = p->X20;
+    f_col.resize(nobj);
+    t_col.resize(nobj);
+    aabbs.resize(nobj);
+    clear_forces();
+
+    // Default contact-force model
+    set_contact_force_model(ContactForceModel::PhasicFlowNonLinearNonLimited);
+
+    // Rolling/twisting friction parameters
+    mu_r      = 0.2;
+    kr        = 0.5e6;   // [N m / rad]
+    cr        = 0.5e4;   // [N m s / rad]
+    tau_r_max = 1.0e-3;  // [N m]
+
     use_substeps = true;
     max_substeps = 10;
-    
-    // HYBRID: Initialize adaptive collision detection parameters
-    use_adaptive_collision = true;           // Enable by default
-    collision_simple_threshold = 50;         // < 50 triangles: use sphere-sphere (very fast)
-    collision_moderate_threshold = 500;      // < 500 triangles: use triangle-triangle with BVH
-    // >= 500 triangles: use triangle-triangle with BVH (still fast due to BVH)
-    
+
+    // Triangle-count thresholds for the adaptive narrow-phase test
+    adaptive       = true;
+    detection_mode = CollisionDetectionMode::Adaptive;
+    simple_tri     = 50;    // below: sphere-sphere
+    moderate_tri   = 500;   // below: triangle-mesh; above: triangle-mesh with BVH
+
     if(p->mpirank==0)
     {
         cout<<"6DOF Collision: Adaptive algorithm selection enabled"<<endl;
-        cout<<"  Simple threshold (sphere-sphere): < "<<collision_simple_threshold<<" triangles"<<endl;
-        cout<<"  Moderate threshold (triangle-mesh): < "<<collision_moderate_threshold<<" triangles"<<endl;
+        cout<<"  Simple threshold (sphere-sphere): < "<<simple_tri<<" triangles"<<endl;
+        cout<<"  Moderate threshold (triangle-mesh): < "<<moderate_tri<<" triangles"<<endl;
     }
-    
-    // Create a new collision grid
+
     collision_grid = new sixdof_collision_grid(p, pgc);
 }
 
 sixdof_collision::~sixdof_collision()
 {
-    // Clean up collision grid
-    if (collision_grid)
+    if(p_force)
+        delete p_force;
+    
+    if(collision_grid)
         delete collision_grid;
+}
+
+void sixdof_collision::set_contact_force_model(ContactForceModel model)
+{
+    // Skip re-allocation when the requested model is already active
+    if(p_force!=0 && contact_model==model)
+    return;
+
+    contact_model = model;
+
+    if(p_force)
+    {
+        delete p_force;
+        p_force = 0;
+    }
+
+    if(model==ContactForceModel::Linear)
+    p_force = new contact_force_linear(p_lexer);
+
+    if(model==ContactForceModel::Hertz)
+    p_force = new contact_force_hertz(p_lexer);
+
+    if(model==ContactForceModel::HertzMindlin)
+    p_force = new contact_force_hertz_mindlin(p_lexer);
+
+    if(model==ContactForceModel::PhasicFlowLinearLimited)
+    p_force = new contact_force_phasicflow_linear_limited(p_lexer);
+
+    if(model==ContactForceModel::PhasicFlowLinearNonLimited)
+    p_force = new contact_force_phasicflow_linear_nonlimited(p_lexer);
+
+    if(model==ContactForceModel::PhasicFlowNonLinearLimited)
+    p_force = new contact_force_phasicflow_nonlinear_limited(p_lexer);
+
+    if(model==ContactForceModel::PhasicFlowNonLinearNonLimited)
+    p_force = new contact_force_phasicflow_nonlinear_nonlimited(p_lexer);
+
+    // Fall back to the linear model for any unrecognized enum value
+    if(p_force==0)
+    p_force = new contact_force_linear(p_lexer);
+
+    if(p_lexer && p_lexer->mpirank==0)
+    {
+        cout<<"6DOF Collision: contact-force model = ";
+        if(model==ContactForceModel::Linear)                            cout<<"Linear";
+        if(model==ContactForceModel::Hertz)                             cout<<"Hertz";
+        if(model==ContactForceModel::HertzMindlin)                      cout<<"Hertz-Mindlin";
+        if(model==ContactForceModel::PhasicFlowLinearLimited)           cout<<"PhasicFlow-Linear-Limited";
+        if(model==ContactForceModel::PhasicFlowLinearNonLimited)        cout<<"PhasicFlow-Linear-NonLimited";
+        if(model==ContactForceModel::PhasicFlowNonLinearLimited)        cout<<"PhasicFlow-NonLinear-Limited";
+        if(model==ContactForceModel::PhasicFlowNonLinearNonLimited)     cout<<"PhasicFlow-NonLinear-NonLimited";
+        cout<<endl;
+    }
+}
+
+void sixdof_collision::set_adaptive_detection(bool enabled, int simple_tri_in, int moderate_tri_in)
+{
+    adaptive = enabled;
+    simple_tri = std::max(1, simple_tri_in);
+    moderate_tri = std::max(simple_tri, moderate_tri_in);
 }
 
 void sixdof_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
 {
-    // Update AABB for each object based on current position and radius
-    for(int i = 0; i < max_objects; ++i)
+    for(int i = 0; i < nobj; ++i)
     {
-        object_aabbs[i].update_from_sphere(fb_obj[i]->c_, fb_obj[i]->radius);
+        aabbs[i].update_from_sphere(fb_obj[i]->c_, fb_obj[i]->radius);
     }
 }
 
 void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // Clear collision forces for all objects on all processors
-    clear_collision_forces();
-    
-    // Only rank 0 calculates collision forces
+    clear_forces();
+
+    // Rank 0 owns the contact-force computation; results are broadcast below
     if(p->mpirank == 0)
     {
-        // Update AABBs for fast pre-filtering
         update_aabbs(fb_obj);
-        
-        // Update contact history (remove pairs no longer in contact)
         update_contact_history(p);
-        
-        // Update the collision grid with current object positions
         collision_grid->update_grid(p, pgc, fb_obj);
-        
-        // Get potential collision pairs from the grid
-        std::vector<std::pair<int, int>> potential_collisions = 
+
+        std::vector<std::pair<int, int>> potential_collisions =
             collision_grid->find_potential_collisions(p, pgc, fb_obj);
-        
+
         if(p->count%p->P12==0 && potential_collisions.size() > 0)
         {
             cout<<"6DOF Collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
         }
-        
-        // Check each potential collision pair
+
         for(const auto& pair : potential_collisions)
         {
             int i = pair.first;
             int j = pair.second;
-            
-            // Variables to store collision information
+
             Eigen::Vector3d contact_point, normal;
             double overlap = 0.0;
-            
-            // AABB pre-check for fast rejection
-            if(!object_aabbs[i].overlaps(object_aabbs[j]))
+
+            // Cheap AABB rejection before the narrow-phase test
+            if(!aabbs[i].overlaps(aabbs[j]))
             {
-                continue;  // AABBs don't overlap, skip this pair
+                continue;
             }
-            
-            // Detect collision using adaptive algorithm selection
+
             bool collision_detected = false;
             
-            if(use_adaptive_collision)
+            if(detection_mode == CollisionDetectionMode::SphereOnly)
             {
-                // HYBRID: Automatically choose best algorithm based on complexity
-                collision_detected = detect_collision_adaptive(p, pgc, fb_obj[i], fb_obj[j], 
+                collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
+                                                     contact_point, normal, overlap);
+            }
+            else if(detection_mode == CollisionDetectionMode::TriangleSATOnly)
+            {
+                collision_detected = detect_triangle_collision(p, pgc, fb_obj[i], fb_obj[j],
                                                               contact_point, normal, overlap);
             }
             else
             {
-                // Fallback: Use original sphere-sphere method
-                collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j], 
-                                                     contact_point, normal, overlap);
+                if(adaptive)
+                {
+                    collision_detected = detect_collision_adaptive(p, pgc, fb_obj[i], fb_obj[j],
+                                                                  contact_point, normal, overlap);
+                }
+                else
+                {
+                    collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
+                                                         contact_point, normal, overlap);
+                }
             }
             
             if(collision_detected)
             {
-                // Calculate contact forces and torques
                 Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
-                
-                // Apply appropriate contact force model
-                switch(contact_model)
+
+                const int id1 = fb_obj[i]->n6DOF;
+                const int id2 = fb_obj[j]->n6DOF;
+                const std::pair<int,int> key = std::make_pair(std::min(id1,id2), std::max(id1,id2));
+
+                // Initialize a fresh contact-history entry the first time this pair touches
+                if(contact_history.find(key) == contact_history.end())
                 {
-                    case ContactForceModel::Linear:
-                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                     contact_point, normal, overlap, 
-                                                     force, torque);
-                        break;
-                    case ContactForceModel::PhasicFlowLinearLimited:
-                        calculate_phasicflow_linear_limited(p, pgc, fb_obj[i], fb_obj[j],
-                                                           contact_point, normal, overlap,
-                                                           force, torque);
-                        break;
-                    case ContactForceModel::PhasicFlowLinearNonLimited:
-                        calculate_phasicflow_linear_nonlimited(p, pgc, fb_obj[i], fb_obj[j],
-                                                              contact_point, normal, overlap,
-                                                              force, torque);
-                        break;
-                        
-                    case ContactForceModel::Hertz:
-                        calculate_hertz_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                    contact_point, normal, overlap, 
-                                                    force, torque);
-                        break;
-                        
-                    case ContactForceModel::HertzMindlin:
-                        calculate_hertz_mindlin_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                           contact_point, normal, overlap, 
-                                                           force, torque);
-                        break;
-
-                    case ContactForceModel::PhasicFlowNonLinearLimited:
-                        calculate_phasicflow_nonlinear_limited(p, pgc, fb_obj[i], fb_obj[j],
-                                                               contact_point, normal, overlap,
-                                                               force, torque);
-                        break;
-
-                    case ContactForceModel::PhasicFlowNonLinearNonLimited:
-                        calculate_phasicflow_nonlinear_nonlimited(p, pgc, fb_obj[i], fb_obj[j],
-                                                                 contact_point, normal, overlap,
-                                                                 force, torque);
-                        break;
-                        
-                    default:
-                        // Default to linear model if unrecognized
-                        calculate_linear_contact_force(p, pgc, fb_obj[i], fb_obj[j], 
-                                                     contact_point, normal, overlap, 
-                                                     force, torque);
-                        break;
+                    ContactHistory h;
+                    h.s_t.setZero();
+                    h.in_contact = true;
+                    h.t_last = p->simtime;
+                    contact_history[key] = h;
                 }
-                
-                // Calculate rolling friction and twisting resistance
+
+                p_force->compute(p, pgc, fb_obj[i], fb_obj[j],
+                                 contact_point, normal, overlap,
+                                 contact_history[key],
+                                 force, torque);
+
                 calculate_rolling_friction_torque(p, pgc, fb_obj[i], fb_obj[j],
                                                 contact_point, normal, overlap,
                                                 rolling_torque);
-                                                
+
                 calculate_twisting_resistance(p, pgc, fb_obj[i], fb_obj[j],
                                             contact_point, normal, overlap,
                                             twisting_torque);
-                
-                // Add rolling friction and twisting resistance to total torque
-                torque += rolling_torque + twisting_torque;
-                
-                // If using sub-stepping for collision resolution
-                if(use_substeps && overlap > 0.01 * fb_obj[i]->radius) // Only use sub-stepping for significant overlaps
+
+                if(use_substeps && overlap > 0.01 * fb_obj[i]->radius)
                 {
-                    resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j], 
-                                                 contact_point, normal, overlap, 
+                    resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j],
+                                                 contact_point, normal, overlap,
                                                  force, torque);
                 }
-                
-                // Store collision forces and torques (instead of directly applying to Xext, etc.)
-                // Object i gets negative force (action)
-                collision_forces[i] -= force;
-                collision_torques[i] -= torque;
-                
-                // Object j gets positive force (reaction)
-                collision_forces[j] += force;
-                collision_torques[j] += torque;
-                
+
+                // Apply force/torque pair: action +force on obj j, reaction -force on obj i.
+                // Each contact torque uses its own lever arm; rolling/twisting torques are
+                // returned in the obj j frame and flipped on obj i.
+                const Eigen::Vector3d r1 = contact_point - fb_obj[i]->c_;
+                const Eigen::Vector3d r2 = contact_point - fb_obj[j]->c_;
+
+                f_col[i]  -= force;
+                f_col[j]  += force;
+
+                t_col[i] += r1.cross(-force) - rolling_torque - twisting_torque;
+                t_col[j] += r2.cross( force) + rolling_torque + twisting_torque;
+
                 if(p->count%p->P12==0)
                 {
                     cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
@@ -270,765 +286,97 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
             }
         }
     }
-    
-    // Broadcast collision forces and torques from rank 0 to all processors
-    broadcast_collision_forces(p, pgc);
-    
-    // Apply collision forces to external force variables on ALL processors
-    for(int i = 0; i < max_objects; ++i)
+
+    broadcast_forces(p, pgc);
+
+    // Apply the synchronized force/torque to each body on every rank
+    for(int i = 0; i < nobj; ++i)
     {
-        fb_obj[i]->Xext += collision_forces[i](0);
-        fb_obj[i]->Yext += collision_forces[i](1);
-        fb_obj[i]->Zext += collision_forces[i](2);
-        
-        fb_obj[i]->Kext += collision_torques[i](0);
-        fb_obj[i]->Mext += collision_torques[i](1);
-        fb_obj[i]->Next += collision_torques[i](2);
+        fb_obj[i]->Xext += f_col[i](0);
+        fb_obj[i]->Yext += f_col[i](1);
+        fb_obj[i]->Zext += f_col[i](2);
+
+        fb_obj[i]->Kext += t_col[i](0);
+        fb_obj[i]->Mext += t_col[i](1);
+        fb_obj[i]->Next += t_col[i](2);
     }
-    
-    // Calculate ground contact forces for all objects
+
     calculate_ground_contact_forces(p, pgc, fb_obj);
-    
-    // Calculate boundary wall contact forces for all objects
     calculate_boundary_wall_contact_forces(p, pgc, fb_obj);
-    
-    // Debug output to verify MPI communication (only print occasionally)
-    if(p->count%p->P12==0)
+
+    if(p->count%p->P38==0)
     {
         if(p->mpirank == 0)
         {
             cout<<"6DOF Collision: Applied forces to all objects on rank 0:"<<endl;
-            for(int i = 0; i < max_objects; ++i)
+            for(int i = 0; i < nobj; ++i)
             {
-                if(collision_forces[i].norm() > 1.0e-10 || collision_torques[i].norm() > 1.0e-10)
+                if(f_col[i].norm() > 1.0e-10 || t_col[i].norm() > 1.0e-10)
                 {
-                    cout<<"  Object "<<i<<": Force=["<<collision_forces[i](0)<<", "<<collision_forces[i](1)<<", "<<collision_forces[i](2)<<"]"<<endl;
-                    cout<<"            Torque=["<<collision_torques[i](0)<<", "<<collision_torques[i](1)<<", "<<collision_torques[i](2)<<"]"<<endl;
+                    cout<<"  Object "<<i<<": Force=["<<f_col[i](0)<<", "<<f_col[i](1)<<", "<<f_col[i](2)<<"]"<<endl;
+                    cout<<"            Torque=["<<t_col[i](0)<<", "<<t_col[i](1)<<", "<<t_col[i](2)<<"]"<<endl;
                 }
             }
         }
         else
         {
-            // Verify that non-rank-0 processors received the forces
-            cout<<"6DOF Collision: Rank "<<p->mpirank<<" received forces for "<<max_objects<<" objects"<<endl;
+            cout<<"6DOF Collision: Rank "<<p->mpirank<<" received forces for "<<nobj<<" objects"<<endl;
         }
-        
-        // Uncomment the next line for debugging MPI synchronization (adds computational overhead)
-        // verify_collision_forces_synchronization(p, pgc);
+
+        // verify_sync(p, pgc); // Enable to check MPI sync
     }
 }
 
 bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                       Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
-    // Using improved spherical collision detection as an initial check
-    
-    // Get object centers
+    // Sphere-sphere intersection test using the bounding radii of each body
     Eigen::Vector3d center1 = obj1->c_;
     Eigen::Vector3d center2 = obj2->c_;
-    
-    // Calculate distance between centers
+
     Eigen::Vector3d center_diff = center2 - center1;
     double distance = center_diff.norm();
-    
-    // Calculate sum of bounding radii
     double sum_radii = obj1->radius + obj2->radius;
-    
-    // Check if objects are overlapping
+
     if(distance < sum_radii)
     {
-        // Calculate overlap
         overlap = sum_radii - distance;
-        
-        // Calculate contact normal
+
         if(distance > 1.0e-10)
         {
             normal = center_diff / distance;
         }
         else
         {
-            // If centers are too close, use a default normal
+            // Fallback when the two centres coincide
             normal = Eigen::Vector3d(0.0, 0.0, 1.0);
         }
-        
-        // Calculate contact point (midpoint of overlap)
+
+        // Contact point at the midpoint of the penetration along the normal
         contact_point = center1 + normal * (obj1->radius - 0.5 * overlap);
-        
+
         return true;
     }
-    
+
     return false;
 }
 
-void sixdof_collision::calculate_linear_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                  const Eigen::Vector3d &contact_point, 
-                                                  const Eigen::Vector3d &normal, 
-                                                  const double overlap,
-                                                  Eigen::Vector3d &force, 
-                                                  Eigen::Vector3d &torque)
-{
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
-    
-    // Get object centers, velocities and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Relative position vectors from centers to contact point
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-    
-    // Get linear velocities at centers
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate velocities at contact point
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
-    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    
-    // Relative velocity at contact point
-    Eigen::Vector3d v_rel = v2_contact - v1_contact;
-    
-    // Normal component of relative velocity
-    double v_rel_n = v_rel.dot(normal);
-    
-    // Tangential component of relative velocity
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-    double v_rel_t_mag = v_rel_t.norm();
-    
-    // Get or create contact history for this pair
-    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
-    if(it == contact_history.end())
-    {
-        // New contact
-        ContactHistory history;
-        history.tangential_overlap.setZero();
-        history.in_contact = true;
-        history.last_update_time = p->simtime;
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
-    }
-    
-    // Get time step
-    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
-    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
-    
-    // Update contact history
-    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
-    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
-    
-    // Calculate normal force using linear spring-dashpot model
-    // Optionally compute damping from restitution: c = 2*zeta*sqrt(k*meff)
-    double c_n = damping_constant_n;
-    if (linear_use_restitution) {
-        const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
-        const double zeta = -std::log(en_lin) / std::sqrt(M_PI*M_PI + std::log(en_lin)*std::log(en_lin));
-        const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-        c_n = 2.0 * zeta * std::sqrt(spring_constant_n * meff);
-    }
-    // Fn = kn * delta - c_n * v_rel_n
-    double fn = spring_constant_n * overlap - c_n * v_rel_n;
-    fn = max(fn, 0.0); // Ensure normal force is repulsive
-    
-    // Update tangential overlap based on relative velocity
-    if(v_rel_t_mag > 1.0e-10)
-    {
-        // Increment tangential overlap
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap += v_rel_t * dt;
-        
-        // Project tangential overlap to the current tangential plane
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap -= 
-            normal * normal.dot(contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap);
-        
-        // Calculate tangential force based on spring and damping
-        double c_t = damping_constant_t;
-        if (linear_use_restitution) {
-            double et_lin;
-            if (linear_et == -1.0) {
-                const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
-                et_lin = en_lin;
-            } else {
-                et_lin = std::min(std::max(linear_et, 1.0e-6), 0.999999);
-            }
-            const double zeta_t = -std::log(et_lin) / std::sqrt(M_PI*M_PI + std::log(et_lin)*std::log(et_lin));
-            const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-            c_t = 2.0 * zeta_t * std::sqrt(spring_constant_t * meff);
-        }
-        Eigen::Vector3d ft_vector = spring_constant_t * contact_history[std::make_pair(std::min(id1, id2), std::max(id1, id2))].tangential_overlap 
-                                  - c_t * v_rel_t;
-        
-        // Apply Coulomb's friction law
-        double ft_mag = ft_vector.norm();
-        double ft_max = friction_coefficient * fn;
-        
-        if(ft_mag > ft_max)
-        {
-            // Scale tangential force to the maximum allowed
-            ft_vector *= (ft_max / ft_mag);
-            
-            // Update tangential overlap to match the maximum force
-            contact_history[std::make_pair(min(id1, id2), max(id1, id2))].tangential_overlap *= (ft_max / ft_mag);
-        }
-        
-        // Total force vector
-        force = fn * normal - ft_vector;
-    }
-    else
-    {
-        // No tangential motion, just apply normal force
-        force = fn * normal;
-    }
-    
-    // Calculate torque
-    torque = r1.cross(force);
-}
-
-// phasicFlow linear model with history limiting
-void sixdof_collision::calculate_phasicflow_linear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                      const Eigen::Vector3d &contact_point,
-                                                      const Eigen::Vector3d &normal,
-                                                      const double overlap,
-                                                      Eigen::Vector3d &force,
-                                                      Eigen::Vector3d &torque)
-{
-    // Use the same structure as calculate_linear_contact_force but enforce
-    // phasicFlow's history rescaling behavior when Coulomb limit is hit and
-    // compute damping constants directly from restitution if linear_use_restitution is true.
-
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
-
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
-    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    Eigen::Vector3d v_rel = v2_contact - v1_contact;
-
-    double v_rel_n = v_rel.dot(normal);
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-
-    auto key = std::make_pair(std::min(id1, id2), std::max(id1, id2));
-    auto it = contact_history.find(key);
-    if(it == contact_history.end())
-    {
-        ContactHistory history; history.tangential_overlap.setZero(); history.in_contact = true; history.last_update_time = p->simtime;
-        contact_history[key] = history;
-    }
-    double dt = p->simtime - contact_history[key].last_update_time; if(dt <= 0.0) dt = p->dt;
-    contact_history[key].in_contact = true; contact_history[key].last_update_time = p->simtime;
-
-    double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-    double c_n = damping_constant_n;
-    double c_t = damping_constant_t;
-    if (linear_use_restitution)
-    {
-        const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
-        const double zeta_n = -std::log(en_lin) / std::sqrt(M_PI*M_PI + std::log(en_lin)*std::log(en_lin));
-        c_n = 2.0 * zeta_n * std::sqrt(spring_constant_n * meff);
-        double et_lin = (linear_et == -1.0) ? en_lin : std::min(std::max(linear_et, 1.0e-6), 0.999999);
-        const double zeta_t = -std::log(et_lin) / std::sqrt(M_PI*M_PI + std::log(et_lin)*std::log(et_lin));
-        c_t = 2.0 * zeta_t * std::sqrt(spring_constant_t * meff);
-    }
-
-    double fn = spring_constant_n * overlap - c_n * v_rel_n;
-    fn = std::max(fn, 0.0);
-
-    // Update tangential history and force
-    if(v_rel_t.norm() > 1.0e-10)
-    {
-        auto &overlap_t = contact_history[key].tangential_overlap;
-        overlap_t += v_rel_t * dt;
-        overlap_t -= normal * normal.dot(overlap_t);
-
-        Eigen::Vector3d Ft = -spring_constant_t * overlap_t - c_t * v_rel_t;
-        double ft = Ft.norm();
-        double ft_max = friction_coefficient * fn;
-        if(ft > ft_max)
-        {
-            if(overlap_t.norm() > 0.0)
-            {
-                Ft *= (ft_max/ft);
-                // limited: rescale history to match capped force
-                overlap_t = -Ft / spring_constant_t;
-            }
-            else
-            {
-                Ft.setZero();
-            }
-        }
-        force = fn * normal + Ft; // Ft already negative along tangential direction
-    }
-    else
-    {
-        force = fn * normal;
-    }
-    torque = r1.cross(force);
-}
-
-// phasicFlow linear model without history limiting
-void sixdof_collision::calculate_phasicflow_linear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                         const Eigen::Vector3d &contact_point,
-                                                         const Eigen::Vector3d &normal,
-                                                         const double overlap,
-                                                         Eigen::Vector3d &force,
-                                                         Eigen::Vector3d &torque)
-{
-    // History not rescaled when Coulomb cap is hit
-    int id1 = obj1->n6DOF; int id2 = obj2->n6DOF;
-    Eigen::Vector3d center1 = obj1->c_; Eigen::Vector3d center2 = obj2->c_;
-    Eigen::Vector3d r1 = contact_point - center1; Eigen::Vector3d r2 = contact_point - center2;
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    Eigen::Vector3d omega1 = obj1->omega_I; Eigen::Vector3d omega2 = obj2->omega_I;
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1); Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    Eigen::Vector3d v_rel = v2_contact - v1_contact; double v_rel_n = v_rel.dot(normal);
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-
-    auto key = std::make_pair(std::min(id1, id2), std::max(id1, id2));
-    if(contact_history.find(key) == contact_history.end()) { ContactHistory h; h.tangential_overlap.setZero(); h.in_contact=true; h.last_update_time=p->simtime; contact_history[key]=h; }
-    double dt = p->simtime - contact_history[key].last_update_time; if(dt<=0.0) dt=p->dt;
-    contact_history[key].in_contact=true; contact_history[key].last_update_time=p->simtime;
-
-    double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-    double c_n = damping_constant_n; double c_t = damping_constant_t;
-    if (linear_use_restitution)
-    {
-        const double en_lin = std::min(std::max(linear_en, 1.0e-6), 0.999999);
-        const double zeta_n = -std::log(en_lin) / std::sqrt(M_PI*M_PI + std::log(en_lin)*std::log(en_lin));
-        c_n = 2.0 * zeta_n * std::sqrt(spring_constant_n * meff);
-        double et_lin = (linear_et == -1.0) ? en_lin : std::min(std::max(linear_et, 1.0e-6), 0.999999);
-        const double zeta_t = -std::log(et_lin) / std::sqrt(M_PI*M_PI + std::log(et_lin)*std::log(et_lin));
-        c_t = 2.0 * zeta_t * std::sqrt(spring_constant_t * meff);
-    }
-
-    double fn = spring_constant_n * overlap - c_n * v_rel_n; fn = std::max(fn, 0.0);
-    if(v_rel_t.norm() > 1.0e-10)
-    {
-        auto &overlap_t = contact_history[key].tangential_overlap;
-        overlap_t += v_rel_t * dt; overlap_t -= normal * normal.dot(overlap_t);
-        Eigen::Vector3d Ft = -spring_constant_t * overlap_t - c_t * v_rel_t;
-        double ft = Ft.norm(); double ft_max = friction_coefficient * fn;
-        if(ft > ft_max)
-        {
-            if(overlap_t.norm() > 0.0) { Ft *= (ft_max/ft); }
-            else { Ft.setZero(); }
-        }
-        force = fn * normal + Ft;
-    }
-    else { force = fn * normal; }
-    torque = r1.cross(force);
-}
-
-// phasicFlow non-linear Hertz–Mindlin with no tangential damping, limited variant
-void sixdof_collision::calculate_phasicflow_nonlinear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                         const Eigen::Vector3d &contact_point,
-                                                         const Eigen::Vector3d &normal,
-                                                         const double overlap,
-                                                         Eigen::Vector3d &force,
-                                                         Eigen::Vector3d &torque)
-{
-    int id1 = obj1->n6DOF; int id2 = obj2->n6DOF;
-    Eigen::Vector3d center1 = obj1->c_; Eigen::Vector3d center2 = obj2->c_;
-    Eigen::Vector3d r1 = contact_point - center1; Eigen::Vector3d r2 = contact_point - center2;
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    Eigen::Vector3d omega1 = obj1->omega_I; Eigen::Vector3d omega2 = obj2->omega_I;
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1); Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    Eigen::Vector3d v_rel = v2_contact - v1_contact; double v_rel_n = v_rel.dot(normal);
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-
-    auto key = std::make_pair(std::min(id1, id2), std::max(id1, id2));
-    if(contact_history.find(key) == contact_history.end()) { ContactHistory h; h.tangential_overlap.setZero(); h.in_contact=true; h.last_update_time=p->simtime; contact_history[key]=h; }
-    double dt = p->simtime - contact_history[key].last_update_time; if(dt<=0.0) dt=p->dt;
-    contact_history[key].in_contact=true; contact_history[key].last_update_time=p->simtime;
-
-    // Effective properties
-    double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
-    double G = young_modulus / (1.0 + poisson_ratio);
-    //double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
-    // phasicFlow uses Geff directly; we approximate with same material => G
-
-    // Normal elastic and damping: Fn = -(4/3)Y*√R δ^{3/2} - sqrt(meff*K_hz)*etha_n*δ^{1/4} v_n
-    double mi = obj1->Mass_fb; double mj = obj2->Mass_fb; double meff = (mi*mj)/(mi+mj);
-    double K_hertz = (4.0/3.0) * E_eff * std::sqrt(R_eff);
-    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
-    double ethan = -2.2664 * std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
-    Eigen::Vector3d Fn = (-(4.0/3.0) * E_eff * std::sqrt(R_eff) * std::pow(overlap, 1.5)
-                          - std::sqrt(meff * K_hertz) * ethan * std::pow(overlap, 0.25) * v_rel_n) * normal;
-
-    // Tangential elastic only (no tangential damping), history-based
-    auto &overlap_t = contact_history[key].tangential_overlap;
-    if(v_rel_t.norm() > 1.0e-10)
-    {
-        overlap_t += v_rel_t * dt; overlap_t -= normal * normal.dot(overlap_t);
-        double kt = 8.0 * G * std::sqrt(R_eff * overlap);
-        Eigen::Vector3d Ft = - kt * overlap_t;
-        double ft = Ft.norm(); double ft_max = friction_coefficient * Fn.norm();
-        if(ft > ft_max)
-        {
-            if(overlap_t.norm() > 0.0)
-            {
-                Ft *= (ft_max/ft);
-                overlap_t = -Ft / kt; // limited: rescale
-            }
-            else { Ft.setZero(); }
-        }
-        force = Fn + Ft;
-    }
-    else { force = Fn; }
-    torque = r1.cross(force);
-}
-
-// phasicFlow non-linear without history limiting
-void sixdof_collision::calculate_phasicflow_nonlinear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                            const Eigen::Vector3d &contact_point,
-                                                            const Eigen::Vector3d &normal,
-                                                            const double overlap,
-                                                            Eigen::Vector3d &force,
-                                                            Eigen::Vector3d &torque)
-{
-    int id1 = obj1->n6DOF; int id2 = obj2->n6DOF;
-    Eigen::Vector3d center1 = obj1->c_; Eigen::Vector3d center2 = obj2->c_;
-    Eigen::Vector3d r1 = contact_point - center1; Eigen::Vector3d r2 = contact_point - center2;
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    Eigen::Vector3d omega1 = obj1->omega_I; Eigen::Vector3d omega2 = obj2->omega_I;
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1); Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    Eigen::Vector3d v_rel = v2_contact - v1_contact; double v_rel_n = v_rel.dot(normal);
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-
-    auto key = std::make_pair(std::min(id1, id2), std::max(id1, id2));
-    if(contact_history.find(key) == contact_history.end()) { ContactHistory h; h.tangential_overlap.setZero(); h.in_contact=true; h.last_update_time=p->simtime; contact_history[key]=h; }
-    double dt = p->simtime - contact_history[key].last_update_time; if(dt<=0.0) dt=p->dt;
-    contact_history[key].in_contact=true; contact_history[key].last_update_time=p->simtime;
-
-    double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
-    double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
-    double G = young_modulus / (1.0 + poisson_ratio);
-    //double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
-    double mi = obj1->Mass_fb; double mj = obj2->Mass_fb; double meff = (mi*mj)/(mi+mj);
-    double K_hertz = (4.0/3.0) * E_eff * std::sqrt(R_eff);
-    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
-    double ethan = -2.2664 * std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
-    Eigen::Vector3d Fn = (-(4.0/3.0) * E_eff * std::sqrt(R_eff) * std::pow(overlap, 1.5)
-                          - std::sqrt(meff * K_hertz) * ethan * std::pow(overlap, 0.25) * v_rel_n) * normal;
-
-    auto &overlap_t = contact_history[key].tangential_overlap;
-    if(v_rel_t.norm() > 1.0e-10)
-    {
-        overlap_t += v_rel_t * dt; overlap_t -= normal * normal.dot(overlap_t);
-        double kt = 8.0 * G * std::sqrt(R_eff * overlap);
-        Eigen::Vector3d Ft = - kt * overlap_t; // no damping
-        double ft = Ft.norm(); double ft_max = friction_coefficient * Fn.norm();
-        if(ft > ft_max)
-        {
-            if(overlap_t.norm() > 0.0) { Ft *= (ft_max/ft); }
-            else { Ft.setZero(); }
-        }
-        force = Fn + Ft;
-    }
-    else { force = Fn; }
-    torque = r1.cross(force);
-}
-
-void sixdof_collision::calculate_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                  const Eigen::Vector3d &contact_point, 
-                                                  const Eigen::Vector3d &normal, 
-                                                  const double overlap,
-                                                  Eigen::Vector3d &force, 
-                                                  Eigen::Vector3d &torque)
-{
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
-    
-    // Get object centers, velocities and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Relative position vectors from centers to contact point
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-    
-    // Get linear velocities at centers
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate velocities at contact point
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
-    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    
-    // Relative velocity at contact point
-    Eigen::Vector3d v_rel = v2_contact - v1_contact;
-    
-    // Normal component of relative velocity
-    double v_rel_n = v_rel.dot(normal);
-    
-    // Tangential component of relative velocity
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-    double v_rel_t_mag = v_rel_t.norm();
-    
-    // Calculate effective radius and effective Young's modulus (identical materials assumed)
-    const double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
-    const double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
-
-    // Hertz contact elastic term
-    const double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
-    const double fn_elastic = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
-
-    // Mindlin-style normal damping consistent with LIGGGHTS
-    // Sn = 2*E_eff*sqrt(R_eff*delta)
-    const double Sn = 2.0 * E_eff * sqrt(R_eff * overlap);
-    const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-    // beta from restitution coefficient (clamped)
-    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
-    const double beta = std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
-    const double sqrtFiveOverSix = 0.9128709291752769;
-    const double gamman = -2.0 * sqrtFiveOverSix * beta * std::sqrt(Sn * meff);
-    const double fn_damping = -gamman * v_rel_n;
-    double fn = fn_elastic + fn_damping;
-    fn = std::max(fn, 0.0); // Ensure normal force is repulsive
-    
-    // Get or create contact history for this pair
-    auto it = contact_history.find(std::make_pair(min(id1, id2), max(id1, id2)));
-    if(it == contact_history.end())
-    {
-        // New contact
-        ContactHistory history;
-        history.tangential_overlap.setZero();
-        history.in_contact = true;
-        history.last_update_time = p->simtime;
-        contact_history[std::make_pair(min(id1, id2), max(id1, id2))] = history;
-    }
-    
-    // Get time step
-    double dt = p->simtime - contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time;
-    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
-    
-    // Update contact history
-    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].in_contact = true;
-    contact_history[std::make_pair(min(id1, id2), max(id1, id2))].last_update_time = p->simtime;
-    
-    // Update tangential overlap based on relative velocity
-    if(v_rel_t_mag > 1.0e-10)
-    {
-        // Increment and project tangential overlap into tangential plane
-        auto &th = contact_history[std::make_pair(std::min(id1, id2), std::max(id1, id2))].tangential_overlap;
-        th += v_rel_t * dt;
-        th -= normal * normal.dot(th);
-
-        // Mindlin tangential stiffness and damping
-        // G = E/(2(1+nu)); for identical materials: G* = G / (2(2 - nu))
-        const double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
-        const double Geff_mindlin = G / (2.0 * (2.0 - poisson_ratio));
-        const double kt = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
-        const double St = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
-        const double gammat = -2.0 * sqrtFiveOverSix * beta * std::sqrt(St * meff);
-
-        Eigen::Vector3d ft_vector = kt * th - gammat * v_rel_t;
-
-        // Coulomb limit
-        const double ft_mag = ft_vector.norm();
-        const double ft_max = friction_coefficient * fn;
-        if(ft_mag > ft_max)
-        {
-            ft_vector *= (ft_max / ft_mag);
-            th *= (ft_max / ft_mag);
-        }
-
-        // Total force
-        force = fn * normal - ft_vector;
-    }
-    else
-    {
-        // No tangential motion, just apply normal force
-        force = fn * normal;
-    }
-    
-    // Calculate torque
-    torque = r1.cross(force);
-}
-
-void sixdof_collision::calculate_hertz_mindlin_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                         const Eigen::Vector3d &contact_point, 
-                                                         const Eigen::Vector3d &normal, 
-                                                         const double overlap,
-                                                         Eigen::Vector3d &force, 
-                                                         Eigen::Vector3d &torque)
-{
-    int id1 = obj1->n6DOF;
-    int id2 = obj2->n6DOF;
-    
-    // Unique identifier for this contact pair
-    pair<int, int> contact_pair = make_pair(min(id1, id2), max(id1, id2));
-    
-    // Get object centers, velocities and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Relative position vectors from centers to contact point
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-    
-    // Get linear velocities at centers
-    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
-    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate velocities at contact point
-    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
-    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
-    
-    // Relative velocity at contact point
-    Eigen::Vector3d v_rel = v2_contact - v1_contact;
-    
-    // Normal component of relative velocity
-    double v_rel_n = v_rel.dot(normal);
-    
-    // Tangential component of relative velocity
-    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
-    double v_rel_t_mag = v_rel_t.norm();
-    
-    // Get or create contact history for this pair
-    auto it = contact_history.find(contact_pair);
-    if(it == contact_history.end())
-    {
-        // New contact
-        ContactHistory history;
-        history.tangential_overlap.setZero();
-        history.in_contact = true;
-        history.last_update_time = p->simtime;
-        contact_history[contact_pair] = history;
-    }
-    
-    // Get time step
-    double dt = p->simtime - contact_history[contact_pair].last_update_time;
-    if(dt <= 0.0) dt = p->dt; // Use simulation dt if no meaningful history
-    
-    // Update contact history
-    contact_history[contact_pair].in_contact = true;
-    contact_history[contact_pair].last_update_time = p->simtime;
-    
-    // Calculate effective radius and moduli (identical materials assumed)
-    const double R_eff = calculate_effective_radius(obj1->radius, obj2->radius);
-    const double E_eff = calculate_effective_young_modulus(young_modulus, young_modulus, poisson_ratio, poisson_ratio);
-
-    // Hertz normal component with LIGGGHTS-like damping
-    const double k_hertz = calculate_hertz_stiffness(E_eff, R_eff);
-    const double fn_elastic = (4.0/3.0) * k_hertz * pow(overlap, 1.5);
-    const double Sn = 2.0 * E_eff * std::sqrt(R_eff * overlap);
-    const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
-    const double en = std::min(std::max(restitution_coefficient, 1.0e-6), 0.999999);
-    const double beta = std::log(en) / std::sqrt(M_PI*M_PI + std::log(en)*std::log(en));
-    const double sqrtFiveOverSix = 0.9128709291752769;
-    const double gamman = -2.0 * sqrtFiveOverSix * beta * std::sqrt(Sn * meff);
-    const double fn_damping = -gamman * v_rel_n;
-    double fn = fn_elastic + fn_damping;
-    fn = std::max(fn, 0.0);
-
-    // Mindlin tangential stiffness and damping
-    const double G = young_modulus / (2.0 * (1.0 + poisson_ratio));
-    const double Geff_mindlin = G / (2.0 * (2.0 - poisson_ratio));
-    const double k_t = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
-    const double St = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
-    const double gammat = -2.0 * sqrtFiveOverSix * beta * std::sqrt(St * meff);
-    
-    // Update tangential overlap (displacement)
-    if(v_rel_t_mag > 1.0e-10)
-    {
-        Eigen::Vector3d t_hat = v_rel_t / v_rel_t_mag;
-        
-        // Increment tangential overlap based on relative velocity
-        contact_history[contact_pair].tangential_overlap += v_rel_t * dt;
-        
-        // Project tangential overlap to the current tangential plane
-        contact_history[contact_pair].tangential_overlap -= 
-            normal * normal.dot(contact_history[contact_pair].tangential_overlap);
-        
-        // Calculate the tangential force based on tangential spring plus viscous term
-        Eigen::Vector3d ft_vector = k_t * contact_history[contact_pair].tangential_overlap - gammat * v_rel_t;
-        double ft_mag = ft_vector.norm();
-        
-        // Apply Coulomb's friction law (capping the tangential force)
-        double ft_max = friction_coefficient * fn;
-        if(ft_mag > ft_max)
-        {
-            // Scale tangential overlap and force to the maximum allowed
-            contact_history[contact_pair].tangential_overlap *= (ft_max / ft_mag);
-            ft_vector *= (ft_max / ft_mag);
-        }
-        
-        // Total force vector
-        force = fn * normal - ft_vector;
-    }
-    else
-    {
-        // No tangential motion, just apply normal force
-        force = fn * normal;
-    }
-    
-    // Calculate torque
-    torque = r1.cross(force);
-}
-
-double sixdof_collision::calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2)
-{
-    // Calculate effective Young's modulus
-    // 1/E* = (1-nu1²)/E1 + (1-nu2²)/E2
-    double E_eff = 1.0 / ((1.0 - nu1*nu1)/E1 + (1.0 - nu2*nu2)/E2);
-    return E_eff;
-}
-
-double sixdof_collision::calculate_effective_radius(double R1, double R2)
-{
-    // Calculate effective radius
-    // 1/R* = 1/R1 + 1/R2
-    double R_eff = 1.0 / (1.0/R1 + 1.0/R2);
-    return R_eff;
-}
-
-double sixdof_collision::calculate_hertz_stiffness(double E_eff, double R_eff)
-{
-    // Calculate base Hertzian stiffness factor (without 4/3): k = E_eff * sqrt(R_eff)
-    // The (4/3) factor is applied at the point of computing the normal force.
-    return E_eff * sqrt(R_eff);
-}
 
 void sixdof_collision::update_contact_history(lexer *p)
 {
-    // Remove contact history for pairs that are no longer in contact
-    // and haven't been for a while
-    double contact_timeout = 1.0; // seconds
-    
+    // Drop pairs that have been separated for longer than the timeout, and reset
+    // the in_contact flag on the remaining entries; it is set to true again by
+    // the dispatch loop whenever a contact is detected this step.
+    const double contact_timeout = 1.0;
+
     for(auto it = contact_history.begin(); it != contact_history.end();)
     {
-        if(!it->second.in_contact && (p->simtime - it->second.last_update_time) > contact_timeout)
+        if(!it->second.in_contact && (p->simtime - it->second.t_last) > contact_timeout)
         {
-            // Remove history for pairs no longer in contact
             it = contact_history.erase(it);
         }
         else
         {
-            // Reset in_contact for this time step
-            // It will be set to true if contact is detected
             it->second.in_contact = false;
             ++it;
         }
@@ -1037,48 +385,40 @@ void sixdof_collision::update_contact_history(lexer *p)
 
 double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2)
 {
-    // Get object centers
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Calculate distance between centers
-    return (center2 - center1).norm();
+    return (obj2->c_ - obj1->c_).norm();
 }
 
 bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
-    // First do a quick sphere-sphere check
+    // Bounding-sphere reject before paying the per-triangle cost
     if(!detect_collision(p, pgc, obj1, obj2, contact_point, normal, overlap))
         return false;
-    
-    // BVH-accelerated path: if both objects have BVH, use it for fast rejection
+
+    // Optional BVH reject: skip the full pairwise sweep if the other body's
+    // bounding sphere does not intersect our triangle BVH
     if(obj1->use_bvh && obj1->mesh_bvh && obj1->mesh_bvh->is_built())
     {
-        // Check if obj2's sphere intersects obj1's BVH
         if(!obj1->mesh_bvh->intersects_sphere(obj2->c_, obj2->radius))
         {
-            return false;  // BVH says no collision possible
+            return false;
         }
     }
-    
+
     if(obj2->use_bvh && obj2->mesh_bvh && obj2->mesh_bvh->is_built())
     {
-        // Check if obj1's sphere intersects obj2's BVH
         if(!obj2->mesh_bvh->intersects_sphere(obj1->c_, obj1->radius))
         {
-            return false;  // BVH says no collision possible
+            return false;
         }
     }
-        
-    // If sphere-sphere check passes, do detailed triangle-triangle check
+
     double min_overlap = 1e10;
     bool collision_found = false;
-    
-    // Transform triangles to world coordinates
+
+    // Transform each triangle into world coordinates and test all pairs
     for(int i=0; i<obj1->tricount; ++i)
     {
-        // Get triangle vertices in world coordinates
         Eigen::Vector3d v1[3];
         for(int q=0; q<3; ++q)
         {
@@ -1087,10 +427,9 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
             obj1->motionext_trans(p, pgc, local_point, global_point);
             v1[q] = global_point;
         }
-        
+
         for(int j=0; j<obj2->tricount; ++j)
         {
-            // Get triangle vertices in world coordinates
             Eigen::Vector3d v2[3];
             for(int q=0; q<3; ++q)
             {
@@ -1099,8 +438,7 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
                 obj2->motionext_trans(p, pgc, local_point, global_point);
                 v2[q] = global_point;
             }
-            
-            // Check for triangle-triangle intersection
+
             Eigen::Vector3d contact, norm;
             double overlap_dist;
             
@@ -1129,97 +467,88 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
 bool sixdof_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
                                                     Eigen::Vector3d &contact, Eigen::Vector3d &normal, double &overlap)
 {
-    // Separating Axis Theorem (SAT) with 11 potential separating axes
-    // Two convex objects intersect IFF no separating axis exists
-    // For triangles: 2 face normals + 9 edge-edge cross products
-    
+    // Separating-axis theorem with 11 candidate axes:
+    //   2 face normals + 9 edge-edge cross products.
+    // Two convex shapes intersect iff none of these axes separate them.
     const double EPSILON = 1e-8;
-    
-    // Calculate triangle normals
+
     Eigen::Vector3d n1 = (v1[1] - v1[0]).cross(v1[2] - v1[0]);
     Eigen::Vector3d n2 = (v2[1] - v2[0]).cross(v2[2] - v2[0]);
-    
-    // Check for degenerate triangles (zero area)
+
+    // Reject degenerate (zero-area) triangles
     double n1_len = n1.norm();
     double n2_len = n2.norm();
     if(n1_len < EPSILON || n2_len < EPSILON)
-        return false;  // Degenerate triangle
-    
-    n1 /= n1_len;  // Normalize
+        return false;
+
+    n1 /= n1_len;
     n2 /= n2_len;
-    
-    // Calculate triangle edges
+
     Eigen::Vector3d e1[3], e2[3];
     e1[0] = v1[1] - v1[0];
     e1[1] = v1[2] - v1[1];
     e1[2] = v1[0] - v1[2];
-    
+
     e2[0] = v2[1] - v2[0];
     e2[1] = v2[2] - v2[1];
     e2[2] = v2[0] - v2[2];
-    
-    // Track minimum penetration depth and corresponding axis
+
     double min_penetration = 1e10;
     Eigen::Vector3d best_axis;
     bool found_separation = false;
-    
-    // Helper lambda: Test separation along an axis
+
+    // Project both triangles onto a candidate axis; return false on separation.
+    // Otherwise update the running minimum-penetration axis and continue.
     auto test_axis = [&](const Eigen::Vector3d& axis) -> bool
     {
         double axis_len = axis.norm();
         if(axis_len < EPSILON)
-            return true;  // Degenerate axis, skip
-        
+            return true;
+
         Eigen::Vector3d axis_norm = axis / axis_len;
-        
-        // Project triangle 1 vertices onto axis
+
         double proj1[3];
         for(int i = 0; i < 3; ++i)
             proj1[i] = v1[i].dot(axis_norm);
-        
+
         double min1 = std::min({proj1[0], proj1[1], proj1[2]});
         double max1 = std::max({proj1[0], proj1[1], proj1[2]});
-        
-        // Project triangle 2 vertices onto axis
+
         double proj2[3];
         for(int i = 0; i < 3; ++i)
             proj2[i] = v2[i].dot(axis_norm);
-        
+
         double min2 = std::min({proj2[0], proj2[1], proj2[2]});
         double max2 = std::max({proj2[0], proj2[1], proj2[2]});
-        
-        // Check for separation
+
         if(max1 < min2 - EPSILON || max2 < min1 - EPSILON)
         {
             found_separation = true;
-            return false;  // Separating axis found - no collision
+            return false;
         }
-        
-        // Calculate penetration depth along this axis
+
         double penetration = std::min(max1 - min2, max2 - min1);
-        
-        // Track axis with minimum penetration (this gives us the best contact normal)
+
         if(penetration < min_penetration)
         {
             min_penetration = penetration;
             best_axis = axis_norm;
-            
-            // Make sure normal points from triangle 2 to triangle 1
+
+            // Orient the contact normal from triangle 2 toward triangle 1
             Eigen::Vector3d center1 = (v1[0] + v1[1] + v1[2]) / 3.0;
             Eigen::Vector3d center2 = (v2[0] + v2[1] + v2[2]) / 3.0;
             if((center1 - center2).dot(best_axis) < 0)
                 best_axis = -best_axis;
         }
-        
-        return true;  // Continue testing
+
+        return true;
     };
-    
-    // TEST 1-2: Face normals (2 axes)
+
+    // Face normals
     if(!test_axis(n1)) return false;
     if(!test_axis(n2)) return false;
-    
-    // TEST 3-11: Edge-edge cross products (9 axes)
-    // For each edge of triangle 1 crossed with each edge of triangle 2
+
+    // Edge-edge cross products
     for(int i = 0; i < 3; ++i)
     {
         for(int j = 0; j < 3; ++j)
@@ -1228,77 +557,56 @@ bool sixdof_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3
             if(!test_axis(axis)) return false;
         }
     }
-    
-    // If we get here, no separating axis was found → triangles intersect!
-    
-    // Set output parameters
+
     overlap = min_penetration;
     normal = best_axis;
-    
-    // Calculate contact point as centroid of overlapping region
+
+    // Approximate the contact point as the centroid of vertices lying close to
+    // the opposing triangle's plane; fall back to the centroid midpoint.
     std::vector<Eigen::Vector3d> contact_points;
-    
+
     for(int i = 0; i < 3; ++i)
     {
-        // Simple heuristic: check if vertex is close to the other triangle's plane
         double dist = (v1[i] - v2[0]).dot(n2);
         if(fabs(dist) < min_penetration + EPSILON)
             contact_points.push_back(v1[i]);
-        
+
         dist = (v2[i] - v1[0]).dot(n1);
         if(fabs(dist) < min_penetration + EPSILON)
             contact_points.push_back(v2[i]);
     }
-    
-    // Calculate contact point
+
     if(contact_points.empty())
     {
-        // Fallback: use midpoint of triangle centroids
         Eigen::Vector3d center1 = (v1[0] + v1[1] + v1[2]) / 3.0;
         Eigen::Vector3d center2 = (v2[0] + v2[1] + v2[2]) / 3.0;
         contact = 0.5 * (center1 + center2);
     }
     else
     {
-        // Average of contact points
         contact = Eigen::Vector3d::Zero();
         for(const auto& pt : contact_points)
             contact += pt;
         contact /= contact_points.size();
     }
-    
-    return true;  // Collision detected!
+
+    return true;
 }
 
 bool sixdof_collision::detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
-    // Adaptive collision detection - selects algorithm based on object complexity
-    
-    // Get triangle counts for both objects
-    int tri_count_1 = obj1->tricount;
-    int tri_count_2 = obj2->tricount;
-    int max_tri_count = std::max(tri_count_1, tri_count_2);
-    
-    // Strategy selection based on complexity
-    if(max_tri_count < collision_simple_threshold)
+    // Pick the narrow-phase algorithm based on the more complex of the two bodies.
+    int max_tri_count = std::max(obj1->tricount, obj2->tricount);
+
+    if(max_tri_count < simple_tri)
     {
-        // Simple geometry: sphere-sphere approximation
+        // Cheap bounding-sphere approximation for low-poly geometry
         return detect_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
     }
-    else if(max_tri_count < collision_moderate_threshold)
-    {
-        // CASE 2: Moderate complexity (50-500 triangles)
-        // Use triangle-triangle with BVH acceleration
-        // BVH makes this fast enough for real-time
-        
-        return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
-    }
-    else
-    {
-        // Complex geometry: triangle-triangle with BVH acceleration
-        return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
-    }
+
+    // Otherwise fall back to the SAT triangle-triangle test (BVH-accelerated when available)
+    return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
 }
 
 void sixdof_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
@@ -1307,44 +615,23 @@ void sixdof_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pg
                                                       const double overlap,
                                                       Eigen::Vector3d &rolling_torque)
 {
-    // Get object centers and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Relative position vectors from centers to contact point
-    Eigen::Vector3d r1 = contact_point - center1;
-    Eigen::Vector3d r2 = contact_point - center2;
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate relative angular velocity
-    Eigen::Vector3d omega_rel = omega2 - omega1;
-    
-    // Project relative angular velocity onto the contact plane
+    // Component of the relative angular velocity that lies in the contact plane
+    Eigen::Vector3d omega_rel   = obj2->omega_I - obj1->omega_I;
     Eigen::Vector3d omega_rel_t = omega_rel - normal * normal.dot(omega_rel);
-    
-    // Calculate rolling velocity
+
     double rolling_velocity = omega_rel_t.norm();
-    
+
     if(rolling_velocity > 1.0e-10)
     {
-        // Calculate rolling direction
         Eigen::Vector3d rolling_direction = omega_rel_t / rolling_velocity;
-        
-        // Calculate rolling torque magnitude
-        double rolling_torque_mag = rolling_friction_coefficient * overlap * 
-                                  (rolling_stiffness * rolling_velocity + 
-                                   rolling_damping * rolling_velocity * rolling_velocity);
-        
-        // Apply threshold
-        if(rolling_torque_mag > rolling_torque_threshold)
-        {
-            rolling_torque_mag = rolling_torque_threshold;
-        }
-        
-        // Calculate rolling torque vector
+
+        double rolling_torque_mag = mu_r * overlap *
+                                  (kr * rolling_velocity +
+                                   cr   * rolling_velocity * rolling_velocity);
+
+        if(rolling_torque_mag > tau_r_max)
+            rolling_torque_mag = tau_r_max;
+
         rolling_torque = -rolling_torque_mag * rolling_direction;
     }
     else
@@ -1359,129 +646,99 @@ void sixdof_collision::calculate_twisting_resistance(lexer *p, ghostcell *pgc, s
                                                   const double overlap,
                                                   Eigen::Vector3d &twisting_torque)
 {
-    // Get object centers and angular velocities
-    Eigen::Vector3d center1 = obj1->c_;
-    Eigen::Vector3d center2 = obj2->c_;
-    
-    // Get angular velocities
-    Eigen::Vector3d omega1 = obj1->omega_I;
-    Eigen::Vector3d omega2 = obj2->omega_I;
-    
-    // Calculate relative angular velocity
-    Eigen::Vector3d omega_rel = omega2 - omega1;
-    
-    // Project relative angular velocity onto the normal direction
-    double twisting_velocity = normal.dot(omega_rel);
-    
+    // Component of the relative angular velocity along the contact normal
+    Eigen::Vector3d omega_rel  = obj2->omega_I - obj1->omega_I;
+    double twisting_velocity   = normal.dot(omega_rel);
+
     if(std::abs(twisting_velocity) > 1.0e-10)
     {
-        // Calculate twisting torque magnitude
-        double twisting_torque_mag = rolling_friction_coefficient * overlap * 
-                                   (rolling_stiffness * std::abs(twisting_velocity) + 
-                                    rolling_damping * twisting_velocity * twisting_velocity);
-        
-        // Apply threshold
-        if(twisting_torque_mag > rolling_torque_threshold)
-        {
-            twisting_torque_mag = rolling_torque_threshold;
-        }
-        
-        // Calculate twisting torque vector
+        double twisting_torque_mag = mu_r * overlap *
+                                   (kr * std::abs(twisting_velocity) +
+                                    cr   * twisting_velocity * twisting_velocity);
+
+        if(twisting_torque_mag > tau_r_max)
+            twisting_torque_mag = tau_r_max;
+
         twisting_torque = -twisting_torque_mag * normal * (twisting_velocity > 0 ? 1.0 : -1.0);
     }
     else
     {
         twisting_torque.setZero();
     }
-} 
+}
 
-// NEW: Clear collision forces and torques for all objects
-void sixdof_collision::clear_collision_forces()
+void sixdof_collision::clear_forces()
 {
-    for(int i = 0; i < max_objects; ++i)
+    for(int i = 0; i < nobj; ++i)
     {
-        collision_forces[i].setZero();
-        collision_torques[i].setZero();
+        f_col[i].setZero();
+        t_col[i].setZero();
     }
 }
 
-// NEW: Broadcast collision forces and torques from rank 0 to all processors
-void sixdof_collision::broadcast_collision_forces(lexer *p, ghostcell *pgc)
+void sixdof_collision::broadcast_forces(lexer *p, ghostcell *pgc)
 {
-    // Broadcast collision forces and torques for all objects
-    for(int i = 0; i < max_objects; ++i)
+    for(int i = 0; i < nobj; ++i)
     {
-        // Broadcast forces (3 components: x, y, z)
-        MPI_Bcast(&collision_forces[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
-        
-        // Broadcast torques (3 components: x, y, z)
-        MPI_Bcast(&collision_torques[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
+        MPI_Bcast(&f_col[i](0),  3, MPI_DOUBLE, 0, pgc->mpi_comm);
+        MPI_Bcast(&t_col[i](0), 3, MPI_DOUBLE, 0, pgc->mpi_comm);
     }
-    
+
     if(p->mpirank==0 && p->count%p->P12==0)
     {
         cout<<"6DOF Collision: Broadcasted forces and torques to all processors"<<endl;
     }
 }
 
-// NEW: Verify that all processors have synchronized collision forces (debug function)
-void sixdof_collision::verify_collision_forces_synchronization(lexer *p, ghostcell *pgc)
+// Diagnostic helper: confirm that every rank holds the same force/torque values.
+// Not part of the normal force application path; call from a debug session if
+// MPI synchronization is suspected.
+void sixdof_collision::verify_sync(lexer *p, ghostcell *pgc)
 {
-    // This function can be called to verify that MPI communication worked correctly
-    // It's useful for debugging but not needed for normal operation
-    
     bool forces_synchronized = true;
-    
-    for(int i = 0; i < max_objects; ++i)
+
+    for(int i = 0; i < nobj; ++i)
     {
-        // Check if forces are synchronized across all processors
         double force_x_sum = 0.0, force_y_sum = 0.0, force_z_sum = 0.0;
         double torque_x_sum = 0.0, torque_y_sum = 0.0, torque_z_sum = 0.0;
-        
-        // Sum forces across all processors
-        MPI_Allreduce(&collision_forces[i](0), &force_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        MPI_Allreduce(&collision_forces[i](1), &force_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        MPI_Allreduce(&collision_forces[i](2), &force_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        
-        MPI_Allreduce(&collision_torques[i](0), &torque_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        MPI_Allreduce(&collision_torques[i](1), &torque_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        MPI_Allreduce(&collision_torques[i](2), &torque_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
-        
-        // Check if the sum equals the value times number of processors
+
+        MPI_Allreduce(&f_col[i](0), &force_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&f_col[i](1), &force_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&f_col[i](2), &force_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+
+        MPI_Allreduce(&t_col[i](0), &torque_x_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&t_col[i](1), &torque_y_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+        MPI_Allreduce(&t_col[i](2), &torque_z_sum, 1, MPI_DOUBLE, MPI_SUM, pgc->mpi_comm);
+
         int num_procs;
         MPI_Comm_size(pgc->mpi_comm, &num_procs);
-        
-        double expected_force_x = collision_forces[i](0) * num_procs;
-        double expected_force_y = collision_forces[i](1) * num_procs;
-        double expected_force_z = collision_forces[i](2) * num_procs;
-        
-        double expected_torque_x = collision_torques[i](0) * num_procs;
-        double expected_torque_y = collision_torques[i](1) * num_procs;
-        double expected_torque_z = collision_torques[i](2) * num_procs;
-        
-        // Check for synchronization (allow small numerical tolerance)
-        double tolerance = 1.0e-10;
-        if(fabs(force_x_sum - expected_force_x) > tolerance || 
-           fabs(force_y_sum - expected_force_y) > tolerance || 
-           fabs(force_z_sum - expected_force_z) > tolerance ||
-           fabs(torque_x_sum - expected_torque_x) > tolerance || 
-           fabs(torque_y_sum - expected_torque_y) > tolerance || 
+
+        double expected_force_x  = f_col[i](0)  * num_procs;
+        double expected_force_y  = f_col[i](1)  * num_procs;
+        double expected_force_z  = f_col[i](2)  * num_procs;
+
+        double expected_torque_x = t_col[i](0) * num_procs;
+        double expected_torque_y = t_col[i](1) * num_procs;
+        double expected_torque_z = t_col[i](2) * num_procs;
+
+        const double tolerance = 1.0e-10;
+        if(fabs(force_x_sum  - expected_force_x ) > tolerance ||
+           fabs(force_y_sum  - expected_force_y ) > tolerance ||
+           fabs(force_z_sum  - expected_force_z ) > tolerance ||
+           fabs(torque_x_sum - expected_torque_x) > tolerance ||
+           fabs(torque_y_sum - expected_torque_y) > tolerance ||
            fabs(torque_z_sum - expected_torque_z) > tolerance)
         {
             forces_synchronized = false;
         }
     }
-    
+
     if(p->mpirank == 0)
     {
         if(forces_synchronized)
-        {
             cout<<"6DOF Collision: SUCCESS - All collision forces are synchronized across processors"<<endl;
-        }
         else
-        {
             cout<<"6DOF Collision: ERROR - Collision forces are NOT synchronized across processors!"<<endl;
-        }
     }
 }
 
@@ -1491,95 +748,57 @@ void sixdof_collision::verify_collision_forces_synchronization(lexer *p, ghostce
 
 void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // Ground contact parameters (same as mooring system)
-    // From: src/mooring_dynamic_rhs.cpp
-    double zg = 0.0;        // Ground z-coordinate (seabed level)
-    double Kg = 3.0e6;      // Ground stiffness [N/m²]
-    double mu = 0.3;        // Friction coefficient (cable/object on seabed)
-    double xi = 1.0;        // Damping ratio (critical damping)
-    double nu = 0.01;       // Velocity threshold for friction normalization [m/s]
-    
+    // Spring-damper-friction model shared with the mooring system in
+    // src/mooring_dynamic_rhs.cpp.
+    const double zg = 0.0;        // Seabed elevation
+    const double Kg = 3.0e6;      // Ground stiffness         [N / m^2]
+    const double mu = 0.3;        // Coulomb friction coefficient
+    const double xi = 1.0;        // Damping ratio (critical damping)
+    const double nu = 0.01;       // Friction velocity scale  [m / s]
+
     int obj_count = fb_obj.size();
-    
-    // Loop through all 6DOF objects
+
     for(int i = 0; i < obj_count; i++)
     {
         sixdof_obj* obj = fb_obj[i];
-        
-        // Get object position (center of mass)
-        double z_center = obj->c_(2);
-        
-        // Estimate lowest point using bounding radius
-        // For complex objects, this is a conservative approximation
-        double z_bottom = z_center - obj->radius;
-        
-        // *** GROUND CONTACT DETECTION ***
-        // Check if object is below or penetrating the ground
+
+        // Conservative lowest-point estimate from the bounding radius
+        double z_bottom = obj->c_(2) - obj->radius;
+
         if((zg - z_bottom) > 0.0)
         {
             double overlap = zg - z_bottom;
-            
-            // ------------------------------------------------------------------
-            // NORMAL FORCE (Vertical, z-direction)
-            // ------------------------------------------------------------------
-            // Same spring-damper model as mooring system
-            
-            // Effective stiffness scaled by contact size (similar to mooring: Kg * d_c)
-            double k_eff = Kg * obj->radius;  // [N/m²] * [m] = [N/m]
-            
-            // Mass for damping calculation
-            double m_eff = obj->Mass_fb;
-            
-            // Damping coefficient: c = 2*xi*sqrt(k*m)
-            // Same formulation as mooring: 2.0*xi*sqrt(Kg*rho_c*A*d_c)
-            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
-            
-            // Vertical velocity (positive = upward)
+
+            // Normal force: spring proportional to overlap with one-way damping
+            // (damping only acts while the body is moving into the ground).
+            double k_eff   = Kg * obj->radius;
+            double m_eff   = obj->Mass_fb;
+            double c_eff   = 2.0 * xi * sqrt(k_eff * m_eff);
             double v_normal = obj->u_fb(2);
-            
-            // Spring-damper force (one-way damping - only when penetrating)
-            // F_normal = k*overlap - c*max(v_down, 0)
-            // Note: max(v_normal, 0.0) ensures damping only opposes penetration
             double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
-            
-            // Apply normal force (upward, opposing penetration)
+
             obj->Ze += F_normal;
-            
-            // ------------------------------------------------------------------
-            // FRICTION FORCE (Horizontal, x-y plane)
-            // ------------------------------------------------------------------
-            // Smooth Coulomb friction using sin function (same as mooring)
-            
-            // Get horizontal velocities
+
+            // Tangential friction: smoothed Coulomb model that transitions
+            // linearly through |v|<nu and saturates at mu * F_normal beyond.
             double v_x = obj->u_fb(0);
             double v_y = obj->u_fb(1);
-            
-            // Magnitude of horizontal velocity
             double v_horiz = sqrt(v_x*v_x + v_y*v_y);
-            
-            // Normalize velocities (prevents division by zero)
-            // Same approach as mooring: v / max(nu, |v_horiz|)
+
             double vx_norm = v_x / max(nu, v_horiz);
             double vy_norm = v_y / max(nu, v_horiz);
-            
-            // Smooth Coulomb friction model
-            // F_friction = -mu * F_normal * sin(PI/2 * v_normalized)
-            // This smoothly transitions from linear (small v) to saturated (large v)
+
             double F_friction_mag = mu * F_normal;
             double Fx_friction = -F_friction_mag * sin(PI/2.0 * vx_norm);
             double Fy_friction = -F_friction_mag * sin(PI/2.0 * vy_norm);
-            
-            // Apply friction forces (oppose horizontal motion)
+
             obj->Xe += Fx_friction;
             obj->Ye += Fy_friction;
-            
-            // ------------------------------------------------------------------
-            // DIAGNOSTIC OUTPUT
-            // ------------------------------------------------------------------
+
             if(p->mpirank == 0 && p->count % 100 == 0)
             {
-                cout << "Ground Contact - Object " << i 
-                     << ": z_bottom=" << z_bottom 
+                cout << "Ground Contact - Object " << i
+                     << ": z_bottom=" << z_bottom
                      << " overlap=" << overlap*1000.0 << " mm"
                      << " F_normal=" << F_normal << " N"
                      << " F_friction=" << sqrt(Fx_friction*Fx_friction + Fy_friction*Fy_friction) << " N"
@@ -1596,198 +815,168 @@ void sixdof_collision::calculate_ground_contact_forces(lexer *p, ghostcell *pgc,
 
 void sixdof_collision::calculate_boundary_wall_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
-    // Wall contact parameters (same as ground contact)
-    double K_wall = 3.0e6;    // Wall stiffness [N/m²]
-    double mu = 0.3;          // Friction coefficient
-    double xi = 1.0;          // Damping ratio (critical damping)
-    double nu = 0.01;         // Velocity threshold for friction normalization [m/s]
-    
+    // Same spring-damper-friction model as the seabed contact
+    const double K_wall = 3.0e6;  // Wall stiffness        [N / m^2]
+    const double mu     = 0.3;    // Coulomb friction coefficient
+    const double xi     = 1.0;    // Damping ratio
+    const double nu     = 0.01;   // Friction velocity scale [m / s]
+
     int obj_count = fb_obj.size();
-    
-    // Loop through all 6DOF objects
+
     for(int i = 0; i < obj_count; i++)
     {
         sixdof_obj* obj = fb_obj[i];
-        
-        // Get object position (center of mass)
+
         double x_center = obj->c_(0);
         double y_center = obj->c_(1);
-        double z_center = obj->c_(2);
-        double radius = obj->radius;
-        
-        // ========================================
-        // X-DIRECTION WALLS (Left & Right)
-        // ========================================
-        
-        // Left wall (x_min)
+        double radius   = obj->radius;
+
+        // ----- X walls -----------------------------------------------------
+
         double x_left = x_center - radius;
         if(x_left < p->xcoormin)
         {
             double overlap = p->xcoormin - x_left;
-            
-            // Effective stiffness and damping
-            double k_eff = K_wall * radius;
-            double m_eff = obj->Mass_fb;
-            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
-            
-            // Normal velocity (toward wall is negative)
+
+            double k_eff   = K_wall * radius;
+            double m_eff   = obj->Mass_fb;
+            double c_eff   = 2.0 * xi * sqrt(k_eff * m_eff);
             double v_normal = obj->u_fb(0);
-            
-            // Normal force (push away from wall)
             double F_normal = k_eff * overlap - c_eff * min(v_normal, 0.0);
-            
+
             obj->Xe += F_normal;
-            
-            // Friction in y-z plane
+
             double v_y = obj->u_fb(1);
             double v_z = obj->u_fb(2);
             double v_tangential = sqrt(v_y*v_y + v_z*v_z);
-            
+
             if(v_tangential > 1.0e-10)
             {
                 double F_friction_mag = mu * F_normal;
                 double vy_norm = v_y / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
-                
+
                 obj->Ye -= F_friction_mag * sin(PI/2.0 * vy_norm);
                 obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
-            
-            // Diagnostic output
+
             if(p->mpirank == 0 && p->count % 100 == 0)
             {
-                cout << "Wall Contact (X-min) - Object " << i 
+                cout << "Wall Contact (X-min) - Object " << i
                      << ": overlap=" << overlap*1000.0 << " mm"
                      << " F_normal=" << F_normal << " N"
                      << endl;
             }
         }
-        
-        // Right wall (x_max)
+
         double x_right = x_center + radius;
         if(x_right > p->xcoormax)
         {
             double overlap = x_right - p->xcoormax;
-            
-            double k_eff = K_wall * radius;
-            double m_eff = obj->Mass_fb;
-            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
-            
+
+            double k_eff   = K_wall * radius;
+            double m_eff   = obj->Mass_fb;
+            double c_eff   = 2.0 * xi * sqrt(k_eff * m_eff);
             double v_normal = obj->u_fb(0);
-            
-            // Normal force (push away from wall)
             double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
-            
+
             obj->Xe -= F_normal;
-            
-            // Friction in y-z plane
+
             double v_y = obj->u_fb(1);
             double v_z = obj->u_fb(2);
             double v_tangential = sqrt(v_y*v_y + v_z*v_z);
-            
+
             if(v_tangential > 1.0e-10)
             {
                 double F_friction_mag = mu * F_normal;
                 double vy_norm = v_y / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
-                
+
                 obj->Ye -= F_friction_mag * sin(PI/2.0 * vy_norm);
                 obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
-            
+
             if(p->mpirank == 0 && p->count % 100 == 0)
             {
-                cout << "Wall Contact (X-max) - Object " << i 
+                cout << "Wall Contact (X-max) - Object " << i
                      << ": overlap=" << overlap*1000.0 << " mm"
                      << " F_normal=" << F_normal << " N"
                      << endl;
             }
         }
-        
-        // ========================================
-        // Y-DIRECTION WALLS (Front & Back)
-        // ========================================
-        
-        // Front wall (y_min)
+
+        // ----- Y walls -----------------------------------------------------
+
         double y_front = y_center - radius;
         if(y_front < p->ycoormin)
         {
             double overlap = p->ycoormin - y_front;
-            
-            double k_eff = K_wall * radius;
-            double m_eff = obj->Mass_fb;
-            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
-            
+
+            double k_eff   = K_wall * radius;
+            double m_eff   = obj->Mass_fb;
+            double c_eff   = 2.0 * xi * sqrt(k_eff * m_eff);
             double v_normal = obj->u_fb(1);
-            
-            // Normal force (push away from wall)
             double F_normal = k_eff * overlap - c_eff * min(v_normal, 0.0);
-            
+
             obj->Ye += F_normal;
-            
-            // Friction in x-z plane
+
             double v_x = obj->u_fb(0);
             double v_z = obj->u_fb(2);
             double v_tangential = sqrt(v_x*v_x + v_z*v_z);
-            
+
             if(v_tangential > 1.0e-10)
             {
                 double F_friction_mag = mu * F_normal;
                 double vx_norm = v_x / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
-                
+
                 obj->Xe -= F_friction_mag * sin(PI/2.0 * vx_norm);
                 obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
-            
+
             if(p->mpirank == 0 && p->count % 100 == 0)
             {
-                cout << "Wall Contact (Y-min) - Object " << i 
+                cout << "Wall Contact (Y-min) - Object " << i
                      << ": overlap=" << overlap*1000.0 << " mm"
                      << " F_normal=" << F_normal << " N"
                      << endl;
             }
         }
-        
-        // Back wall (y_max)
+
         double y_back = y_center + radius;
         if(y_back > p->ycoormax)
         {
             double overlap = y_back - p->ycoormax;
-            
-            double k_eff = K_wall * radius;
-            double m_eff = obj->Mass_fb;
-            double c_eff = 2.0 * xi * sqrt(k_eff * m_eff);
-            
+
+            double k_eff   = K_wall * radius;
+            double m_eff   = obj->Mass_fb;
+            double c_eff   = 2.0 * xi * sqrt(k_eff * m_eff);
             double v_normal = obj->u_fb(1);
-            
-            // Normal force (push away from wall)
             double F_normal = k_eff * overlap - c_eff * max(v_normal, 0.0);
-            
+
             obj->Ye -= F_normal;
-            
-            // Friction in x-z plane
+
             double v_x = obj->u_fb(0);
             double v_z = obj->u_fb(2);
             double v_tangential = sqrt(v_x*v_x + v_z*v_z);
-            
+
             if(v_tangential > 1.0e-10)
             {
                 double F_friction_mag = mu * F_normal;
                 double vx_norm = v_x / max(nu, v_tangential);
                 double vz_norm = v_z / max(nu, v_tangential);
-                
+
                 obj->Xe -= F_friction_mag * sin(PI/2.0 * vx_norm);
                 obj->Ze -= F_friction_mag * sin(PI/2.0 * vz_norm);
             }
-            
+
             if(p->mpirank == 0 && p->count % 100 == 0)
             {
-                cout << "Wall Contact (Y-max) - Object " << i 
+                cout << "Wall Contact (Y-max) - Object " << i
                      << ": overlap=" << overlap*1000.0 << " mm"
                      << " F_normal=" << F_normal << " N"
                      << endl;
             }
         }
     }
-} 
+}

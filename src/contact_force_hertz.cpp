@@ -1,0 +1,123 @@
+/*--------------------------------------------------------------------
+REEF3D
+Copyright 2008-2026 Hans Bihs
+
+This file is part of REEF3D.
+
+REEF3D is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, see <http://www.gnu.org/licenses/>.
+--------------------------------------------------------------------
+Author: Elyas Larkermani
+--------------------------------------------------------------------*/
+
+#include"contact_force_hertz.h"
+#include"contact_history.h"
+#include"6DOF_obj.h"
+#include"lexer.h"
+#include<cmath>
+
+contact_force_hertz::contact_force_hertz(lexer*)
+{
+    E = 1.0e6;
+    nu = 0.25;
+    mu = 0.3;
+    cor = 0.8;
+}
+
+contact_force_hertz::~contact_force_hertz()
+{
+}
+
+void contact_force_hertz::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof_obj *obj2,
+                                  const Eigen::Vector3d &contact_point,
+                                  const Eigen::Vector3d &normal,
+                                  double overlap,
+                                  ContactHistory &history,
+                                  Eigen::Vector3d &force, Eigen::Vector3d &torque)
+{
+    Eigen::Vector3d center1 = obj1->c_;
+    Eigen::Vector3d center2 = obj2->c_;
+
+    Eigen::Vector3d r1 = contact_point - center1;
+    Eigen::Vector3d r2 = contact_point - center2;
+
+    Eigen::Vector3d v1(obj1->p_(0)/obj1->Mass_fb, obj1->p_(1)/obj1->Mass_fb, obj1->p_(2)/obj1->Mass_fb);
+    Eigen::Vector3d v2(obj2->p_(0)/obj2->Mass_fb, obj2->p_(1)/obj2->Mass_fb, obj2->p_(2)/obj2->Mass_fb);
+
+    Eigen::Vector3d omega1 = obj1->omega_I;
+    Eigen::Vector3d omega2 = obj2->omega_I;
+
+    Eigen::Vector3d v1_contact = v1 + omega1.cross(r1);
+    Eigen::Vector3d v2_contact = v2 + omega2.cross(r2);
+
+    Eigen::Vector3d v_rel = v2_contact - v1_contact;
+
+    double v_rel_n = v_rel.dot(normal);
+    Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
+    double v_rel_t_mag = v_rel_t.norm();
+
+    const double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
+    const double E_eff = effective_young_modulus(E, E, nu, nu);
+
+    const double k_hertz = hertz_stiffness(E_eff, R_eff);
+    const double fn_elastic = (4.0/3.0) * k_hertz * std::pow(overlap, 1.5);
+
+    const double Sn = 2.0 * E_eff * std::sqrt(R_eff * overlap);
+    const double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
+    const double en_ = std::min(std::max(cor, 1.0e-6), 0.999999);
+    const double beta = std::log(en_) / std::sqrt(M_PI*M_PI + std::log(en_)*std::log(en_));
+    const double sqrtFiveOverSix = 0.9128709291752769;
+    const double gamman = -2.0 * sqrtFiveOverSix * beta * std::sqrt(Sn * meff);
+    const double fn_damping = -gamman * v_rel_n;
+
+    double fn = fn_elastic + fn_damping;
+    fn = std::max(fn, 0.0);
+
+    double dt = p->simtime - history.t_last;
+    if(dt <= 0.0) dt = p->dt;
+
+    history.in_contact = true;
+    history.t_last = p->simtime;
+
+    if(v_rel_t_mag > 1.0e-10)
+    {
+        Eigen::Vector3d &th = history.s_t;
+        th += v_rel_t * dt;
+        th -= normal * normal.dot(th);
+
+        const double G = E / (2.0 * (1.0 + nu));
+        const double Geff_mindlin = G / (2.0 * (2.0 - nu));
+        const double kt_ = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+        const double St = 8.0 * Geff_mindlin * std::sqrt(R_eff * overlap);
+        const double gammat = -2.0 * sqrtFiveOverSix * beta * std::sqrt(St * meff);
+
+        Eigen::Vector3d ft_vector = kt_ * th + gammat * v_rel_t;
+
+        const double ft_mag = ft_vector.norm();
+        const double ft_max = mu * fn;
+
+        if(ft_mag > ft_max)
+        {
+            ft_vector *= (ft_max / ft_mag);
+            th *= (ft_max / ft_mag);
+        }
+
+        force = fn * normal - ft_vector;
+    }
+    else
+    {
+        force = fn * normal;
+    }
+
+    torque = r1.cross(force);
+}

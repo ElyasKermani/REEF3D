@@ -27,6 +27,7 @@ Author: Hans Bihs
 #include<vector>
 #include"increment.h"
 #include"6DOF_obj.h"
+#include"dem_nhflow.h"
 
 class lexer;
 class fdm2D;
@@ -34,6 +35,7 @@ class fdm_nhf;
 class ghostcell;
 class slice;
 class fdm;
+class dem_nhflow;
 
 using namespace std;
 
@@ -81,6 +83,7 @@ private:
 
     int number6DOF;
     vector<sixdof_obj*> fb_obj;
+    dem_nhflow *p_dem;
 
     slice4 press;
 

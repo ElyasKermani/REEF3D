@@ -33,39 +33,34 @@ class lexer;
 class ghostcell;
 class sixdof_obj;
 
-// A specialized grid for efficient collision detection
+// Spatial-hash broad-phase used by the 6DOF collision pipeline
 class sixdof_collision_grid
 {
 public:
     sixdof_collision_grid(lexer *p, ghostcell *pgc);
     ~sixdof_collision_grid();
-    
-    // Update object positions in the grid
+
+    // Bin every object into the grid for the current step
     void update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
-    
-    // Find potential collision pairs (broad phase)
+
+    // Return the unique pairs of objects that share a cell
     std::vector<std::pair<int, int>> find_potential_collisions(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
-    
-    // Compute optimal cell size based on object radii
+
+    // Pick a cell size large enough to contain the biggest object
     double compute_optimal_cell_size(lexer *p, std::vector<sixdof_obj*> &fb_obj);
-    
+
 private:
-    // Cell size for the grid (typically largest object diameter)
     double cell_size;
-    
-    // Domain boundaries
     double x_min, x_max, y_min, y_max, z_min, z_max;
-    
-    // Grid dimensions
     int nx, ny, nz;
-    
-    // Hash function to convert 3D index to 1D
+
+    // Linearize a 3D cell index into a hash key
     std::size_t hash_position(int i, int j, int k) const;
-    
-    // Calculate cell indices for an object
+
+    // Find the cell that contains a given world-space position
     std::tuple<int, int, int> calculate_cell_indices(const Eigen::Vector3d &position) const;
-    
-    // Map from cell hash to objects in that cell
+
+    // Cell hash -> list of object indices currently in that cell
     std::unordered_map<std::size_t, std::vector<int>> grid_cells;
 };
 

@@ -23,6 +23,7 @@ Author: Elyas Larkermani
 #ifndef SIXDOF_COLLISION_H_
 #define SIXDOF_COLLISION_H_
 
+#include"contact_history.h"
 #include<Eigen/Dense>
 #include<vector>
 #include<map>
@@ -31,31 +32,29 @@ class lexer;
 class ghostcell;
 class sixdof_obj;
 class sixdof_collision_grid;
+class contact_force;
 
 using namespace std;
 
-// AABB (Axis-Aligned Bounding Box) structure for fast collision pre-filtering
+// Axis-aligned bounding box used for fast broad-phase rejection
 struct AABB {
-    Eigen::Vector3d min;  // Minimum corner (x_min, y_min, z_min)
-    Eigen::Vector3d max;  // Maximum corner (x_max, y_max, z_max)
-    
-    // Default constructor
+    Eigen::Vector3d min;
+    Eigen::Vector3d max;
+
     AABB() : min(0,0,0), max(0,0,0) {}
-    
-    // Update AABB from center and radius (sphere)
+
     inline void update_from_sphere(const Eigen::Vector3d& center, double radius) {
         min = center - Eigen::Vector3d(radius, radius, radius);
         max = center + Eigen::Vector3d(radius, radius, radius);
     }
-    
-    // Check if two AABBs overlap (fast early rejection test)
+
     inline bool overlaps(const AABB& other) const {
         return (max.x() >= other.min.x() && min.x() <= other.max.x()) &&
                (max.y() >= other.min.y() && min.y() <= other.max.y()) &&
                (max.z() >= other.min.z() && min.z() <= other.max.z());
     }
-    
-    // Expand AABB by a margin (useful for tolerance)
+
+    // Inflate the box by a uniform margin
     inline void expand(double margin) {
         min.x() -= margin;
         min.y() -= margin;
@@ -66,15 +65,21 @@ struct AABB {
     }
 };
 
-// Enumeration for different collision models
+// Available object-object contact-force models
 enum class ContactForceModel {
-    Linear,      // Linear spring-dashpot model
-    Hertz,       // Non-linear Hertzian elastic contact
-    HertzMindlin, // Hertz with tangential history
+    Linear,                       // Linear spring-dashpot
+    Hertz,                        // Non-linear Hertzian elastic contact
+    HertzMindlin,                 // Hertz with tangential history
     PhasicFlowLinearLimited,      // phasicFlow linear model with history limiting
     PhasicFlowLinearNonLimited,   // phasicFlow linear model without history limiting
-    PhasicFlowNonLinearLimited,   // phasicFlow Hertz–Mindlin with history limiting (no tangential damping)
-    PhasicFlowNonLinearNonLimited // phasicFlow Hertz–Mindlin without history limiting
+    PhasicFlowNonLinearLimited,   // phasicFlow Hertz-Mindlin with history limiting (no tangential damping)
+    PhasicFlowNonLinearNonLimited // phasicFlow Hertz-Mindlin without history limiting
+};
+
+enum class CollisionDetectionMode {
+    SphereOnly,
+    TriangleSATOnly,
+    Adaptive
 };
 
 class sixdof_collision
@@ -84,187 +89,108 @@ public:
     sixdof_collision(lexer *p, ghostcell *pgc);
     virtual ~sixdof_collision();
     
-    // Calculate collision forces between all 6DOF objects
+    // Compute object-object collision forces and apply them as external loads
     void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-    
-    // NEW: Calculate ground contact forces for all 6DOF objects
+
+    // Compute spring-damper ground contact at z = seabed
     void calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-    
-    // NEW: Calculate boundary wall contact forces (side walls)
+
+    // Compute spring-damper contact with the side walls of the domain
     void calculate_boundary_wall_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-    
-    // Set the contact force model to use
-    void set_contact_force_model(ContactForceModel model) { contact_model = model; }
+
+    // Select the contact-force model used for object-object contacts
+    void set_contact_force_model(ContactForceModel model);
+    void set_adaptive_detection(bool enabled, int simple_tri, int moderate_tri);
+    void set_detection_mode(CollisionDetectionMode mode) { detection_mode = mode; }
     
 private:
 
-    // Detect collision between two 6DOF objects
-    bool detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2, 
+    // Sphere-sphere narrow-phase test
+    bool detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                          Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
-    
-    // Detect collision using triangle mesh data
+
+    // Triangle-mesh narrow-phase test using SAT (with optional BVH acceleration)
     bool detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
-    
-    // Adaptive collision detection - chooses algorithm based on object complexity
+
+    // Pick sphere-sphere or triangle-mesh based on object triangle counts
     bool detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                   Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap);
-    
-    // Check for intersection between two triangles
+
+    // Triangle-triangle intersection test (separating-axis theorem)
     bool triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
                                       Eigen::Vector3d &contact, Eigen::Vector3d &normal, double &overlap);
-    
-    // Calculate linear contact force using the linear spring-dashpot model
-    void calculate_linear_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                      const Eigen::Vector3d &contact_point, 
-                                      const Eigen::Vector3d &normal, 
-                                      const double overlap,
-                                      Eigen::Vector3d &force, 
-                                      Eigen::Vector3d &torque);
-    
-    // Calculate Hertzian contact force (non-linear elastic)
-    void calculate_hertz_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                     const Eigen::Vector3d &contact_point, 
-                                     const Eigen::Vector3d &normal, 
-                                     const double overlap,
-                                     Eigen::Vector3d &force, 
-                                     Eigen::Vector3d &torque);
-    
-    // Calculate Hertz-Mindlin contact force with tangential history
-    void calculate_hertz_mindlin_contact_force(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                            const Eigen::Vector3d &contact_point, 
-                                            const Eigen::Vector3d &normal, 
-                                            const double overlap,
-                                            Eigen::Vector3d &force, 
-                                            Eigen::Vector3d &torque);
 
-    // phasicFlow-equivalent models
-    void calculate_phasicflow_linear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                           const Eigen::Vector3d &contact_point,
-                                           const Eigen::Vector3d &normal,
-                                           const double overlap,
-                                           Eigen::Vector3d &force,
-                                           Eigen::Vector3d &torque);
+    // Active contact-force kernel
+    contact_force *p_force;
+    lexer *p_lexer;
 
-    void calculate_phasicflow_linear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                              const Eigen::Vector3d &contact_point,
-                                              const Eigen::Vector3d &normal,
-                                              const double overlap,
-                                              Eigen::Vector3d &force,
-                                              Eigen::Vector3d &torque);
-
-    void calculate_phasicflow_nonlinear_limited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                              const Eigen::Vector3d &contact_point,
-                                              const Eigen::Vector3d &normal,
-                                              const double overlap,
-                                              Eigen::Vector3d &force,
-                                              Eigen::Vector3d &torque);
-
-    void calculate_phasicflow_nonlinear_nonlimited(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                 const Eigen::Vector3d &contact_point,
-                                                 const Eigen::Vector3d &normal,
-                                                 const double overlap,
-                                                 Eigen::Vector3d &force,
-                                                 Eigen::Vector3d &torque);
-    
-    // Calculate effective material properties
-    double calculate_effective_young_modulus(double E1, double E2, double nu1, double nu2);
-    double calculate_effective_radius(double R1, double R2);
-    
-    // Helper function for Hertzian contact
-    double calculate_hertz_stiffness(double E_eff, double R_eff);
-    
-    // Contact model parameters
+    // Currently selected contact-force model
     ContactForceModel contact_model;
-    
-    // Linear model parameters
-    double spring_constant_n;        // Normal spring constant
-    double spring_constant_t;        // Tangential spring constant
-    double damping_constant_n;       // Normal damping constant
-    double damping_constant_t;       // Tangential damping constant
-    double friction_coefficient;     // Friction coefficient
-    double restitution_coefficient;  // Restitution coefficient
-    // Optional: compute linear damping from restitution
-    bool linear_use_restitution;     // If true, compute c from e
-    double linear_en;                // Normal restitution for linear model
-    double linear_et;                // Tangential restitution for linear model (-1 => use linear_en)
-    
+
     // Rolling friction parameters
-    double rolling_friction_coefficient;  // Rolling friction coefficient
-    double rolling_stiffness;            // Rolling spring constant
-    double rolling_damping;              // Rolling damping constant
-    double rolling_torque_threshold;     // Threshold for rolling torque activation
-    
-    // Hertz model parameters
-    double young_modulus;            // Young's modulus
-    double poisson_ratio;            // Poisson's ratio
-    
+    double mu_r;        // rolling friction coefficient
+    double kr;          // rolling spring stiffness
+    double cr;          // rolling viscous damping
+    double tau_r_max;   // rolling torque saturation threshold
+
     // Sub-stepping parameters
     bool use_substeps;
     int max_substeps;
-    
-    // HYBRID: Adaptive collision detection thresholds
-    int collision_simple_threshold;      // Triangle count below which to use sphere-sphere
-    int collision_moderate_threshold;    // Triangle count below which to use triangle-triangle
-    bool use_adaptive_collision;         // Enable adaptive algorithm selection
-    
-    // Contact history for tangential forces
-    struct ContactHistory {
-        Eigen::Vector3d tangential_overlap;
-        bool in_contact;
-        double last_update_time;
-        // Enhanced contact history
-        Eigen::Vector3d previous_normal;      // Previous contact normal
-        Eigen::Vector3d tangential_spring;    // Tangential spring displacement
-        double contact_duration;              // Duration of contact
-    };
+
+    // Adaptive narrow-phase thresholds (triangle counts on each body)
+    int simple_tri;       // use sphere-sphere if max(tri_i, tri_j) < this
+    int moderate_tri;     // use triangle/SAT without BVH if below this; else BVH
+    bool adaptive;       // if false, detection_mode alone selects narrow phase
+    CollisionDetectionMode detection_mode;
+
+    // Per-pair tangential history, keyed by (min(id1,id2), max(id1,id2))
     map<pair<int, int>, ContactHistory> contact_history;
-    
-    // Clear contact history for pairs no longer in contact
+
+    // Drop history entries for pairs that have been separated long enough
     void update_contact_history(lexer *p);
-    
-    // Grid-based collision detection system
+
+    // Spatial-hash grid used for broad-phase pair selection
     sixdof_collision_grid* collision_grid;
-    
-    // NEW: Storage for collision forces and torques (for MPI communication)
-    std::vector<Eigen::Vector3d> collision_forces;      // Collision forces for each object
-    std::vector<Eigen::Vector3d> collision_torques;    // Collision torques for each object
-    int max_objects;                                    // Maximum number of objects supported
-    
-    // NEW: AABB storage for fast pre-filtering
-    std::vector<AABB> object_aabbs;                     // AABB for each object
-    void update_aabbs(std::vector<sixdof_obj*> &fb_obj); // Update AABBs before collision detection
-    
-    // NEW: MPI communication functions
-    void broadcast_collision_forces(lexer *p, ghostcell *pgc);
-    void clear_collision_forces();
-    void verify_collision_forces_synchronization(lexer *p, ghostcell *pgc); // Debug function
-    
-    // For distance calculation
+
+    // Per-object force/torque accumulators (computed on rank 0, broadcast to all)
+    std::vector<Eigen::Vector3d> f_col;  // object–object contact force (world frame)
+    std::vector<Eigen::Vector3d> t_col;  // object–object contact torque (world frame)
+    int nobj;                            // max 6DOF objects (from lexer X20)
+
+    // AABBs for the currently active objects
+    std::vector<AABB> aabbs;             // broad-phase AABB per object index
+    void update_aabbs(std::vector<sixdof_obj*> &fb_obj);
+
+    void broadcast_forces(lexer *p, ghostcell *pgc);
+    void clear_forces();
+    // Debug-only check that all ranks hold identical force/torque values
+    void verify_sync(lexer *p, ghostcell *pgc);
+
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
-    
-    // Sub-time stepping for resolving collisions at smaller timesteps
+
+    // Resolve large overlaps by integrating the contact load over sub-time-steps
     void resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                       const Eigen::Vector3d &contact_point, 
-                                       const Eigen::Vector3d &normal, 
+                                       const Eigen::Vector3d &contact_point,
+                                       const Eigen::Vector3d &normal,
                                        const double overlap,
-                                       Eigen::Vector3d &force, 
+                                       Eigen::Vector3d &force,
                                        Eigen::Vector3d &torque);
-    
-    // Velocity-Verlet integration step for collision resolution
-    void velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
-                            const Eigen::Vector3d &force, 
-                            const Eigen::Vector3d &torque, 
+
+    // Symplectic velocity-Verlet update used inside the sub-step loop
+    void velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj,
+                            const Eigen::Vector3d &force,
+                            const Eigen::Vector3d &torque,
                             double dt);
-    
-    // Calculate rolling friction torque
+
+    // Rolling friction torque opposing the relative angular velocity in the contact plane
     void calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                          const Eigen::Vector3d &contact_point,
                                          const Eigen::Vector3d &normal,
                                          const double overlap,
                                          Eigen::Vector3d &rolling_torque);
-                                         
-    // Calculate twisting resistance
+
+    // Twisting resistance opposing relative angular velocity about the contact normal
     void calculate_twisting_resistance(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                      const Eigen::Vector3d &contact_point,
                                      const Eigen::Vector3d &normal,

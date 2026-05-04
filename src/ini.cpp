@@ -875,6 +875,7 @@ void lexer::ini_default()
 	X44=0.0;    // double viscosity in body
     X45=0;      // int type of lsm convection disc at fb
     X46=0;      // int 
+    X47=0;      // int contact-force model: 0=auto, 1=Linear, 2=Hertz, 3=Hertz-Mindlin
     X48=0;      // int solid forcing level set
     X49=0;
     X50=1;      // int type of print out format for 6DOF structure

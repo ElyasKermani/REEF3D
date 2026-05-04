@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>REEF3D CFD–DEM Algorithm (Before vs After)</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #0f1733;
+        --panel2: #0c1430;
+        --text: #e8ecff;
+        --muted: #b8c0ff;
+        --line: rgba(255, 255, 255, 0.14);
+        --accent: #77a7ff;
+        --good: #3ee6a8;
+        --warn: #ffd36a;
+        --bad: #ff6b8b;
+        --chip: rgba(119, 167, 255, 0.14);
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        background: radial-gradient(1200px 600px at 20% 0%, rgba(119, 167, 255, 0.18), transparent 55%),
+          radial-gradient(900px 600px at 90% 10%, rgba(62, 230, 168, 0.10), transparent 60%),
+          radial-gradient(900px 600px at 70% 90%, rgba(255, 211, 106, 0.10), transparent 60%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        padding: 28px 20px 10px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-size: 22px;
+      }
+      p.lede {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        max-width: 950px;
+        font-size: 14px;
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 16px auto 40px;
+        padding: 0 20px 20px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+
+      .card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 22%),
+          linear-gradient(180deg, var(--panel), var(--panel2));
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .card h2 {
+        margin: 0;
+        padding: 14px 16px;
+        font-size: 14px;
+        letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      .tag {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--chip);
+        border: 1px solid rgba(119, 167, 255, 0.22);
+        color: #d8e5ff;
+        white-space: nowrap;
+      }
+      .tag.good { background: rgba(62, 230, 168, 0.10); border-color: rgba(62, 230, 168, 0.25); color: #c8ffe9; }
+      .tag.warn { background: rgba(255, 211, 106, 0.10); border-color: rgba(255, 211, 106, 0.22); color: #fff2cd; }
+
+      .content {
+        padding: 14px 16px 16px;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.55;
+        margin: 0 0 10px;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        margin: 10px 0 0;
+        padding: 10px 0 0;
+        border-top: 1px dashed rgba(255, 255, 255, 0.12);
+      }
+      .legend span {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #dbe2ff;
+        opacity: 0.95;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .dot.motion { background: rgba(119, 167, 255, 0.9); }
+      .dot.dem { background: rgba(62, 230, 168, 0.9); }
+      .dot.coupling { background: rgba(255, 211, 106, 0.95); }
+
+      svg { width: 100%; height: auto; display: block; }
+      .svgWrap {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+      }
+
+      .footer {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #dbe2ff;
+      }
+      .kbd {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: #e7ecff;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>REEF3D CFD–DEM Algorithm: Before vs After (Top‑Level DEM Interface)</h1>
+      <p class="lede">
+        This page visualizes the coupling algorithm around <code>sixdof_cfd::start_cfd</code> and collision handling.
+        <strong>Before</strong>: collision is computed by <code>sixdof_collision</code> directly from 6DOF.
+        <strong>After</strong>: 6DOF calls a top‑level <code>dem</code> interface, and solver‑specific adaptivity lives in
+        <code>dem_cfd.cpp</code> (and <code>dem_nhflow.cpp</code> for NHFLOW).
+      </p>
+    </header>
+
+    <div class="wrap">
+      <div class="grid">
+        <!-- BEFORE -->
+        <section class="card">
+          <h2>
+            <span>Before (current branch): CFD↔Collision inside 6DOF</span>
+            <span class="tag warn">Collision owned by <code>sixdof_cfd</code></span>
+          </h2>
+          <div class="content">
+            <p class="note">
+              In the current structure, <code>sixdof_cfd</code> instantiates <code>sixdof_collision</code> and calls
+              <code>calculate_collision_forces()</code> directly. Adaptivity (detection thresholds + contact model switch)
+              is embedded inside <code>sixdof_collision</code>.
+            </p>
+
+            <div class="svgWrap">
+              <svg viewBox="0 0 920 860" role="img" aria-label="Before flowchart: CFD calls sixdof_collision directly">
+                <defs>
+                  <linearGradient id="gMotion" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(119,167,255,0.32)" />
+                    <stop offset="1" stop-color="rgba(119,167,255,0.14)" />
+                  </linearGradient>
+                  <linearGradient id="gDem" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(62,230,168,0.30)" />
+                    <stop offset="1" stop-color="rgba(62,230,168,0.12)" />
+                  </linearGradient>
+                  <linearGradient id="gCouple" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(255,211,106,0.28)" />
+                    <stop offset="1" stop-color="rgba(255,211,106,0.10)" />
+                  </linearGradient>
+
+                  <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+                    <path d="M0,0 L10,5 L0,10 Z" fill="rgba(255,255,255,0.75)"></path>
+                  </marker>
+
+                  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="rgba(0,0,0,0.45)" />
+                  </filter>
+                </defs>
+
+                <!-- lane labels -->
+                <rect x="24" y="20" width="872" height="40" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)"/>
+                <text x="44" y="46" fill="rgba(232,236,255,0.95)" font-family="var(--mono)" font-size="14">
+                  CFD timestep loop (sixdof_cfd::start_cfd)
+                </text>
+
+                <!-- blocks -->
+                <!-- 1 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="90" width="760" height="72" rx="14" fill="url(#gMotion)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="125" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  1) Clear external loads (per object)
+                </text>
+                <text x="110" y="148" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  for nb: fb_obj[nb]->clearExternalForces()
+                </text>
+
+                <!-- 2 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="186" width="760" height="110" rx="14" fill="url(#gDem)" stroke="rgba(62,230,168,0.35)"/>
+                </g>
+                <text x="110" y="220" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  2) Collision &amp; contact (inside 6DOF)
+                </text>
+                <text x="110" y="244" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  p_collision->calculate_collision_forces(p, pgc, fb_obj)
+                </text>
+                <text x="110" y="268" fill="rgba(184,192,255,0.92)" font-size="13">
+                  Adaptive detection + contact model switch live in <tspan font-family="var(--mono)">sixdof_collision</tspan>
+                </text>
+
+                <!-- 3 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="324" width="760" height="82" rx="14" fill="url(#gCouple)" stroke="rgba(255,211,106,0.35)"/>
+                </g>
+                <text x="110" y="358" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  3) Hydrodynamic forces (CFD coupling)
+                </text>
+                <text x="110" y="382" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  fb_obj[nb]->hydrodynamic_forces_cfd(...)
+                </text>
+
+                <!-- 4 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="434" width="760" height="82" rx="14" fill="url(#gMotion)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="468" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  4) Integrate rigid body motion (RK2/RK3/RKLS3)
+                </text>
+                <text x="110" y="492" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  fb_obj[nb]->solve_eqmotion_cfd(...)
+                </text>
+
+                <!-- 5 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="544" width="760" height="114" rx="14" fill="url(#gMotion)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="578" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  5) Update transforms, mesh &amp; level set
+                </text>
+                <text x="110" y="602" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  quat_matrices → update_position_3D (raycast + reinit)
+                </text>
+                <text x="110" y="626" fill="rgba(184,192,255,0.92)" font-size="13">
+                  Most expensive step; collision forces were computed earlier on previous geometry state
+                </text>
+
+                <!-- 6 -->
+                <g filter="url(#shadow)">
+                  <rect x="80" y="686" width="760" height="92" rx="14" fill="url(#gCouple)" stroke="rgba(255,211,106,0.35)"/>
+                </g>
+                <text x="110" y="720" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  6) Update forcing terms into CFD fields
+                </text>
+                <text x="110" y="744" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  fb_obj[nb]->update_forcing(...)
+                </text>
+
+                <!-- arrows -->
+                <path d="M460 162 L460 186" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow)"/>
+                <path d="M460 296 L460 324" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow)"/>
+                <path d="M460 406 L460 434" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow)"/>
+                <path d="M460 516 L460 544" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow)"/>
+                <path d="M460 658 L460 686" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow)"/>
+              </svg>
+            </div>
+
+            <div class="legend">
+              <span><i class="dot motion"></i> motion/integration</span>
+              <span><i class="dot dem"></i> DEM collision/contact</span>
+              <span><i class="dot coupling"></i> CFD coupling / forcing</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- AFTER -->
+        <section class="card">
+          <h2>
+            <span>After (target): CFD calls DEM interface (<code>dem_cfd</code>)</span>
+            <span class="tag good">Adaptivity in <code>dem_cfd.cpp</code></span>
+          </h2>
+          <div class="content">
+            <p class="note">
+              After the refactor, <code>sixdof_cfd</code> depends on a top‑level DEM interface.
+              The CFD‑specific DEM implementation (<code>dem_cfd.cpp</code>) owns the adaptive policy:
+              it chooses <em>both</em> (1) detection algorithm and (2) contact force model per pair/contact.
+              Shared mechanics remain reusable (grid, SAT, history, force kernels).
+            </p>
+
+            <div class="svgWrap">
+              <svg viewBox="0 0 920 900" role="img" aria-label="After flowchart: CFD calls dem_cfd which selects algorithms adaptively">
+                <defs>
+                  <linearGradient id="gMotion2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(119,167,255,0.32)" />
+                    <stop offset="1" stop-color="rgba(119,167,255,0.14)" />
+                  </linearGradient>
+                  <linearGradient id="gDem2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(62,230,168,0.30)" />
+                    <stop offset="1" stop-color="rgba(62,230,168,0.12)" />
+                  </linearGradient>
+                  <linearGradient id="gCouple2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(255,211,106,0.28)" />
+                    <stop offset="1" stop-color="rgba(255,211,106,0.10)" />
+                  </linearGradient>
+                  <linearGradient id="gPolicy" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(255, 107, 139, 0.18)" />
+                    <stop offset="1" stop-color="rgba(255, 107, 139, 0.07)" />
+                  </linearGradient>
+
+                  <marker id="arrow2" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+                    <path d="M0,0 L10,5 L0,10 Z" fill="rgba(255,255,255,0.75)"></path>
+                  </marker>
+
+                  <filter id="shadow2" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="rgba(0,0,0,0.45)" />
+                  </filter>
+                </defs>
+
+                <rect x="24" y="20" width="872" height="40" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)"/>
+                <text x="44" y="46" fill="rgba(232,236,255,0.95)" font-family="var(--mono)" font-size="14">
+                  CFD timestep loop (sixdof_cfd::start_cfd) + DEM interface (dem_cfd)
+                </text>
+
+                <!-- 1 -->
+                <g filter="url(#shadow2)">
+                  <rect x="80" y="90" width="760" height="72" rx="14" fill="url(#gMotion2)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="125" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  1) Clear external loads (per object)
+                </text>
+                <text x="110" y="148" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  for nb: fb_obj[nb]->clearExternalForces()
+                </text>
+
+                <!-- 2 DEM interface -->
+                <g filter="url(#shadow2)">
+                  <rect x="80" y="186" width="760" height="82" rx="14" fill="url(#gDem2)" stroke="rgba(62,230,168,0.35)"/>
+                </g>
+                <text x="110" y="220" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  2) DEM interface call (CFD)
+                </text>
+                <text x="110" y="244" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  dem_cfd::start_cfd(p, a, pgc, fb_obj, iter, finalize)
+                </text>
+
+                <!-- 2.1 policy -->
+                <g filter="url(#shadow2)">
+                  <rect x="130" y="292" width="710" height="138" rx="14" fill="url(#gPolicy)" stroke="rgba(255,107,139,0.28)"/>
+                </g>
+                <text x="160" y="326" fill="rgba(232,236,255,0.98)" font-size="15" font-weight="700">
+                  2.1) Adaptive policy (lives in dem_cfd.cpp)
+                </text>
+                <text x="160" y="350" fill="rgba(184,192,255,0.95)" font-size="13">
+                  Per candidate pair/contact, choose:
+                </text>
+                <text x="160" y="372" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  (a) detection: sphere–sphere vs tri–tri (BVH/SAT) …
+                </text>
+                <text x="160" y="394" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  (b) contact law: Linear vs Hertz vs Hertz‑Mindlin vs phasicFlow variants …
+                </text>
+                <text x="160" y="416" fill="rgba(184,192,255,0.92)" font-size="13">
+                  Criteria: triangle count, relative velocity, overlap severity, contact duration, stability limits
+                </text>
+
+                <!-- 2.2 mechanics -->
+                <g filter="url(#shadow2)">
+                  <rect x="130" y="450" width="710" height="110" rx="14" fill="url(#gDem2)" stroke="rgba(62,230,168,0.35)"/>
+                </g>
+                <text x="160" y="484" fill="rgba(232,236,255,0.98)" font-size="15" font-weight="700">
+                  2.2) Shared collision mechanics (reusable core)
+                </text>
+                <text x="160" y="508" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  broadphase grid + AABB → narrowphase → force kernels → history → MPI sync
+                </text>
+                <text x="160" y="532" fill="rgba(184,192,255,0.92)" font-size="13">
+                  Applies forces/torques to objects (e.g., Xext..Next) consistently across ranks
+                </text>
+
+                <!-- 3 hydro -->
+                <g filter="url(#shadow2)">
+                  <rect x="80" y="586" width="760" height="82" rx="14" fill="url(#gCouple2)" stroke="rgba(255,211,106,0.35)"/>
+                </g>
+                <text x="110" y="620" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  3) Hydrodynamic forces (CFD coupling)
+                </text>
+                <text x="110" y="644" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  fb_obj[nb]->hydrodynamic_forces_cfd(...)
+                </text>
+
+                <!-- 4 integrate -->
+                <g filter="url(#shadow2)">
+                  <rect x="80" y="696" width="760" height="82" rx="14" fill="url(#gMotion2)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="730" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  4) Integrate rigid body motion (RK2/RK3/RKLS3)
+                </text>
+                <text x="110" y="754" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  fb_obj[nb]->solve_eqmotion_cfd(...)
+                </text>
+
+                <!-- 5 -->
+                <g filter="url(#shadow2)">
+                  <rect x="80" y="806" width="760" height="72" rx="14" fill="url(#gMotion2)" stroke="rgba(119,167,255,0.35)"/>
+                </g>
+                <text x="110" y="841" fill="rgba(232,236,255,0.98)" font-size="16" font-weight="700">
+                  5) Update mesh &amp; level set; update forcing terms
+                </text>
+                <text x="110" y="864" fill="rgba(184,192,255,0.95)" font-family="var(--mono)" font-size="13">
+                  quat_matrices → update_position_3D → update_forcing
+                </text>
+
+                <!-- arrows -->
+                <path d="M460 162 L460 186" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+                <path d="M460 268 L460 292" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+                <path d="M460 430 L460 450" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+                <path d="M460 560 L460 586" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+                <path d="M460 668 L460 696" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+                <path d="M460 778 L460 806" stroke="rgba(255,255,255,0.72)" stroke-width="2.2" marker-end="url(#arrow2)"/>
+              </svg>
+            </div>
+
+            <div class="legend">
+              <span><i class="dot motion"></i> motion/integration</span>
+              <span><i class="dot dem"></i> DEM collision/contact</span>
+              <span><i class="dot coupling"></i> CFD coupling / forcing</span>
+              <span><i class="dot" style="background: rgba(255,107,139,0.9)"></i> adaptive policy (DEM‑CFD)</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="footer">
+        <div>
+          <strong>How to use:</strong> open this file in a browser:
+          <code>Tutorials/CFD_DEM_algorithm_before_after.html</code>.
+        </div>
+        <div style="margin-top:8px">
+          <strong>Scope:</strong> this visualization focuses on CFD+6DOF collision coupling.
+          NHFLOW follows the same idea, with the adaptive policy living in <code>dem_nhflow.cpp</code> and invoked from
+          <code>sixdof_nhflow</code>.
+        </div>
+        <div style="margin-top:8px">
+          <strong>Tip:</strong> if you want collision forces to be computed on the most up‑to‑date pose, you can place
+          the DEM call after the stage’s integration and transform update, but before mesh/raycast (depends on your
+          coupling choice and stability constraints).
+        </div>
+        <div style="margin-top:10px; opacity:0.9">
+          Generated for REEF3D refactor discussion. Keys shown are representative (e.g. <code>Xext..Next</code> loads).
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

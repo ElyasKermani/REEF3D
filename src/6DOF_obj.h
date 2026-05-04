@@ -383,6 +383,14 @@ private:
     bool use_bvh;      // Flag to enable/disable BVH usage
 
     friend class sixdof_collision;
+    friend class contact_force;
+    friend class contact_force_linear;
+    friend class contact_force_hertz;
+    friend class contact_force_hertz_mindlin;
+    friend class contact_force_phasicflow_linear_limited;
+    friend class contact_force_phasicflow_linear_nonlimited;
+    friend class contact_force_phasicflow_nonlinear_limited;
+    friend class contact_force_phasicflow_nonlinear_nonlimited;
 };
 
 #endif
