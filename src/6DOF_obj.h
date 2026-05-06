@@ -391,6 +391,8 @@ private:
     friend class contact_force_phasicflow_linear_nonlimited;
     friend class contact_force_phasicflow_nonlinear_limited;
     friend class contact_force_phasicflow_nonlinear_nonlimited;
+    friend class ground_contact;
+    friend class wall_contact;
 };
 
 #endif

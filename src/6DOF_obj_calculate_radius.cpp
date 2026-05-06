@@ -94,7 +94,7 @@ void sixdof_obj::build_bvh()
         // Inform user about algorithm selection
         cout << "6DOF object " << n6DOF << ": " << tricount 
              << " triangles (< " << BVH_THRESHOLD 
-             << ") - will use SPHERE-SPHERE collision (fast)" << endl;
+             << ") - BVH not built (simpler path in adaptive narrow-phase)" << endl;
         return;
     }
     
@@ -104,11 +104,12 @@ void sixdof_obj::build_bvh()
         mesh_bvh = new BVH_Tree(4);  // Max 4 triangles per leaf
     }
     
-    // Build the BVH from triangle data
-    mesh_bvh->build(tri_x, tri_y, tri_z, tricount);
+    // Build the BVH from reference mesh (body frame, same as tri_x0 in motion update).
+    // Queries use the other body's bounding sphere transformed into this body frame.
+    mesh_bvh->build(tri_x0, tri_y0, tri_z0, tricount);
     use_bvh = true;
     
     // Inform user about algorithm selection
-    cout << "6DOF object " << n6DOF << ": Built BVH with " 
-         << tricount << " triangles - will use TRIANGLE-MESH collision (accurate)" << endl;
+    cout << "6DOF object " << n6DOF << ": Built body-frame BVH (" 
+         << tricount << " triangles) for narrow-phase pruning" << endl;
 } 

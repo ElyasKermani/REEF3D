@@ -24,6 +24,8 @@ Author: Elyas Larkermani
 #define SIXDOF_COLLISION_H_
 
 #include"contact_history.h"
+#include"ground_contact.h"
+#include"wall_contact.h"
 #include<Eigen/Dense>
 #include<vector>
 #include<map>
@@ -92,12 +94,6 @@ public:
     // Compute object-object collision forces and apply them as external loads
     void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
 
-    // Compute spring-damper ground contact at z = seabed
-    void calculate_ground_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-
-    // Compute spring-damper contact with the side walls of the domain
-    void calculate_boundary_wall_contact_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
-
     // Select the contact-force model used for object-object contacts
     void set_contact_force_model(ContactForceModel model);
     void set_adaptive_detection(bool enabled, int simple_tri, int moderate_tri);
@@ -124,6 +120,9 @@ private:
     // Active contact-force kernel
     contact_force *p_force;
     lexer *p_lexer;
+
+    ground_contact ground_;
+    wall_contact   wall_;
 
     // Currently selected contact-force model
     ContactForceModel contact_model;

@@ -27,6 +27,95 @@ Author: Elyas Larkermani
 #include<vector>
 #include<algorithm>
 #include<limits>
+#include<cmath>
+
+// Squared distance from p to the closest point on segment ab (Ericson)
+inline double point_segment_sqdist(const Eigen::Vector3d& p,
+                                   const Eigen::Vector3d& a,
+                                   const Eigen::Vector3d& b)
+{
+    const Eigen::Vector3d ab = b - a;
+    double t = ab.dot(p - a);
+    const double denom = ab.squaredNorm();
+    if(denom < 1.0e-30)
+    {
+        return (p - a).squaredNorm();
+    }
+    t = t / denom;
+    if(t < 0.0) t = 0.0;
+    else if(t > 1.0) t = 1.0;
+    const Eigen::Vector3d q = a + t * ab;
+    return (p - q).squaredNorm();
+}
+
+// Squared distance from p to triangle (a,b,c) — closest point in Voronoi/face (Ericson RTCD)
+inline double point_triangle_sqdist(const Eigen::Vector3d& p,
+                                    const Eigen::Vector3d& a,
+                                    const Eigen::Vector3d& b,
+                                    const Eigen::Vector3d& c)
+{
+    const Eigen::Vector3d ab = b - a;
+    const Eigen::Vector3d ac = c - a;
+    const Eigen::Vector3d ap = p - a;
+
+    const double d1 = ab.dot(ap);
+    const double d2 = ac.dot(ap);
+    if(d1 <= 0.0 && d2 <= 0.0)
+    {
+        return ap.squaredNorm();
+    }
+
+    const Eigen::Vector3d bp = p - b;
+    const double d3 = ab.dot(bp);
+    const double d4 = ac.dot(bp);
+    if(d3 >= 0.0 && d4 <= d3)
+    {
+        return bp.squaredNorm();
+    }
+
+    const Eigen::Vector3d cp = p - c;
+    const double d5 = ab.dot(cp);
+    const double d6 = ac.dot(cp);
+    if(d6 >= 0.0 && d5 <= d6)
+    {
+        return cp.squaredNorm();
+    }
+
+    const double vc = d1 * d4 - d3 * d2;
+    if(vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0)
+    {
+        const double v = d1 / (d1 - d3);
+        const Eigen::Vector3d q = a + v * ab;
+        return (p - q).squaredNorm();
+    }
+
+    const double vb = d5 * d2 - d1 * d6;
+    if(vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0)
+    {
+        const double w = d2 / (d2 - d6);
+        const Eigen::Vector3d q = a + w * ac;
+        return (p - q).squaredNorm();
+    }
+
+    const double va = d3 * d6 - d5 * d4;
+    if(va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0)
+    {
+        const double w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        const Eigen::Vector3d q = b + w * (c - b);
+        return (p - q).squaredNorm();
+    }
+
+    const double denom = va + vb + vc;
+    if(std::fabs(denom) < 1.0e-30)
+    {
+        return point_segment_sqdist(p, a, b);
+    }
+    const double inv = 1.0 / denom;
+    const double v = vb * inv;
+    const double w = vc * inv;
+    const Eigen::Vector3d q = a + v * ab + w * ac;
+    return (p - q).squaredNorm();
+}
 
 // Simple AABB for BVH nodes
 struct BVH_AABB {
@@ -183,21 +272,16 @@ private:
             return false;  // No intersection with this subtree
         }
         
-        // Leaf node: test against actual triangles
+        // Leaf: true sphere–triangle proximity (closest point on triangle)
         if(node->is_leaf) {
+            const double r2 = radius * radius;
             for(int idx : node->triangle_indices) {
-                // Simple sphere-triangle test (can be refined)
                 const BVH_Triangle& tri = triangles[idx];
-                
-                // Check if any vertex is within sphere
-                if((tri.v0 - center).norm() < radius ||
-                   (tri.v1 - center).norm() < radius ||
-                   (tri.v2 - center).norm() < radius) {
+                const double d2 = point_triangle_sqdist(center, tri.v0, tri.v1, tri.v2);
+                if(d2 <= r2)
+                {
                     return true;
                 }
-                
-                // Could add more sophisticated sphere-triangle test here
-                // For now, this is a conservative approximation
             }
             return false;
         }

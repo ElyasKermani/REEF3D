@@ -964,6 +964,7 @@
         <File Name="dem_policy.h"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Contact Force">
+        <File Name="boundary_contact.h"/>
         <File Name="contact_history.h"/>
         <File Name="contact_force.h"/>
         <File Name="contact_force_linear.h"/>
@@ -973,6 +974,8 @@
         <File Name="contact_force_phasicflow_linear_nonlimited.h"/>
         <File Name="contact_force_phasicflow_nonlinear_limited.h"/>
         <File Name="contact_force_phasicflow_nonlinear_nonlimited.h"/>
+        <File Name="ground_contact.h"/>
+        <File Name="wall_contact.h"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Collision Core">
         <File Name="6DOF_collision.h"/>
@@ -2805,6 +2808,8 @@
         <File Name="contact_force_phasicflow_linear_nonlimited.cpp"/>
         <File Name="contact_force_phasicflow_nonlinear_limited.cpp"/>
         <File Name="contact_force_phasicflow_nonlinear_nonlimited.cpp"/>
+        <File Name="ground_contact.cpp"/>
+        <File Name="wall_contact.cpp"/>
       </VirtualDirectory>
       <VirtualDirectory Name="Collision Core">
         <File Name="6DOF_collision.cpp"/>
