@@ -379,18 +379,18 @@ private:
     
     // BVH for triangle mesh collision acceleration
     BVH_Tree* mesh_bvh;
-    void build_bvh();  // Build BVH from triangle mesh
+    void build_bvh(lexer *);  // Build BVH from triangle mesh (lexer supplies R20/R21 tuning)
     bool use_bvh;      // Flag to enable/disable BVH usage
 
-    friend class sixdof_collision;
+    friend class dem_collision;
     friend class contact_force;
     friend class contact_force_linear;
     friend class contact_force_hertz;
     friend class contact_force_hertz_mindlin;
-    friend class contact_force_phasicflow_linear_limited;
-    friend class contact_force_phasicflow_linear_nonlimited;
-    friend class contact_force_phasicflow_nonlinear_limited;
-    friend class contact_force_phasicflow_nonlinear_nonlimited;
+    friend class contact_force_dem_linear_limited;
+    friend class contact_force_dem_linear_nonlimited;
+    friend class contact_force_dem_hertzian_limited;
+    friend class contact_force_dem_hertzian_nonlimited;
     friend class ground_contact;
     friend class wall_contact;
 };

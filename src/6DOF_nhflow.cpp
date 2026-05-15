@@ -34,12 +34,12 @@ sixdof_nhflow::sixdof_nhflow(lexer *p, ghostcell *pgc) : press(p)
     if(p->mpirank==0)
     cout<<"6DOF startup ..."<<endl;
     
-    number6DOF = 1;
+    number6DOF = p->X20;
     
     for (int nb = 0; nb < number6DOF; nb++)
-    fb_obj.push_back(new sixdof_obj(p,pgc,nb));
+    fb_obj.push_back(new sixdof_obj(p,pgc,p->sixdof_body_id[nb]));
 
-    if(number6DOF>1)
+    if(number6DOF>1 && p->R10!=0)
     p_dem = new dem_nhflow_collision(p,pgc);
     else
     p_dem = new dem_nhflow_void();

@@ -20,7 +20,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#include"6DOF_collision_grid.h"
+#include"dem_collision_grid.h"
 #include"6DOF_obj.h"
 #include"lexer.h"
 #include"fdm.h"
@@ -29,7 +29,7 @@ Author: Elyas Larkermani
 #include<algorithm>
 #include<cmath>
 
-sixdof_collision_grid::sixdof_collision_grid(lexer *p, ghostcell *pgc)
+dem_collision_grid::dem_collision_grid(lexer *p, ghostcell *pgc)
 {
     x_min = p->originx;
     x_max = p->originx + p->xmax*p->DXM;
@@ -54,11 +54,11 @@ sixdof_collision_grid::sixdof_collision_grid(lexer *p, ghostcell *pgc)
     }
 }
 
-sixdof_collision_grid::~sixdof_collision_grid()
+dem_collision_grid::~dem_collision_grid()
 {
 }
 
-double sixdof_collision_grid::compute_optimal_cell_size(lexer *p, std::vector<sixdof_obj*> &fb_obj)
+double dem_collision_grid::compute_optimal_cell_size(lexer *p, std::vector<sixdof_obj*> &fb_obj)
 {
     double max_radius = 0.0;
     for(int i = 0; i < p->X20; ++i)
@@ -75,7 +75,7 @@ double sixdof_collision_grid::compute_optimal_cell_size(lexer *p, std::vector<si
     return std::max(optimal_size, min_size);
 }
 
-void sixdof_collision_grid::update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
+void dem_collision_grid::update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
 {
     // Re-pick the cell size only when the optimum has drifted by more than 10%
     double new_cell_size = compute_optimal_cell_size(p, fb_obj);
@@ -128,7 +128,7 @@ void sixdof_collision_grid::update_grid(lexer *p, ghostcell *pgc, std::vector<si
     }
 }
 
-std::vector<std::pair<int, int>> sixdof_collision_grid::find_potential_collisions(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
+std::vector<std::pair<int, int>> dem_collision_grid::find_potential_collisions(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj)
 {
     std::vector<std::pair<int, int>> collision_pairs;
 
@@ -162,12 +162,12 @@ std::vector<std::pair<int, int>> sixdof_collision_grid::find_potential_collision
     return collision_pairs;
 }
 
-std::size_t sixdof_collision_grid::hash_position(int i, int j, int k) const
+std::size_t dem_collision_grid::hash_position(int i, int j, int k) const
 {
     return static_cast<std::size_t>(i + j * nx + k * nx * ny);
 }
 
-std::tuple<int, int, int> sixdof_collision_grid::calculate_cell_indices(const Eigen::Vector3d &position) const
+std::tuple<int, int, int> dem_collision_grid::calculate_cell_indices(const Eigen::Vector3d &position) const
 {
     int i = static_cast<int>((position(0) - x_min) / cell_size);
     int j = static_cast<int>((position(1) - y_min) / cell_size);

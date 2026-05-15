@@ -20,27 +20,28 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#include"6DOF_collision.h"
+#include"dem_collision.h"
 #include"6DOF_obj.h"
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
-#include"6DOF_collision_grid.h"
+#include"dem_collision_grid.h"
 #include"contact_force.h"
 #include"contact_force_linear.h"
 #include"contact_force_hertz.h"
 #include"contact_force_hertz_mindlin.h"
-#include"contact_force_phasicflow_linear_limited.h"
-#include"contact_force_phasicflow_linear_nonlimited.h"
-#include"contact_force_phasicflow_nonlinear_limited.h"
-#include"contact_force_phasicflow_nonlinear_nonlimited.h"
+#include"contact_force_dem_linear_limited.h"
+#include"contact_force_dem_linear_nonlimited.h"
+#include"contact_force_dem_hertzian_limited.h"
+#include"contact_force_dem_hertzian_nonlimited.h"
 #include<math.h>
+#include<algorithm>
 #include<iostream>
 
-sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
+dem_collision::dem_collision(lexer *p, ghostcell *pgc)
 {
     if(p->mpirank==0)
-    cout<<"6DOF Collision Model startup..."<<endl;
+    cout<<"DEM collision model startup..."<<endl;
     
     p_lexer = p;
     p_force = 0;
@@ -52,16 +53,18 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
     clear_forces();
 
     // Default contact-force model
-    set_contact_force_model(ContactForceModel::PhasicFlowNonLinearNonLimited);
+    set_contact_force_model(ContactForceModel::DemHertzianNonLimited);
 
-    // Rolling/twisting friction parameters
-    mu_r      = 0.2;
-    kr        = 0.5e6;   // [N m / rad]
-    cr        = 0.5e4;   // [N m s / rad]
-    tau_r_max = 1.0e-3;  // [N m]
+    // Rolling/twisting friction parameters (lexer R40–R43)
+    mu_r      = p->R40;
+    kr        = p->R41;
+    cr        = p->R42;
+    tau_r_max = p->R43;
 
-    use_substeps = true;
-    max_substeps = 10;
+    use_substeps = (p->R51 != 0);
+    max_substeps = std::max(1, p->R50);
+
+    bvh_prune_radius_scale = std::max(p->R22, 1.0e-12);
 
     // Triangle-count thresholds for the adaptive narrow-phase test
     adaptive       = true;
@@ -71,15 +74,15 @@ sixdof_collision::sixdof_collision(lexer *p, ghostcell *pgc)
 
     if(p->mpirank==0)
     {
-        cout<<"6DOF Collision: Adaptive algorithm selection enabled"<<endl;
+        cout<<"DEM collision: Adaptive algorithm selection enabled"<<endl;
         cout<<"  Simple threshold (sphere-sphere): < "<<simple_tri<<" triangles"<<endl;
         cout<<"  Moderate threshold (triangle-mesh): < "<<moderate_tri<<" triangles"<<endl;
     }
 
-    collision_grid = new sixdof_collision_grid(p, pgc);
+    collision_grid = new dem_collision_grid(p, pgc);
 }
 
-sixdof_collision::~sixdof_collision()
+dem_collision::~dem_collision()
 {
     if(p_force)
         delete p_force;
@@ -88,7 +91,7 @@ sixdof_collision::~sixdof_collision()
         delete collision_grid;
 }
 
-void sixdof_collision::set_contact_force_model(ContactForceModel model)
+void dem_collision::set_contact_force_model(ContactForceModel model)
 {
     // Skip re-allocation when the requested model is already active
     if(p_force!=0 && contact_model==model)
@@ -111,17 +114,17 @@ void sixdof_collision::set_contact_force_model(ContactForceModel model)
     if(model==ContactForceModel::HertzMindlin)
     p_force = new contact_force_hertz_mindlin(p_lexer);
 
-    if(model==ContactForceModel::PhasicFlowLinearLimited)
-    p_force = new contact_force_phasicflow_linear_limited(p_lexer);
+    if(model==ContactForceModel::DemLinearLimited)
+    p_force = new contact_force_dem_linear_limited(p_lexer);
 
-    if(model==ContactForceModel::PhasicFlowLinearNonLimited)
-    p_force = new contact_force_phasicflow_linear_nonlimited(p_lexer);
+    if(model==ContactForceModel::DemLinearNonLimited)
+    p_force = new contact_force_dem_linear_nonlimited(p_lexer);
 
-    if(model==ContactForceModel::PhasicFlowNonLinearLimited)
-    p_force = new contact_force_phasicflow_nonlinear_limited(p_lexer);
+    if(model==ContactForceModel::DemHertzianLimited)
+    p_force = new contact_force_dem_hertzian_limited(p_lexer);
 
-    if(model==ContactForceModel::PhasicFlowNonLinearNonLimited)
-    p_force = new contact_force_phasicflow_nonlinear_nonlimited(p_lexer);
+    if(model==ContactForceModel::DemHertzianNonLimited)
+    p_force = new contact_force_dem_hertzian_nonlimited(p_lexer);
 
     // Fall back to the linear model for any unrecognized enum value
     if(p_force==0)
@@ -129,26 +132,26 @@ void sixdof_collision::set_contact_force_model(ContactForceModel model)
 
     if(p_lexer && p_lexer->mpirank==0)
     {
-        cout<<"6DOF Collision: contact-force model = ";
+        cout<<"DEM collision: contact-force model = ";
         if(model==ContactForceModel::Linear)                            cout<<"Linear";
         if(model==ContactForceModel::Hertz)                             cout<<"Hertz";
         if(model==ContactForceModel::HertzMindlin)                      cout<<"Hertz-Mindlin";
-        if(model==ContactForceModel::PhasicFlowLinearLimited)           cout<<"PhasicFlow-Linear-Limited";
-        if(model==ContactForceModel::PhasicFlowLinearNonLimited)        cout<<"PhasicFlow-Linear-NonLimited";
-        if(model==ContactForceModel::PhasicFlowNonLinearLimited)        cout<<"PhasicFlow-NonLinear-Limited";
-        if(model==ContactForceModel::PhasicFlowNonLinearNonLimited)     cout<<"PhasicFlow-NonLinear-NonLimited";
+        if(model==ContactForceModel::DemLinearLimited)           cout<<"DEM-Linear-Limited";
+        if(model==ContactForceModel::DemLinearNonLimited)        cout<<"DEM-Linear-NonLimited";
+        if(model==ContactForceModel::DemHertzianLimited)        cout<<"DEM-Hertzian-Limited";
+        if(model==ContactForceModel::DemHertzianNonLimited)     cout<<"DEM-Hertzian-NonLimited";
         cout<<endl;
     }
 }
 
-void sixdof_collision::set_adaptive_detection(bool enabled, int simple_tri_in, int moderate_tri_in)
+void dem_collision::set_adaptive_detection(bool enabled, int simple_tri_in, int moderate_tri_in)
 {
     adaptive = enabled;
     simple_tri = std::max(1, simple_tri_in);
     moderate_tri = std::max(simple_tri, moderate_tri_in);
 }
 
-void sixdof_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
+void dem_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
 {
     for(int i = 0; i < nobj; ++i)
     {
@@ -156,7 +159,7 @@ void sixdof_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
     }
 }
 
-void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
+void dem_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
 {
     clear_forces();
 
@@ -172,7 +175,7 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
 
         if(p->count%p->P12==0 && potential_collisions.size() > 0)
         {
-            cout<<"6DOF Collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
+            cout<<"DEM collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
         }
 
         for(const auto& pair : potential_collisions)
@@ -267,16 +270,16 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
 
                 if(p->count%p->P12==0)
                 {
-                    cout<<"6DOF Collision detected between objects "<<i<<" and "<<j<<endl;
+                    cout<<"DEM collision detected between objects "<<i<<" and "<<j<<endl;
                     cout<<"  Model: ";
                     switch(contact_model) {
                         case ContactForceModel::Linear: cout<<"Linear"; break;
-                        case ContactForceModel::PhasicFlowLinearLimited: cout<<"PhasicFlow-Linear-Limited"; break;
-                        case ContactForceModel::PhasicFlowLinearNonLimited: cout<<"PhasicFlow-Linear-NonLimited"; break;
+                        case ContactForceModel::DemLinearLimited: cout<<"DEM-Linear-Limited"; break;
+                        case ContactForceModel::DemLinearNonLimited: cout<<"DEM-Linear-NonLimited"; break;
                         case ContactForceModel::Hertz: cout<<"Hertz"; break;
                         case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
-                        case ContactForceModel::PhasicFlowNonLinearLimited: cout<<"PhasicFlow-NonLinear-Limited"; break;
-                        case ContactForceModel::PhasicFlowNonLinearNonLimited: cout<<"PhasicFlow-NonLinear-NonLimited"; break;
+                        case ContactForceModel::DemHertzianLimited: cout<<"DEM-Hertzian-Limited"; break;
+                        case ContactForceModel::DemHertzianNonLimited: cout<<"DEM-Hertzian-NonLimited"; break;
                         default: cout<<"Unknown"; break;
                     }
                     cout<<endl;
@@ -310,7 +313,7 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
     {
         if(p->mpirank == 0)
         {
-            cout<<"6DOF Collision: Applied forces to all objects on rank 0:"<<endl;
+            cout<<"DEM collision: Applied forces to all objects on rank 0:"<<endl;
             for(int i = 0; i < nobj; ++i)
             {
                 if(f_col[i].norm() > 1.0e-10 || t_col[i].norm() > 1.0e-10)
@@ -322,14 +325,14 @@ void sixdof_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vect
         }
         else
         {
-            cout<<"6DOF Collision: Rank "<<p->mpirank<<" received forces for "<<nobj<<" objects"<<endl;
+            cout<<"DEM collision: Rank "<<p->mpirank<<" received forces for "<<nobj<<" objects"<<endl;
         }
 
         // verify_sync(p, pgc); // Enable to check MPI sync
     }
 }
 
-bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+bool dem_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                       Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
     // Sphere-sphere intersection test using the bounding radii of each body
@@ -364,7 +367,7 @@ bool sixdof_collision::detect_collision(lexer *p, ghostcell *pgc, sixdof_obj *ob
 }
 
 
-void sixdof_collision::update_contact_history(lexer *p)
+void dem_collision::update_contact_history(lexer *p)
 {
     // Drop pairs that have been separated for longer than the timeout, and reset
     // the in_contact flag on the remaining entries; it is set to true again by
@@ -385,12 +388,12 @@ void sixdof_collision::update_contact_history(lexer *p)
     }
 }
 
-double sixdof_collision::calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2)
+double dem_collision::calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2)
 {
     return (obj2->c_ - obj1->c_).norm();
 }
 
-bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+bool dem_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
     // Bounding-sphere reject before paying the per-triangle cost
@@ -402,7 +405,7 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     if(obj1->use_bvh && obj1->mesh_bvh && obj1->mesh_bvh->is_built())
     {
         const Eigen::Vector3d c_loc = obj1->R_.transpose() * (obj2->c_ - obj1->c_);
-        if(!obj1->mesh_bvh->intersects_sphere(c_loc, obj2->radius))
+        if(!obj1->mesh_bvh->intersects_sphere(c_loc, obj2->radius * bvh_prune_radius_scale))
         {
             return false;
         }
@@ -411,7 +414,7 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     if(obj2->use_bvh && obj2->mesh_bvh && obj2->mesh_bvh->is_built())
     {
         const Eigen::Vector3d c_loc = obj2->R_.transpose() * (obj1->c_ - obj2->c_);
-        if(!obj2->mesh_bvh->intersects_sphere(c_loc, obj1->radius))
+        if(!obj2->mesh_bvh->intersects_sphere(c_loc, obj1->radius * bvh_prune_radius_scale))
         {
             return false;
         }
@@ -468,7 +471,7 @@ bool sixdof_collision::detect_triangle_collision(lexer *p, ghostcell *pgc, sixdo
     return false;
 }
 
-bool sixdof_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
+bool dem_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3], const Eigen::Vector3d v2[3],
                                                     Eigen::Vector3d &contact, Eigen::Vector3d &normal, double &overlap)
 {
     // Separating-axis theorem with 11 candidate axes:
@@ -597,7 +600,7 @@ bool sixdof_collision::triangle_triangle_intersection(const Eigen::Vector3d v1[3
     return true;
 }
 
-bool sixdof_collision::detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+bool dem_collision::detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                  Eigen::Vector3d &contact_point, Eigen::Vector3d &normal, double &overlap)
 {
     // Pick the narrow-phase algorithm based on the more complex of the two bodies.
@@ -613,7 +616,7 @@ bool sixdof_collision::detect_collision_adaptive(lexer *p, ghostcell *pgc, sixdo
     return detect_triangle_collision(p, pgc, obj1, obj2, contact_point, normal, overlap);
 }
 
-void sixdof_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+void dem_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                       const Eigen::Vector3d &contact_point,
                                                       const Eigen::Vector3d &normal,
                                                       const double overlap,
@@ -644,7 +647,7 @@ void sixdof_collision::calculate_rolling_friction_torque(lexer *p, ghostcell *pg
     }
 }
 
-void sixdof_collision::calculate_twisting_resistance(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+void dem_collision::calculate_twisting_resistance(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                   const Eigen::Vector3d &contact_point,
                                                   const Eigen::Vector3d &normal,
                                                   const double overlap,
@@ -671,7 +674,7 @@ void sixdof_collision::calculate_twisting_resistance(lexer *p, ghostcell *pgc, s
     }
 }
 
-void sixdof_collision::clear_forces()
+void dem_collision::clear_forces()
 {
     for(int i = 0; i < nobj; ++i)
     {
@@ -680,7 +683,7 @@ void sixdof_collision::clear_forces()
     }
 }
 
-void sixdof_collision::broadcast_forces(lexer *p, ghostcell *pgc)
+void dem_collision::broadcast_forces(lexer *p, ghostcell *pgc)
 {
     for(int i = 0; i < nobj; ++i)
     {
@@ -690,14 +693,14 @@ void sixdof_collision::broadcast_forces(lexer *p, ghostcell *pgc)
 
     if(p->mpirank==0 && p->count%p->P12==0)
     {
-        cout<<"6DOF Collision: Broadcasted forces and torques to all processors"<<endl;
+        cout<<"DEM collision: Broadcasted forces and torques to all processors"<<endl;
     }
 }
 
 // Diagnostic helper: confirm that every rank holds the same force/torque values.
 // Not part of the normal force application path; call from a debug session if
 // MPI synchronization is suspected.
-void sixdof_collision::verify_sync(lexer *p, ghostcell *pgc)
+void dem_collision::verify_sync(lexer *p, ghostcell *pgc)
 {
     bool forces_synchronized = true;
 
@@ -740,8 +743,8 @@ void sixdof_collision::verify_sync(lexer *p, ghostcell *pgc)
     if(p->mpirank == 0)
     {
         if(forces_synchronized)
-            cout<<"6DOF Collision: SUCCESS - All collision forces are synchronized across processors"<<endl;
+            cout<<"DEM collision: SUCCESS - All collision forces are synchronized across processors"<<endl;
         else
-            cout<<"6DOF Collision: ERROR - Collision forces are NOT synchronized across processors!"<<endl;
+            cout<<"DEM collision: ERROR - Collision forces are NOT synchronized across processors!"<<endl;
     }
 }

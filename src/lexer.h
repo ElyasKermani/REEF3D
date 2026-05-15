@@ -71,6 +71,9 @@ public:
 	void vellast();
 	void indices_minmax();
 	void lexer_ini();
+    /** Collect unique 6DOF body IDs from geometry lines (X110…); sets X20 and sixdof_body_id. */
+    void sixdof_infer_body_registry();
+    bool sixdof_body_has_stl(int body_id) const;
     void lexer_gridspacing(ghostcell*);
 	void parse();
 	void fieldlogic();
@@ -578,7 +581,24 @@ public:
     int Q200;
     int Q201;
     int Q202;
-    
+
+    // DEM (R prefix) — global options for the rigid-body DEM stage
+    // R10: master enable (0 = force void DEM, 1 = auto when number6DOF>1, default 1)
+    // R11: contact-force model (0 = auto, 1 = Linear, 2 = Hertz, 3 = Hertz-Mindlin)
+    // R12: narrow-phase detection mode (0 = adaptive, 1 = sphere-only, 2 = triangle-SAT)
+    int R10,R11,R12;
+    // R20: BVH max triangles per leaf (≥1)
+    // R21: BVH mode (0 = auto when triangle count ≥ 50, 1 = build whenever mesh exists, 2 = never use BVH)
+    // R22: multiplier on partner bounding-sphere radius for BVH pruning queries (default 1; >1 is more conservative)
+    int R20, R21;
+    double R22;
+    // R30–R33: contact material — kn [N/m], kt [N/m], e (normal restitution/COR), mu (Coulomb friction)
+    // R34–R35: Young's modulus E [Pa], Poisson ratio ν (Hertz / DEM-Hertzian kernels)
+    double R30, R31, R32, R33, R34, R35;
+    // R40–R43: rolling/twisting resistance — μ_r, k_r [N·m/rad], c_r [N·m·s/rad], τ_r,max [N·m]
+    double R40, R41, R42, R43;
+    // R50: max substeps for overlap resolution (≥1); R51: enable substeps (0 = off, 1 = on)
+    int R50, R51;
 
 	// Sediment Transport
 	int S10,S11,S12,S15,S16,S17,S25,S27,S28,S31,S32,S33,S34,S37,S41,S42,S43,S44,S50,S60,S73,S77,S78,S79,S80,S83,S84,S85,S90,S91,S94,S100,S101;
@@ -630,8 +650,10 @@ public:
 	double ufbmax, vfbmax, wfbmax;
 	//Eigen::Matrix3d quatRotMat;	
     int X10,X12,X14,X15,X19,X11_u,X11_v,X11_w,X11_p,X11_q,X11_r,X21,X22,X23,X24,X31,X32,X33,X34,X38;
-    int X39,X40,X45,X46,X47,X48,X49,X50,X60,X110,X120,X131,X132,X133;
-    int X100,X101,X102,X103,X141,X142,X143,X153,X165,X180,X181,X182,X183,X210,X211;
+    int X39,X40,X45,X46,X48,X50,X60,X110,X120,X131,X132,X133;
+    int X100,X101,X102,X103,X141,X142,X143,X153,X165,X181,X182,X183,X210,X211;
+    /** Sorted unique body IDs inferred from geometry (strict mode); X20 == sixdof_body_id.size(). */
+    vector<int> sixdof_body_id;
     int X310, X311, X312, X313, X314, X315, X320, X321, mooring_count, net_count;
     int X20;
     double X21_d,X22_m;
@@ -657,7 +679,8 @@ public:
     int *X132_objID;
     double *X133_rad,*X133_h,*X133_xc,*X133_yc,*X133_zc;
     int *X133_objID;
-    double X153_xs,X153_xe,X153_ys,X153_ye,X153_zs,X153_ze;
+    double *X153_xs,*X153_xe,*X153_ys,*X153_ye,*X153_zs,*X153_ze;
+    int *X153_objID;
     int X163;
     double *X163_x1,*X163_y1,*X163_z1;
     double *X163_x2,*X163_y2,*X163_z2;
@@ -665,6 +688,7 @@ public:
     double *X163_x4,*X163_y4,*X163_z4;
     double *X163_x5,*X163_y5,*X163_z5;
     double *X163_x6,*X163_y6,*X163_z6;
+    int *X163_objID;
     int X164;
     double *X164_x1,*X164_y1,*X164_z1;
     double *X164_x2,*X164_y2,*X164_z2;
@@ -674,6 +698,9 @@ public:
     double *X164_x6,*X164_y6,*X164_z6;
     double *X164_x7,*X164_y7,*X164_z7;
     double *X164_x8,*X164_y8,*X164_z8;
+    int *X164_objID;
+    int X180;
+    int *X180_objID;
     double X181_x,X181_y,X181_z;
     double X182_x,X182_y,X182_z;
     double X183_x,X183_y,X183_z,X183_phi,X183_theta,X183_psi;

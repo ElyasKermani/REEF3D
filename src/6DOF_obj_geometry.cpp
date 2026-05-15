@@ -40,7 +40,7 @@ void sixdof_obj::geometry_f(double& w0, double& w1, double& w2, double& f1, doub
 
 void sixdof_obj::geometry_stl(lexer *p, ghostcell *pgc)
 {
-    if(p->X180==1)
+    if(p->sixdof_body_has_stl(n6DOF))
     {
         double x1, x2, x3, y1, y2, y3, z1, z2, z3;
         Vfb=0.0;

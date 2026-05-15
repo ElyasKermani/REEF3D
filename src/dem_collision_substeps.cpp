@@ -20,7 +20,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#include"6DOF_collision.h"
+#include"dem_collision.h"
 #include"6DOF_obj.h"
 #include"lexer.h"
 #include"fdm.h"
@@ -28,7 +28,7 @@ Author: Elyas Larkermani
 #include<Eigen/Dense>
 #include<iostream>
 
-void sixdof_collision::resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
+void dem_collision::resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
                                                     const Eigen::Vector3d &contact_point, 
                                                     const Eigen::Vector3d &normal, 
                                                     const double overlap,
@@ -80,7 +80,7 @@ void sixdof_collision::resolve_collision_with_substeps(lexer *p, ghostcell *pgc,
     obj2->e_ = orig_e2;
 }
 
-void sixdof_collision::velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
+void dem_collision::velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
                                           const Eigen::Vector3d &force, 
                                           const Eigen::Vector3d &torque, 
                                           double dt)

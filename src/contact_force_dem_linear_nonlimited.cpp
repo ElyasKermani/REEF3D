@@ -20,30 +20,30 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#include"contact_force_phasicflow_linear_nonlimited.h"
+#include"contact_force_dem_linear_nonlimited.h"
 #include"contact_history.h"
 #include"6DOF_obj.h"
 #include"lexer.h"
 #include<cmath>
 
-contact_force_phasicflow_linear_nonlimited::contact_force_phasicflow_linear_nonlimited(lexer*)
+contact_force_dem_linear_nonlimited::contact_force_dem_linear_nonlimited(lexer *p)
 {
-    kn = 1.0e6;
-    kt = 0.5e6;
+    kn = p->R30;
+    kt = p->R31;
     cn = 1.0e4;
     ct = 0.5e4;
-    mu = 0.3;
-    cor = 0.8;
+    mu = p->R33;
+    cor = p->R32;
     use_cor = true;
     en = cor;
     et = -1.0;
 }
 
-contact_force_phasicflow_linear_nonlimited::~contact_force_phasicflow_linear_nonlimited()
+contact_force_dem_linear_nonlimited::~contact_force_dem_linear_nonlimited()
 {
 }
 
-void contact_force_phasicflow_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof_obj *obj2,
+void contact_force_dem_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof_obj *obj2,
                                                          const Eigen::Vector3d &contact_point,
                                                          const Eigen::Vector3d &normal,
                                                          double overlap,

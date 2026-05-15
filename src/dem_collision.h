@@ -20,8 +20,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#ifndef SIXDOF_COLLISION_H_
-#define SIXDOF_COLLISION_H_
+#ifndef DEM_COLLISION_H_
+#define DEM_COLLISION_H_
 
 #include"contact_history.h"
 #include"ground_contact.h"
@@ -33,7 +33,7 @@ Author: Elyas Larkermani
 class lexer;
 class ghostcell;
 class sixdof_obj;
-class sixdof_collision_grid;
+class dem_collision_grid;
 class contact_force;
 
 using namespace std;
@@ -72,10 +72,10 @@ enum class ContactForceModel {
     Linear,                       // Linear spring-dashpot
     Hertz,                        // Non-linear Hertzian elastic contact
     HertzMindlin,                 // Hertz with tangential history
-    PhasicFlowLinearLimited,      // phasicFlow linear model with history limiting
-    PhasicFlowLinearNonLimited,   // phasicFlow linear model without history limiting
-    PhasicFlowNonLinearLimited,   // phasicFlow Hertz-Mindlin with history limiting (no tangential damping)
-    PhasicFlowNonLinearNonLimited // phasicFlow Hertz-Mindlin without history limiting
+    DemLinearLimited,             // linear spring-dashpot with tangential history rescaling at slip
+    DemLinearNonLimited,          // linear spring-dashpot without tangential history rescaling at slip
+    DemHertzianLimited,           // Hertz-Mindlin-style normal law; tangential history rescaling at slip
+    DemHertzianNonLimited         // Hertz-Mindlin-style normal law; no tangential history rescaling at slip
 };
 
 enum class CollisionDetectionMode {
@@ -84,12 +84,12 @@ enum class CollisionDetectionMode {
     Adaptive
 };
 
-class sixdof_collision
+class dem_collision
 {
 public:
 
-    sixdof_collision(lexer *p, ghostcell *pgc);
-    virtual ~sixdof_collision();
+    dem_collision(lexer *p, ghostcell *pgc);
+    virtual ~dem_collision();
     
     // Compute object-object collision forces and apply them as external loads
     void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
@@ -143,6 +143,9 @@ private:
     bool adaptive;       // if false, detection_mode alone selects narrow phase
     CollisionDetectionMode detection_mode;
 
+    // Partner bounding-sphere radius multiplier for mesh-BVH pruning (from lexer R22)
+    double bvh_prune_radius_scale;
+
     // Per-pair tangential history, keyed by (min(id1,id2), max(id1,id2))
     map<pair<int, int>, ContactHistory> contact_history;
 
@@ -150,12 +153,12 @@ private:
     void update_contact_history(lexer *p);
 
     // Spatial-hash grid used for broad-phase pair selection
-    sixdof_collision_grid* collision_grid;
+    dem_collision_grid* collision_grid;
 
     // Per-object force/torque accumulators (computed on rank 0, broadcast to all)
     std::vector<Eigen::Vector3d> f_col;  // object–object contact force (world frame)
     std::vector<Eigen::Vector3d> t_col;  // object–object contact torque (world frame)
-    int nobj;                            // max 6DOF objects (from lexer X20)
+    int nobj;                            // number of floating bodies (from lexer X20 after inference)
 
     // AABBs for the currently active objects
     std::vector<AABB> aabbs;             // broad-phase AABB per object index
@@ -197,4 +200,4 @@ private:
                                      Eigen::Vector3d &twisting_torque);
 };
 
-#endif 
+#endif

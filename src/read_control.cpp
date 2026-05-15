@@ -1870,7 +1870,67 @@ void lexer::read_control()
 						 break;
 				}
 				break;
-                
+
+        case 'R': control>>numint;
+				switch(numint)
+				{
+				case 10: control>>R10;
+						 clear(c,numint);
+						 break;
+				case 11: control>>R11;
+						 clear(c,numint);
+						 break;
+				case 12: control>>R12;
+						 clear(c,numint);
+						 break;
+				case 20: control>>R20;
+						 clear(c,numint);
+						 break;
+				case 21: control>>R21;
+						 clear(c,numint);
+						 break;
+				case 22: control>>R22;
+						 clear(c,numint);
+						 break;
+				case 30: control>>R30;
+						 clear(c,numint);
+						 break;
+				case 31: control>>R31;
+						 clear(c,numint);
+						 break;
+				case 32: control>>R32;
+						 clear(c,numint);
+						 break;
+				case 33: control>>R33;
+						 clear(c,numint);
+						 break;
+				case 34: control>>R34;
+						 clear(c,numint);
+						 break;
+				case 35: control>>R35;
+						 clear(c,numint);
+						 break;
+				case 40: control>>R40;
+						 clear(c,numint);
+						 break;
+				case 41: control>>R41;
+						 clear(c,numint);
+						 break;
+				case 42: control>>R42;
+						 clear(c,numint);
+						 break;
+				case 43: control>>R43;
+						 clear(c,numint);
+						 break;
+				case 50: control>>R50;
+						 clear(c,numint);
+						 break;
+				case 51: control>>R51;
+						 clear(c,numint);
+						 break;
+				}
+				break;
+
 
         case 'S': control>>numint;
 				switch(numint)
@@ -2316,13 +2376,7 @@ void lexer::read_control()
                 case  46: control>>X46;
 						 clear(c,numint);
 						 break;
-                case  47: control>>X47;
-						 clear(c,numint);
-						 break;
                 case  48: control>>X48;
-						 clear(c,numint);
-						 break;
-                case  49: control>>X49;
 						 clear(c,numint);
 						 break;
                case  50: control>>X50;
@@ -2362,8 +2416,7 @@ void lexer::read_control()
                 case  133: ++X133;
                         clear(c,numint);
                         break;
-                case  153: control>>X153_xs>>X153_xe>>X153_ys>>X153_ye>>X153_zs>>X153_ze;
-                         X153=1;
+                case  153: ++X153;
                          clear(c,numint);
                          break;
                 case  163: ++X163;
@@ -2375,7 +2428,7 @@ void lexer::read_control()
 				case  165: ++X165;
                          clear(c,numint);
                          break;
-                case  180: control>>X180;
+                case  180: ++X180;
 						 clear(c,numint);
 						 break;
                 case  181: control>>X181_x>>X181_y>>X181_z;
@@ -3162,6 +3215,17 @@ void lexer::read_control()
         Iarray(X133_objID,X133);
 
 
+    if(X153>0)
+    {
+        Darray(X153_xs,X153);
+        Darray(X153_xe,X153);
+        Darray(X153_ys,X153);
+        Darray(X153_ye,X153);
+        Darray(X153_zs,X153);
+        Darray(X153_ze,X153);
+        Iarray(X153_objID,X153);
+    }
+
     Darray(X163_x1,X163);
     Darray(X163_y1,X163);
     Darray(X163_z1,X163);
@@ -3180,6 +3244,7 @@ void lexer::read_control()
     Darray(X163_x6,X163);
     Darray(X163_y6,X163);
     Darray(X163_z6,X163);
+    Iarray(X163_objID,X163);
 
     Darray(X164_x1,X164);
     Darray(X164_y1,X164);
@@ -3205,12 +3270,16 @@ void lexer::read_control()
     Darray(X164_x8,X164);
     Darray(X164_y8,X164);
     Darray(X164_z8,X164);
+    Iarray(X164_objID,X164);
 
 	Darray(X165_x,X165);
     Darray(X165_y,X165);
     Darray(X165_z,X165);
     Darray(X165_rad,X165);
     Iarray(X165_objID,X165);
+
+    if(X180>0)
+        Iarray(X180_objID,X180);
 
     if (X311 > 0)
     {
@@ -3410,9 +3479,11 @@ void lexer::read_control()
     int countX131=0;
     int countX132=0;
     int countX133=0;
+    int countX153=0;
     int countX163=0;
     int countX164=0;
     int countX165=0;
+    int countX180=0;
     int countX311=0;
     int countX312=0;
     int countX320=0;
@@ -3874,41 +3945,49 @@ void lexer::read_control()
 				switch(numint)
 				{
 
-                case 102: control>>X102_u[countX102]>>X102_v[countX102]>>X102_w[countX102]>>X102_objID[countX102];
+                case 102: control>>X102_objID[countX102]>>X102_u[countX102]>>X102_v[countX102]>>X102_w[countX102];
                         ++countX102;
                          clear(c,numint);
                          break;
-                case 110: control>>X110_xs[countX110]>>X110_xe[countX110]>>X110_ys[countX110]>>X110_ye[countX110]>>X110_zs[countX110]>>X110_ze[countX110]>>X110_objID[countX110];
+                case 110: control>>X110_objID[countX110]>>X110_xs[countX110]>>X110_xe[countX110]>>X110_ys[countX110]>>X110_ye[countX110]>>X110_zs[countX110]>>X110_ze[countX110];
                         ++countX110;
 						 clear(c,numint);
 						 break;
-                case  131: control>>X131_rad[countX131]>>X131_h[countX131]>>X131_xc[countX131]>>X131_yc[countX131]>>X131_zc[countX131]>>X131_objID[countX131];
+                case  131: control>>X131_objID[countX131]>>X131_rad[countX131]>>X131_h[countX131]>>X131_xc[countX131]>>X131_yc[countX131]>>X131_zc[countX131];
                          ++countX131;
                          clear(c,numint);
                          break;
-                 case  132: control>>X132_rad[countX132]>>X132_h[countX132]>>X132_xc[countX132]>>X132_yc[countX132]>>X132_zc[countX132]>>X132_objID[countX132];
+                 case  132: control>>X132_objID[countX132]>>X132_rad[countX132]>>X132_h[countX132]>>X132_xc[countX132]>>X132_yc[countX132]>>X132_zc[countX132];
                          ++countX132;
                          clear(c,numint);
                          break;
-                 case  133: control>>X133_rad[countX133]>>X133_h[countX133]>>X133_xc[countX133]>>X133_yc[countX133]>>X133_zc[countX133]>>X133_objID[countX133];
+                 case  133: control>>X133_objID[countX133]>>X133_rad[countX133]>>X133_h[countX133]>>X133_xc[countX133]>>X133_yc[countX133]>>X133_zc[countX133];
                          ++countX133;
                          clear(c,numint);
                          break;
-                case 163: control>>X163_x1[countX163]>>X163_y1[countX163]>>X163_z1[countX163]>>X163_x2[countX163]>>X163_y2[countX163]>>X163_z2[countX163]
+                case 153: control>>X153_objID[countX153]>>X153_xs[countX153]>>X153_xe[countX153]>>X153_ys[countX153]>>X153_ye[countX153]>>X153_zs[countX153]>>X153_ze[countX153];
+                         ++countX153;
+                         clear(c,numint);
+                         break;
+                case 163: control>>X163_objID[countX163]>>X163_x1[countX163]>>X163_y1[countX163]>>X163_z1[countX163]>>X163_x2[countX163]>>X163_y2[countX163]>>X163_z2[countX163]
                                  >>X163_x3[countX163]>>X163_y3[countX163]>>X163_z3[countX163]>>X163_x4[countX163]>>X163_y4[countX163]>>X163_z4[countX163]
                                  >>X163_x5[countX163]>>X163_y5[countX163]>>X163_z5[countX163]>>X163_x6[countX163]>>X163_y6[countX163]>>X163_z6[countX163];
                         ++countX163;
 						 clear(c,numint);
 						 break;
-                case 164: control>>X164_x1[countX164]>>X164_y1[countX164]>>X164_z1[countX164]>>X164_x2[countX164]>>X164_y2[countX164]>>X164_z2[countX164]
+                case 164: control>>X164_objID[countX164]>>X164_x1[countX164]>>X164_y1[countX164]>>X164_z1[countX164]>>X164_x2[countX164]>>X164_y2[countX164]>>X164_z2[countX164]
                                  >>X164_x3[countX164]>>X164_y3[countX164]>>X164_z3[countX164]>>X164_x4[countX164]>>X164_y4[countX164]>>X164_z4[countX164]
                                  >>X164_x5[countX164]>>X164_y5[countX164]>>X164_z5[countX164]>>X164_x6[countX164]>>X164_y6[countX164]>>X164_z6[countX164]
                                  >>X164_x7[countX164]>>X164_y7[countX164]>>X164_z7[countX164]>>X164_x8[countX164]>>X164_y8[countX164]>>X164_z8[countX164];
                         ++countX164;
 						 clear(c,numint);
 						 break;
-				case 165: control>>X165_x[countX165]>>X165_y[countX165]>>X165_z[countX165]>>X165_rad[countX165]>>X165_objID[countX165];
+				case 165: control>>X165_objID[countX165]>>X165_x[countX165]>>X165_y[countX165]>>X165_z[countX165]>>X165_rad[countX165];
                         ++countX165;
+                         clear(c,numint);
+                         break;
+                case 180: control>>X180_objID[countX180];
+                        ++countX180;
                          clear(c,numint);
                          break;
 				case 311: control>>X311_xs[countX311]>>X311_xe[countX311]>>X311_ys[countX311]>>X311_ye[countX311]>>X311_zs[countX311]>>X311_ze[countX311]

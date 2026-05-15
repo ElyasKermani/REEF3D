@@ -109,7 +109,7 @@ void sixdof_obj::geometry_parameters(lexer *p, fdm *a, ghostcell *pgc)
         }
         Vol_ls=pgc->globalsum(Vol_ls);
 
-        if(p->X180==0)
+        if(!p->sixdof_body_has_stl(n6DOF))
         {
             Vfb = integ[0]/6.0;
             Rfb = 0.0;
@@ -283,7 +283,7 @@ void sixdof_obj::geometry_parameters_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc
         }
         Vol_ls=pgc->globalsum(Vol_ls);
 
-        if(p->X180==0)
+        if(!p->sixdof_body_has_stl(n6DOF))
         {
             Vfb = integ[0]/6.0;
             Rfb = 0.0;

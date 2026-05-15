@@ -19,12 +19,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
 Author: Elyas Larkermani
 
-phasicFlow Hertz-Mindlin model with no tangential damping. Tangential
-history is rescaled when the Coulomb friction limit is reached.
+Linear spring-dashpot contact where tangential history is NOT rescaled when
+the Coulomb friction limit is reached.
 --------------------------------------------------------------------*/
 
-#ifndef CONTACT_FORCE_PHASICFLOW_NONLINEAR_LIMITED_H_
-#define CONTACT_FORCE_PHASICFLOW_NONLINEAR_LIMITED_H_
+#ifndef CONTACT_FORCE_DEM_LINEAR_NONLIMITED_H_
+#define CONTACT_FORCE_DEM_LINEAR_NONLIMITED_H_
 
 #include"contact_force.h"
 
@@ -32,12 +32,12 @@ class lexer;
 
 using namespace std;
 
-class contact_force_phasicflow_nonlinear_limited : public contact_force
+class contact_force_dem_linear_nonlimited : public contact_force
 {
 public:
 
-    contact_force_phasicflow_nonlinear_limited(lexer*);
-    virtual ~contact_force_phasicflow_nonlinear_limited();
+    contact_force_dem_linear_nonlimited(lexer*);
+    virtual ~contact_force_dem_linear_nonlimited();
 
     void compute(lexer*, ghostcell*,
                  sixdof_obj *obj1, sixdof_obj *obj2,
@@ -49,10 +49,15 @@ public:
 
 private:
 
-    double E;     // Young modulus (Pa); Hertz normal stiffness
-    double nu;    // Poisson ratio (nondim.); shear modulus G = E/(1+nu) in this kernel
-    double mu;    // Coulomb friction coefficient (nondim.)
-    double cor;   // normal coefficient of restitution (nondim.)
+    double kn;       // normal spring stiffness (N/m)
+    double kt;       // tangential spring stiffness (N/m)
+    double cn;       // normal viscous damping (N·s/m); overridden if use_cor
+    double ct;       // tangential viscous damping (N·s/m); overridden if use_cor
+    double mu;       // Coulomb friction coefficient (nondim.)
+    double cor;      // normal restitution used to set en when use_cor (nondim.)
+    bool use_cor;    // if true, derive cn/ct from en/et and effective mass
+    double en;       // normal coefficient of restitution (nondim.)
+    double et;       // tangential restitution (nondim.); -1 means use en tangentially
 };
 
 #endif

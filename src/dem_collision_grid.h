@@ -20,8 +20,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#ifndef SIXDOF_COLLISION_GRID_H_
-#define SIXDOF_COLLISION_GRID_H_
+#ifndef DEM_COLLISION_GRID_H_
+#define DEM_COLLISION_GRID_H_
 
 #include<vector>
 #include<map>
@@ -33,12 +33,12 @@ class lexer;
 class ghostcell;
 class sixdof_obj;
 
-// Spatial-hash broad-phase used by the 6DOF collision pipeline
-class sixdof_collision_grid
+// Spatial-hash broad-phase used by the DEM object–object collision pipeline
+class dem_collision_grid
 {
 public:
-    sixdof_collision_grid(lexer *p, ghostcell *pgc);
-    ~sixdof_collision_grid();
+    dem_collision_grid(lexer *p, ghostcell *pgc);
+    ~dem_collision_grid();
 
     // Bin every object into the grid for the current step
     void update_grid(lexer *p, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj);
@@ -64,4 +64,4 @@ private:
     std::unordered_map<std::size_t, std::vector<int>> grid_cells;
 };
 
-#endif 
+#endif

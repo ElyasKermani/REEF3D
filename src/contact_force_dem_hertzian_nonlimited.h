@@ -19,12 +19,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
 Author: Elyas Larkermani
 
-phasicFlow Hertz-Mindlin model with no tangential damping. Tangential
-history is NOT rescaled when the Coulomb friction limit is reached.
+Hertz-Mindlin-style normal contact without tangential viscous damping.
+Tangential history is NOT rescaled when the Coulomb friction limit is reached.
 --------------------------------------------------------------------*/
 
-#ifndef CONTACT_FORCE_PHASICFLOW_NONLINEAR_NONLIMITED_H_
-#define CONTACT_FORCE_PHASICFLOW_NONLINEAR_NONLIMITED_H_
+#ifndef CONTACT_FORCE_DEM_HERTZIAN_NONLIMITED_H_
+#define CONTACT_FORCE_DEM_HERTZIAN_NONLIMITED_H_
 
 #include"contact_force.h"
 
@@ -32,12 +32,12 @@ class lexer;
 
 using namespace std;
 
-class contact_force_phasicflow_nonlinear_nonlimited : public contact_force
+class contact_force_dem_hertzian_nonlimited : public contact_force
 {
 public:
 
-    contact_force_phasicflow_nonlinear_nonlimited(lexer*);
-    virtual ~contact_force_phasicflow_nonlinear_nonlimited();
+    contact_force_dem_hertzian_nonlimited(lexer*);
+    virtual ~contact_force_dem_hertzian_nonlimited();
 
     void compute(lexer*, ghostcell*,
                  sixdof_obj *obj1, sixdof_obj *obj2,

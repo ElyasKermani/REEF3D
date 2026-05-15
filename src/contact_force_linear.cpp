@@ -26,14 +26,14 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include<cmath>
 
-contact_force_linear::contact_force_linear(lexer*)
+contact_force_linear::contact_force_linear(lexer *p)
 {
-    kn = 1.0e6;
-    kt = 0.5e6;
+    kn = p->R30;
+    kt = p->R31;
     cn = 1.0e4;
     ct = 0.5e4;
-    mu = 0.3;
-    en = 0.8;
+    mu = p->R33;
+    en = p->R32;
     et = -1.0;
     use_cor = true;
 }

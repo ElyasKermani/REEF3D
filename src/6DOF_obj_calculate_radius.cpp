@@ -25,6 +25,7 @@ Author: Elyas Larkermani
 #include"fdm.h"
 #include"ghostcell.h"
 #include<cmath>
+#include<algorithm>
 
 void sixdof_obj::calculate_bounding_radius(lexer *p, ghostcell *pgc)
 {
@@ -75,14 +76,22 @@ void sixdof_obj::calculate_bounding_radius(lexer *p, ghostcell *pgc)
         cout<<"6DOF object "<<n6DOF<<" bounding radius: "<<radius<<endl;
 }
 
-void sixdof_obj::build_bvh()
+void sixdof_obj::build_bvh(lexer *p)
 {
-    // Build BVH for triangle mesh (for detailed collision detection)
-    // Only build if we have enough triangles to benefit from BVH
-    
-    const int BVH_THRESHOLD = 50;  // Build BVH only if more than 50 triangles
-    
-    if(tricount < BVH_THRESHOLD)
+    // Build BVH for triangle mesh (for detailed collision detection).
+    // R21: 0 = auto when triangle count ≥ 50, 1 = always build if mesh exists, 2 = never use BVH.
+    const int leaf = std::max(1, p->R20);
+    constexpr int auto_threshold = 50;
+
+    bool want_bvh = false;
+    if(p->R21 == 2)
+        want_bvh = false;
+    else if(p->R21 == 1)
+        want_bvh = (tricount > 0);
+    else
+        want_bvh = (tricount >= auto_threshold);
+
+    if(!want_bvh)
     {
         use_bvh = false;
         if(mesh_bvh)
@@ -90,26 +99,30 @@ void sixdof_obj::build_bvh()
             delete mesh_bvh;
             mesh_bvh = nullptr;
         }
-        
-        // Inform user about algorithm selection
-        cout << "6DOF object " << n6DOF << ": " << tricount 
-             << " triangles (< " << BVH_THRESHOLD 
-             << ") - BVH not built (simpler path in adaptive narrow-phase)" << endl;
+
+        if(p->R21 != 2 && tricount < auto_threshold && tricount > 0)
+        {
+            cout << "6DOF object " << n6DOF << ": " << tricount
+                 << " triangles (< " << auto_threshold
+                 << ") - BVH not built (R 21 0 auto mode)" << endl;
+        }
+        else if(p->R21 == 2 && tricount > 0)
+        {
+            cout << "6DOF object " << n6DOF << ": BVH disabled (R 21 2)" << endl;
+        }
         return;
     }
-    
-    // Create or rebuild BVH
-    if(!mesh_bvh)
+
+    if(mesh_bvh)
     {
-        mesh_bvh = new BVH_Tree(4);  // Max 4 triangles per leaf
+        delete mesh_bvh;
+        mesh_bvh = nullptr;
     }
-    
-    // Build the BVH from reference mesh (body frame, same as tri_x0 in motion update).
-    // Queries use the other body's bounding sphere transformed into this body frame.
+
+    mesh_bvh = new BVH_Tree(leaf);
     mesh_bvh->build(tri_x0, tri_y0, tri_z0, tricount);
     use_bvh = true;
-    
-    // Inform user about algorithm selection
-    cout << "6DOF object " << n6DOF << ": Built body-frame BVH (" 
+
+    cout << "6DOF object " << n6DOF << ": Built body-frame BVH (leaf≤" << leaf << ", "
          << tricount << " triangles) for narrow-phase pruning" << endl;
 } 

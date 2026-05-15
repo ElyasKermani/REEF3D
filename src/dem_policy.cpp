@@ -25,6 +25,16 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include<algorithm>
 
+namespace
+{
+    // Triangle-count thresholds for the adaptive narrow-phase.
+    // Below SIMPLE_TRI_MAX  : sphere–sphere branch (fast, coarse).
+    // Below MODERATE_TRI_MAX: SAT triangle–triangle without BVH.
+    // Above MODERATE_TRI_MAX: SAT with body-frame BVH pruning.
+    constexpr int SIMPLE_TRI_MAX   = 50;
+    constexpr int MODERATE_TRI_MAX = 500;
+}
+
 dem_policy::dem_policy()
 {
 }
@@ -33,47 +43,49 @@ dem_config dem_policy::select(lexer *p, const vector<sixdof_obj*> &fb_obj) const
 {
     dem_config config;
 
-    config.adaptive = true;
-    config.simple_tri = 50;
-    config.moderate_tri = 500;
+    // R12 now selects the detection mode at the dispatcher level (see dem_*_collision.cpp);
+    // when start_adaptive is reached, adaptive routing is always desired.
+    config.adaptive     = true;
+    config.simple_tri   = SIMPLE_TRI_MAX;
+    config.moderate_tri = MODERATE_TRI_MAX;
 
-    // Contact-force model selector (control-file flag X47):
+    // Contact-force model (R11):
     //  0 -- automatic selection (default)
     //  1 -- Linear spring-dashpot
     //  2 -- Hertz
     //  3 -- Hertz-Mindlin
-    if(p->X47==1)
+    if(p->R11==1)
     {
         config.contact_model = ContactForceModel::Linear;
         return config;
     }
 
-    if(p->X47==2)
+    if(p->R11==2)
     {
         config.contact_model = ContactForceModel::Hertz;
         return config;
     }
 
-    if(p->X47==3)
+    if(p->R11==3)
     {
         config.contact_model = ContactForceModel::HertzMindlin;
         return config;
     }
 
-    // Automatic selection: pick a phasicFlow variant based on object count and size
+    // Automatic selection: pick an extended DEM contact variant based on object count and size
     double max_radius = 0.0;
     for(size_t n=0; n<fb_obj.size(); ++n)
     max_radius = max(max_radius, fb_obj[n]->radius);
 
     if(fb_obj.size()<=2 && max_radius<0.5)
-    config.contact_model = ContactForceModel::PhasicFlowLinearLimited;
+    config.contact_model = ContactForceModel::DemLinearLimited;
     else
-    config.contact_model = ContactForceModel::PhasicFlowNonLinearNonLimited;
+    config.contact_model = ContactForceModel::DemHertzianNonLimited;
 
     return config;
 }
 
-void dem_policy::apply(lexer *p, const vector<sixdof_obj*> &fb_obj, sixdof_collision &collision) const
+void dem_policy::apply(lexer *p, const vector<sixdof_obj*> &fb_obj, dem_collision &collision) const
 {
     const dem_config config = select(p,fb_obj);
 

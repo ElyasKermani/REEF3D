@@ -30,7 +30,7 @@ class lexer;
 class fdm_nhf;
 class ghostcell;
 class sixdof_obj;
-class sixdof_collision;
+class dem_collision;
 
 using namespace std;
 
@@ -51,7 +51,7 @@ public:
 
 private:
 
-    sixdof_collision *p_collision;
+    dem_collision *p_collision;
     dem_policy policy;
 };
 

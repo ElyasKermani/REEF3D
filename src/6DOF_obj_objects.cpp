@@ -70,20 +70,29 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
 	
 	for(qn=0;qn<p->X153;++qn)
     {
-        wedge_sym(p,pgc,qn);
-        ++entity_count;
+        if(p->X153_objID[qn]==n6DOF)
+        {
+            wedge_sym(p,pgc,qn);
+            ++entity_count;
+        }
     }
     
     for(qn=0;qn<p->X163;++qn)
     {
-        wedge(p,pgc,qn);
-        ++entity_count;
+        if(p->X163_objID[qn]==n6DOF)
+        {
+            wedge(p,pgc,qn);
+            ++entity_count;
+        }
     }
     
     for(qn=0;qn<p->X164;++qn)
     {
-        hexahedron(p,pgc,qn);
-        ++entity_count;
+        if(p->X164_objID[qn]==n6DOF)
+        {
+            hexahedron(p,pgc,qn);
+            ++entity_count;
+        }
     }
     
     for(qn=0;qn<p->X165;++qn)
@@ -95,10 +104,16 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
         }
     }
     
-    if(p->X180==1)
+    if(p->X180>0)
     {
-        read_stl(p,pgc);
-		++entity_count;
+        bool stl_done = false;
+        for(qn=0;qn<p->X180;++qn)
+        if(p->X180_objID[qn]==n6DOF && !stl_done)
+        {
+            read_stl(p,pgc);
+            ++entity_count;
+            stl_done = true;
+        }
     }
 
 
@@ -128,25 +143,57 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
     calculate_bounding_radius(p, pgc);
     
     // Build BVH for adaptive collision detection (if object is complex enough)
-    build_bvh();
+    build_bvh(p);
 }
 
 void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
 {
     int qn;
-    double U,ds,phi,r,snum,trisum;
+    double U,ds,r,snum,trisum;
     
-    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X165;
+    int n110 = 0, n131 = 0, n132 = 0, n133 = 0, n153 = 0, n163 = 0, n164 = 0, n165 = 0;
+    int stl_patch = 0;
+
+    for(qn=0;qn<p->X110;++qn)
+        if(p->X110_objID[qn]==n6DOF) ++n110;
+    for(qn=0;qn<p->X131;++qn)
+        if(p->X131_objID[qn]==n6DOF) ++n131;
+    for(qn=0;qn<p->X132;++qn)
+        if(p->X132_objID[qn]==n6DOF) ++n132;
+    for(qn=0;qn<p->X133;++qn)
+        if(p->X133_objID[qn]==n6DOF) ++n133;
+    for(qn=0;qn<p->X153;++qn)
+        if(p->X153_objID[qn]==n6DOF) ++n153;
+    for(qn=0;qn<p->X163;++qn)
+        if(p->X163_objID[qn]==n6DOF) ++n163;
+    for(qn=0;qn<p->X164;++qn)
+        if(p->X164_objID[qn]==n6DOF) ++n164;
+    for(qn=0;qn<p->X165;++qn)
+        if(p->X165_objID[qn]==n6DOF) ++n165;
+
+    if(p->X180>0 && p->X180_objID)
+    {
+        for(qn=0;qn<p->X180;++qn)
+        if(p->X180_objID[qn]==n6DOF)
+        {
+            stl_patch = 1;
+            break;
+        }
+    }
+
+    entity_sum = n110 + n131 + n132 + n133 + n153 + n163 + n164 + n165 + stl_patch;
+
     tricount=0;
     trisum=0;
     
     // box
-    trisum+=12*p->X110;
+    trisum+=12*n110;
     
     // cylinder_x   
     if(p->X131>0)
     {
         for(qn=0;qn<p->X131;++qn)
+        if(p->X131_objID[qn]==n6DOF)
         {
             r=p->X131_rad[qn];
             U = 2.0 * PI * r;
@@ -160,6 +207,7 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     if(p->X132>0)
     {
         for(qn=0;qn<p->X132;++qn)
+        if(p->X132_objID[qn]==n6DOF)
         {
             r=p->X132_rad[qn];
             U = 2.0 * PI * r;
@@ -173,6 +221,7 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     if(p->X133>0)
     {
         for(qn=0;qn<p->X133;++qn)
+        if(p->X133_objID[qn]==n6DOF)
         {
             r=p->X133_rad[qn];
             U = 2.0 * PI * r;
@@ -183,20 +232,16 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     }
     
     // wedge sym
-    trisum+=12*p->X153;
+    trisum+=12*n153;
     
     // wedge
-    trisum+=8*p->X163;
+    trisum+=8*n163;
     
     // hexahedron
-    trisum+=12*p->X164;
+    trisum+=12*n164;
     
     // sphere
-    trisum+=400*p->X165;  // 20*10*2 triangles per sphere
-    
-    // STL
-    if(p->X180==1)
-    entity_sum=1;
+    trisum+=400*n165;  // 20*10*2 triangles per sphere
 
     
     p->Darray(tri_x,trisum,3);

@@ -29,14 +29,14 @@ void sixdof_obj::wedge_sym(lexer *p, ghostcell *pgc, int id)
 	double xm;
 		
 	
-	xs = p->X153_xs;
-    xe = p->X153_xe;
-	
-    ys = p->X153_ys;
-    ye = p->X153_ye;
+	xs = p->X153_xs[id];
+    xe = p->X153_xe[id];
 
-    zs = p->X153_zs;
-    ze = p->X153_ze;  
+    ys = p->X153_ys[id];
+    ye = p->X153_ye[id];
+
+    zs = p->X153_zs[id];
+    ze = p->X153_ze[id];  
 
 	xm = xs + 0.5*(xe-xs);
 	

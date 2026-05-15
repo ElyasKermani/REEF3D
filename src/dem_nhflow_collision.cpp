@@ -21,12 +21,12 @@ Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
 #include"dem_nhflow_collision.h"
-#include"6DOF_collision.h"
+#include"dem_collision.h"
 #include"lexer.h"
 
 dem_nhflow_collision::dem_nhflow_collision(lexer *p, ghostcell *pgc)
 {
-    p_collision = new sixdof_collision(p,pgc);
+    p_collision = new dem_collision(p,pgc);
 }
 
 dem_nhflow_collision::~dem_nhflow_collision()
@@ -47,13 +47,12 @@ void dem_nhflow_collision::start(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<si
     if(fb_obj.size()<2)
     return;
 
-    if(p->X49==1)
+    // R12 = narrow-phase detection mode (0 = adaptive, 1 = sphere-only, 2 = triangle-SAT)
+    if(p->R12==1)
     start_sphere_sphere(p,d,pgc,fb_obj,iter,finalize);
-
-    if(p->X49==2)
+    else if(p->R12==2)
     start_triangle_sat(p,d,pgc,fb_obj,iter,finalize);
-
-    if(p->X49==0 || p->X49==3)
+    else
     start_adaptive(p,d,pgc,fb_obj,iter,finalize);
 }
 

@@ -23,12 +23,11 @@ Author: Elyas Larkermani
 #ifndef DEM_POLICY_H_
 #define DEM_POLICY_H_
 
-#include"6DOF_collision.h"
+#include"dem_collision.h"
 #include<vector>
 
 class lexer;
 class sixdof_obj;
-class sixdof_collision;
 
 using namespace std;
 
@@ -53,7 +52,7 @@ public:
     dem_policy();
 
     dem_config select(lexer*, const vector<sixdof_obj*>&) const;
-    void apply(lexer*, const vector<sixdof_obj*>&, sixdof_collision&) const;
+    void apply(lexer*, const vector<sixdof_obj*>&, dem_collision&) const;
 };
 
 #endif

@@ -19,12 +19,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------
 Author: Elyas Larkermani
 
-phasicFlow linear spring-dashpot model where tangential history is NOT
-rescaled when the Coulomb friction limit is reached.
+Linear spring-dashpot contact with tangential history rescaling when the
+Coulomb friction limit is reached.
 --------------------------------------------------------------------*/
 
-#ifndef CONTACT_FORCE_PHASICFLOW_LINEAR_NONLIMITED_H_
-#define CONTACT_FORCE_PHASICFLOW_LINEAR_NONLIMITED_H_
+#ifndef CONTACT_FORCE_DEM_LINEAR_LIMITED_H_
+#define CONTACT_FORCE_DEM_LINEAR_LIMITED_H_
 
 #include"contact_force.h"
 
@@ -32,12 +32,12 @@ class lexer;
 
 using namespace std;
 
-class contact_force_phasicflow_linear_nonlimited : public contact_force
+class contact_force_dem_linear_limited : public contact_force
 {
 public:
 
-    contact_force_phasicflow_linear_nonlimited(lexer*);
-    virtual ~contact_force_phasicflow_linear_nonlimited();
+    contact_force_dem_linear_limited(lexer*);
+    virtual ~contact_force_dem_linear_limited();
 
     void compute(lexer*, ghostcell*,
                  sixdof_obj *obj1, sixdof_obj *obj2,

@@ -20,25 +20,25 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
-#include"contact_force_phasicflow_nonlinear_limited.h"
+#include"contact_force_dem_hertzian_limited.h"
 #include"contact_history.h"
 #include"6DOF_obj.h"
 #include"lexer.h"
 #include<cmath>
 
-contact_force_phasicflow_nonlinear_limited::contact_force_phasicflow_nonlinear_limited(lexer*)
+contact_force_dem_hertzian_limited::contact_force_dem_hertzian_limited(lexer *p)
 {
-    E = 1.0e6;
-    nu = 0.25;
-    mu = 0.3;
-    cor = 0.8;
+    E = p->R34;
+    nu = p->R35;
+    mu = p->R33;
+    cor = p->R32;
 }
 
-contact_force_phasicflow_nonlinear_limited::~contact_force_phasicflow_nonlinear_limited()
+contact_force_dem_hertzian_limited::~contact_force_dem_hertzian_limited()
 {
 }
 
-void contact_force_phasicflow_nonlinear_limited::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof_obj *obj2,
+void contact_force_dem_hertzian_limited::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof_obj *obj2,
                                                          const Eigen::Vector3d &contact_point,
                                                          const Eigen::Vector3d &normal,
                                                          double overlap,

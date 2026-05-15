@@ -21,6 +21,7 @@ Author: Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"lexer.h"
+#include <set>
 
 void lexer::lexer_ini()
 {
@@ -85,6 +86,43 @@ void lexer::lexer_ini()
     
     if(A10==3 || A10==5)
     G2=1;
+
+    sixdof_infer_body_registry();
+}
+
+void lexer::sixdof_infer_body_registry()
+{
+    std::set<int> ids;
+    int q;
+
+#define RF_ADD_IDS(cnt, arr)                         \
+    if ((cnt) > 0 && (arr))                         \
+        for ((q) = 0; (q) < (cnt); ++(q)) ids.insert((arr)[q]);
+
+    RF_ADD_IDS(X110, X110_objID);
+    RF_ADD_IDS(X131, X131_objID);
+    RF_ADD_IDS(X132, X132_objID);
+    RF_ADD_IDS(X133, X133_objID);
+    RF_ADD_IDS(X153, X153_objID);
+    RF_ADD_IDS(X163, X163_objID);
+    RF_ADD_IDS(X164, X164_objID);
+    RF_ADD_IDS(X165, X165_objID);
+    RF_ADD_IDS(X180, X180_objID);
+
+#undef RF_ADD_IDS
+
+    sixdof_body_id.assign(ids.begin(), ids.end());
+    X20 = (int)sixdof_body_id.size();
+}
+
+bool lexer::sixdof_body_has_stl(int body_id) const
+{
+    if (X180 <= 0 || X180_objID == nullptr)
+        return false;
+    for (int qi = 0; qi < X180; ++qi)
+        if (X180_objID[qi] == body_id)
+            return true;
+    return false;
 }
 
 void lexer::makeflag( int *field)

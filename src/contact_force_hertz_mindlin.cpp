@@ -26,12 +26,12 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include<cmath>
 
-contact_force_hertz_mindlin::contact_force_hertz_mindlin(lexer*)
+contact_force_hertz_mindlin::contact_force_hertz_mindlin(lexer *p)
 {
-    E = 1.0e6;
-    nu = 0.25;
-    mu = 0.3;
-    cor = 0.8;
+    E = p->R34;
+    nu = p->R35;
+    mu = p->R33;
+    cor = p->R32;
 }
 
 contact_force_hertz_mindlin::~contact_force_hertz_mindlin()

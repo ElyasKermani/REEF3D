@@ -23,10 +23,10 @@ Author: Elyas Larkermani
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
-#include"6DOF_collision_grid.h"
+#include"dem_collision_grid.h"
 #include"6DOF_cfd.h"
 #include"6DOF_obj.h"
-#include"6DOF_collision.h"
+#include"dem_collision.h"
 #include<time.h>
 
 void test_collision_grid(lexer *p, fdm *a, ghostcell *pgc)
@@ -37,13 +37,13 @@ void test_collision_grid(lexer *p, fdm *a, ghostcell *pgc)
     if(p->mpirank==0)
     {
         cout<<"---------------------------------------------"<<endl;
-        cout<<"Testing 6DOF Collision Grid Implementation"<<endl;
+        cout<<"Testing DEM collision grid implementation"<<endl;
         cout<<"---------------------------------------------"<<endl;
     }
     
     // Measure performance - create collision grid
     start = clock();
-    sixdof_collision_grid *collision_grid = new sixdof_collision_grid(p, pgc);
+    dem_collision_grid *collision_grid = new dem_collision_grid(p, pgc);
     end = clock();
     
     if(p->mpirank==0)

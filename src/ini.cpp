@@ -696,6 +696,26 @@ void lexer::ini_default()
     Q201 = 0;           // int movement model deposition
     Q202 = 1;           // int movement model transport
 
+    // DEM (R prefix) — existing decks without R lines keep current behavior
+    R10=1;              // master enable: auto (DEM on when number6DOF>1)
+    R11=0;              // contact-force model: 0=auto, 1=Linear, 2=Hertz, 3=Hertz-Mindlin
+    R12=0;              // detection mode: 0=adaptive, 1=sphere-only, 2=triangle-SAT
+    R20=4;              // BVH leaf size (triangles per leaf)
+    R21=0;              // BVH: 0=auto, 1=always build mesh BVH, 2=never
+    R22=1.0;            // BVH prune sphere-radius multiplier
+    R30=1.0e6;          // kn [N/m]
+    R31=0.5e6;          // kt [N/m]
+    R32=0.8;            // normal restitution e / COR
+    R33=0.3;            // Coulomb friction μ
+    R34=1.0e6;          // Young's modulus E [Pa] (Hertz-type models)
+    R35=0.25;           // Poisson ratio ν
+    R40=0.2;            // rolling friction coefficient μ_r
+    R41=0.5e6;          // rolling stiffness k_r [N·m/rad]
+    R42=0.5e4;          // rolling damping c_r [N·m·s/rad]
+    R43=1.0e-3;         // rolling torque cap τ_r,max [N·m]
+    R50=10;             // max contact substeps
+    R51=1;              // substeps enabled (1=yes)
+
 	// Sediment Transport
 	S10=0;                  // int sediment transport module
 	S11=0;                  // int bedload formula
@@ -875,9 +895,7 @@ void lexer::ini_default()
 	X44=0.0;    // double viscosity in body
     X45=0;      // int type of lsm convection disc at fb
     X46=0;      // int 
-    X47=0;      // int contact-force model: 0=auto, 1=Linear, 2=Hertz, 3=Hertz-Mindlin
     X48=0;      // int solid forcing level set
-    X49=0;
     X50=1;      // int type of print out format for 6DOF structure
     X60=1;      // int type of print of force calculation
     X100=0;        // int delta x,y,z
@@ -893,11 +911,11 @@ void lexer::ini_default()
     X131=0;        // int cylinder floating bod x
     X132=0;        // int cylinder floating bod y
     X133=0;        // int cylinder floating bod z
-    X153=0;        // int symmetric wedge
+    X153=0;        // count of symmetric wedge primitives (pass-2 geometry lines; leading objID like PatchBC, then box coords)
     X163=0;        // int wedge
     X164=0;        // int hexahedron
     X165=0;        // int sphere
-    X180=0;        // int read .stl file for floating body geometry
+    X180=0;        // count of X 180 lines: each line gives floating-body objID using STL geometry (floating-<id>.stl)
     X181=1.0;   // double scale .stl geometry
     X181=0;     // int scale .stl geometry on/off
     X181_x=X181_y=X181_z=1.0;  // double scaling of stl geometry
