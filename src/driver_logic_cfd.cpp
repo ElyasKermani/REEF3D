@@ -654,7 +654,7 @@ void driver::logic_cfd()
     }
 
 	if(p->N40==5)
-	pmom = new momentum_RK3CN(p,a,pconvec,pdiff,ppress,ppois,pturb,psolv,ppoissonsolv,pflow,pfsi);
+	pmom = new momentum_RK3CN(p,a,pgc,pconvec,pdiff,ppress,ppois,pturb,psolv,ppoissonsolv,pflow,pheat,pfsi);
 
 }
 

@@ -186,6 +186,7 @@
             <File Name="density_rheo.h"/>
             <File Name="density_pst.h"/>
             <File Name="density_heat.h"/>
+            <File Name="density_heat_Bouss.h"/>
             <File Name="density_f.h"/>
             <File Name="density_df.h"/>
             <File Name="density_conc.h"/>
@@ -1584,6 +1585,7 @@
             <File Name="density_rheo.cpp"/>
             <File Name="density_pst.cpp"/>
             <File Name="density_heat.cpp"/>
+            <File Name="density_heat_Bouss.cpp"/>
             <File Name="density_f.cpp"/>
             <File Name="density_df.cpp"/>
             <File Name="density_conc.cpp"/>

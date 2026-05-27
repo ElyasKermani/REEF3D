@@ -34,11 +34,17 @@ Authors: Elyas Larkermani, Hans Bihs
 #include"solver.h"
 #include"fluid_update_rheology.h"
 #include"fluid_update_void.h"
+#include"fluid_update_fsf.h"
+#include"fluid_update_fsf_comp.h"
+#include"fluid_update_fsf_heat.h"
+#include"fluid_update_fsf_heat_Bouss.h"
+#include"density_heat_Bouss.h"
+#include"heat.h"
 #include"nhflow.h"
 
-momentum_RK3CN::momentum_RK3CN(lexer *p, fdm *a, convection *pconvection, diffusion *pdiffusion, pressure* ppressure, poisson* ppoisson,
+momentum_RK3CN::momentum_RK3CN(lexer *p, fdm *a, ghostcell *pgc, convection *pconvection, diffusion *pdiffusion, pressure* ppressure, poisson* ppoisson,
                                                     turbulence *pturbulence, solver *psolver, solver *ppoissonsolver, 
-                                                    ioflow *pioflow, fsi *ppfsi)
+                                                    ioflow *pioflow, heat *&pheat, fsi *ppfsi)
                                                     :momentum_forcing(p),bcmom(p),udiff(p),vdiff(p),wdiff(p),urk1(p),urk2(p),vrk1(p),
                                                     vrk2(p),wrk1(p),wrk2(p),fx(p),fy(p),fz(p)
 {
@@ -56,15 +62,38 @@ momentum_RK3CN::momentum_RK3CN(lexer *p, fdm *a, convection *pconvection, diffus
 	pflow=pioflow;    
     pfsi=ppfsi;
 
-    if(p->W90==0  || p->F300>0)
-	pupdate = new fluid_update_void();
-    
-    if(p->W90>0 && p->F300==0)
+    pd = nullptr;
+    pupdate = nullptr;
+
+    if(p->F300>0)
+    pupdate = new fluid_update_void();
+
+    else if(p->F30>0 && p->H10>0 && p->W90==0 && p->H3==2)
+    {
+    pupdate = new fluid_update_fsf_heat_Bouss(p,a,pgc,pheat);
+    pd = new density_heat_Bouss(p,pheat);
+    }
+
+    else if(p->F30>0 && p->H10>0 && p->W90==0 && p->H3==1)
+    pupdate = new fluid_update_fsf_heat(p,a,pgc,pheat);
+
+    else if(p->F30>0 && p->H10==0 && p->W30==0 && p->W90==0)
+    pupdate = new fluid_update_fsf(p,a,pgc);
+
+    else if(p->F30>0 && p->H10==0 && p->W30==1 && p->W90==0)
+    pupdate = new fluid_update_fsf_comp(p,a,pgc);
+
+    else if(p->W90>0)
     pupdate = new fluid_update_rheology(p);
+
+    else
+    pupdate = new fluid_update_void();
 }
 
 momentum_RK3CN::~momentum_RK3CN()
 {
+    delete pd;
+    delete pupdate;
 }
 
 void momentum_RK3CN::start(lexer *p, fdm *a, ghostcell *pgc, vrans *pvrans, sixdof *p6dof)
@@ -196,7 +225,7 @@ void momentum_RK3CN::start(lexer *p, fdm *a, ghostcell *pgc, vrans *pvrans, sixd
 	pconvec->start(p,a,wrk1,3,urk1,vrk1,wrk1);
         addkrhs(p,a,pgc,wrk1,urk1,vrk1,wrk1,25.0/8.0);
         pconvec->start(p,a,a->w,3,a->u,a->v,a->w);
-        addkrhs(p,a,pgc,a->w,a->u,a->v,a->w,-17/8.0);
+        addkrhs(p,a,pgc,a->w,a->u,a->v,a->w,-17.0/8.0);
 	pdiff->diff_w(p,a,pgc,psolv,wrk2,wrk1,urk1,vrk1,wrk1,2.0/15.0);
 
         p->wtime+=pgc->timer()-starttime;
@@ -303,13 +332,17 @@ void momentum_RK3CN::start(lexer *p, fdm *a, ghostcell *pgc, vrans *pvrans, sixd
 
 void momentum_RK3CN::irhs(lexer *p, fdm *a, ghostcell *pgc, field &f, field &uvel, field &vvel, field &wvel, double alpha)
 {
-        double dens;
+        double dens,ro_avg;
         n = 0;
 	ULOOP
 	{
         a->maxF=MAX(fabs(a->rhsvec.V[n] + a->gi),a->maxF);
-        if (p->H10>0 && p->W90==0 && p->H3==2){
-            dens = ((a->dro(i+1,j,k)+a->dro(i,j,k))/(a->ro(i+1,j,k)+a->ro(i,j,k)));}
+        if (p->H10>0 && p->W90==0 && p->H3==2 && pd!=nullptr){
+            ro_avg = 0.5*(a->ro(i,j,k)+a->ro(i+1,j,k));
+            if(ro_avg>1.0e-20)
+            dens = pd->roface(p,a,1,0,0)/ro_avg;
+            else
+            dens = 1.0;}
         else {
             dens = 1.0;
         }
@@ -334,13 +367,17 @@ void momentum_RK3CN::addirhs(lexer *p, fdm *a, ghostcell *pgc, field &f, field &
 
 void momentum_RK3CN::jrhs(lexer *p, fdm *a, ghostcell *pgc, field &f, field &uvel, field &vvel, field &wvel, double alpha)
 {
-	double dens;
+	double dens,ro_avg;
 	n = 0;
 	VLOOP
 	{
         a->maxG=MAX(fabs(a->rhsvec.V[n] + a->gj),a->maxG);
-        if (p->H10>0 && p->W90==0 && p->H3==2){
-            dens = ((a->dro(i,j+1,k)+a->dro(i,j,k))/(a->ro(i,j+1,k)+a->ro(i,j,k)));}
+        if (p->H10>0 && p->W90==0 && p->H3==2 && pd!=nullptr){
+            ro_avg = 0.5*(a->ro(i,j,k)+a->ro(i,j+1,k));
+            if(ro_avg>1.0e-20)
+            dens = pd->roface(p,a,0,1,0)/ro_avg;
+            else
+            dens = 1.0;}
         else {
             dens = 1.0;
         }
@@ -365,13 +402,17 @@ void momentum_RK3CN::addjrhs(lexer *p, fdm *a, ghostcell *pgc, field &f, field &
 
 void momentum_RK3CN::krhs(lexer *p, fdm *a, ghostcell *pgc, field &f, field &uvel, field &vvel, field &wvel, double alpha)
 {
-	double dens;
+	double dens,ro_avg;
 	n = 0;
 	WLOOP
 	{
         a->maxH=MAX(fabs(a->rhsvec.V[n] + a->gk),a->maxH);
-        if (p->H10>0 && p->W90==0 && p->H3==2){
-            dens = ((a->dro(i,j,k+1)+a->dro(i,j,k))/(a->ro(i,j,k+1)+a->ro(i,j,k)));}
+        if (p->H10>0 && p->W90==0 && p->H3==2 && pd!=nullptr){
+            ro_avg = 0.5*(a->ro(i,j,k)+a->ro(i,j,k+1));
+            if(ro_avg>1.0e-20)
+            dens = pd->roface(p,a,0,0,1)/ro_avg;
+            else
+            dens = 1.0;}
         else {
             dens = 1.0;
         }

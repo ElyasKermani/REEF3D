@@ -37,6 +37,8 @@ class turbulence;
 class solver;
 class poisson;
 class fluid_update;
+class density;
+class heat;
 class nhflow;
 class sixdof;
 class fsi;
@@ -46,7 +48,7 @@ using namespace std;
 class momentum_RK3CN final : public momentum, public momentum_forcing, public bcmom
 {
 public:
-	momentum_RK3CN(lexer*, fdm*, convection*, diffusion*, pressure*, poisson*, turbulence*, solver*, solver*, ioflow*, fsi*);
+	momentum_RK3CN(lexer*, fdm*, ghostcell*, convection*, diffusion*, pressure*, poisson*, turbulence*, solver*, solver*, ioflow*, heat*&, fsi*);
 	virtual ~momentum_RK3CN();
 	void start(lexer*, fdm*, ghostcell*, vrans*,sixdof*) override final;
 
@@ -56,6 +58,7 @@ public:
 
 private:
         fluid_update *pupdate;
+        density *pd;
     
 	void irhs(lexer*,fdm*,ghostcell*,field&,field&,field&,field&,double);
 	void jrhs(lexer*,fdm*,ghostcell*,field&,field&,field&,field&,double);
@@ -64,8 +67,6 @@ private:
         void addjrhs(lexer*,fdm*,ghostcell*,field&,field&,field&,field&,double);
         void addkrhs(lexer*,fdm*,ghostcell*,field&,field&,field&,field&,double);
 	
-        void timecheck(lexer*,fdm*,ghostcell*,field&,field&,field&);
-    
 	int gcval_u, gcval_v, gcval_w;
 	double starttime;
 
