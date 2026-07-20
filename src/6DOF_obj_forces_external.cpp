@@ -34,6 +34,19 @@ void sixdof_obj::clearExternalForces()
     Xext = Yext = Zext = Kext = Mext = Next = 0.0;
 }
 
+void sixdof_obj::clearDemForces()
+{
+    Xext_dem = Yext_dem = Zext_dem = Kext_dem = Mext_dem = Next_dem = 0.0;
+}
+
+double sixdof_obj::rk_stage_dt(lexer *p, int iter) const
+{
+    if(iter < 0 || iter > 2)
+    return p->dt;
+
+    return alpha[iter]*p->dt;
+}
+
 void sixdof_obj::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double alpha, bool finalize)
 {
     //Xext = Yext = Zext = Kext = Mext = Next = 0.0;

@@ -42,40 +42,40 @@ void dem_cfd_collision::initialize(lexer*, fdm*, ghostcell*)
 {
 }
 
-void dem_cfd_collision::start(lexer *p, fdm *a, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int iter, bool finalize)
+void dem_cfd_collision::start(lexer *p, fdm *a, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int iter, bool finalize, double dt_contact)
 {
     if(fb_obj.size()<2)
     return;
 
     // R12 = narrow-phase detection mode (0 = adaptive, 1 = sphere-only, 2 = triangle-SAT)
     if(p->R12==1)
-    start_sphere_sphere(p,a,pgc,fb_obj,iter,finalize);
+    start_sphere_sphere(p,a,pgc,fb_obj,iter,finalize,dt_contact);
     else if(p->R12==2)
-    start_triangle_sat(p,a,pgc,fb_obj,iter,finalize);
+    start_triangle_sat(p,a,pgc,fb_obj,iter,finalize,dt_contact);
     else
-    start_adaptive(p,a,pgc,fb_obj,iter,finalize);
+    start_adaptive(p,a,pgc,fb_obj,iter,finalize,dt_contact);
 }
 
-void dem_cfd_collision::start_sphere_sphere(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_cfd_collision::start_sphere_sphere(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::SphereOnly);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }
 
-void dem_cfd_collision::start_triangle_sat(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_cfd_collision::start_triangle_sat(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::TriangleSATOnly);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }
 
-void dem_cfd_collision::start_adaptive(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_cfd_collision::start_adaptive(lexer *p, fdm*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::Adaptive);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }

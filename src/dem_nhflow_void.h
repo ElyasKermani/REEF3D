@@ -41,7 +41,7 @@ public:
 
     void ini(lexer*, ghostcell*) override;
     void initialize(lexer*, fdm_nhf*, ghostcell*) override;
-    void start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool) override;
+    void start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact) override;
 };
 
 #endif

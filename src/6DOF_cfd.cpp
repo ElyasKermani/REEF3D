@@ -58,10 +58,21 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uv
 {
     setup(p,a,pgc);
 
+    if(iter==0)
     for (int nb=0; nb<number6DOF;++nb)
-    fb_obj[nb]->clearExternalForces();
-    
-    p_dem->start(p,a,pgc,fb_obj,iter,finalize);
+    {
+        fb_obj[nb]->clearExternalForces();
+        fb_obj[nb]->clearDemForces();
+    }
+
+    const bool run_dem = (p->R52!=0) || (iter==0);
+
+    double dt_contact = p->dt;
+    if(p->R52!=0 && number6DOF>0)
+    dt_contact = fb_obj[0]->rk_stage_dt(p,iter);
+
+    if(run_dem)
+    p_dem->start(p,a,pgc,fb_obj,iter,finalize,dt_contact);
     
     for (int nb=0; nb<number6DOF;++nb)
     {

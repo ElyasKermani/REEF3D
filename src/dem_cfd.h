@@ -38,7 +38,7 @@ public:
 
     virtual void ini(lexer*, ghostcell*)=0;
     virtual void initialize(lexer*, fdm*, ghostcell*)=0;
-    virtual void start(lexer*, fdm*, ghostcell*, vector<sixdof_obj*>&, int, bool)=0;
+    virtual void start(lexer*, fdm*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact)=0;
 };
 
 #endif

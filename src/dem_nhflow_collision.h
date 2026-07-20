@@ -43,11 +43,11 @@ public:
 
     void ini(lexer*, ghostcell*) override;
     void initialize(lexer*, fdm_nhf*, ghostcell*) override;
-    void start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool) override;
+    void start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact) override;
 
-    void start_sphere_sphere(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool);
-    void start_triangle_sat(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool);
-    void start_adaptive(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool);
+    void start_sphere_sphere(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact);
+    void start_triangle_sat(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact);
+    void start_adaptive(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double dt_contact);
 
 private:
 

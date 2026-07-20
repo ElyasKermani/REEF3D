@@ -44,6 +44,8 @@ public:
                          const Eigen::Vector3d &normal,
                          double overlap,
                          ContactHistory &history,
+                         double dt_contact,
+                         bool finalize,
                          Eigen::Vector3d &force, Eigen::Vector3d &torque)=0;
 
 protected:

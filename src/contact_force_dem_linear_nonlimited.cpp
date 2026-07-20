@@ -48,6 +48,8 @@ void contact_force_dem_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_o
                                                          const Eigen::Vector3d &normal,
                                                          double overlap,
                                                          ContactHistory &history,
+                                                         double dt_contact,
+                                                         bool finalize,
                                                          Eigen::Vector3d &force, Eigen::Vector3d &torque)
 {
     Eigen::Vector3d center1 = obj1->c_;
@@ -67,11 +69,7 @@ void contact_force_dem_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_o
     double v_rel_n = v_rel.dot(normal);
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
 
-    double dt = p->simtime - history.t_last;
-    if(dt <= 0.0) dt = p->dt;
-
     history.in_contact = true;
-    history.t_last = p->simtime;
 
     double meff = (obj1->Mass_fb * obj2->Mass_fb) / (obj1->Mass_fb + obj2->Mass_fb);
     double c_n = cn;
@@ -94,7 +92,7 @@ void contact_force_dem_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_o
     if(v_rel_t.norm() > 1.0e-10)
     {
         Eigen::Vector3d &overlap_t = history.s_t;
-        overlap_t += v_rel_t * dt;
+        overlap_t += v_rel_t * dt_contact;
         overlap_t -= normal * normal.dot(overlap_t);
 
         Eigen::Vector3d Ft = -kt * overlap_t - c_t * v_rel_t;
@@ -121,4 +119,7 @@ void contact_force_dem_linear_nonlimited::compute(lexer *p, ghostcell*, sixdof_o
     }
 
     torque = r1.cross(force);
+
+    if(finalize || p->R52==0)
+    history.t_last = p->simtime;
 }

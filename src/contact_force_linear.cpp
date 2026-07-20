@@ -46,8 +46,10 @@ void contact_force_linear::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdo
                                    const Eigen::Vector3d &contact_point,
                                    const Eigen::Vector3d &normal,
                                    double overlap,
-                                   ContactHistory &history,
-                                   Eigen::Vector3d &force, Eigen::Vector3d &torque)
+                                  ContactHistory &history,
+                                  double dt_contact,
+                                  bool finalize,
+                                  Eigen::Vector3d &force, Eigen::Vector3d &torque)
 {
     Eigen::Vector3d center1 = obj1->c_;
     Eigen::Vector3d center2 = obj2->c_;
@@ -71,11 +73,7 @@ void contact_force_linear::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdo
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
     double v_rel_t_mag = v_rel_t.norm();
 
-    double dt = p->simtime - history.t_last;
-    if(dt <= 0.0) dt = p->dt;
-
     history.in_contact = true;
-    history.t_last = p->simtime;
 
     double c_n = cn;
     if(use_cor)
@@ -91,7 +89,7 @@ void contact_force_linear::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdo
 
     if(v_rel_t_mag > 1.0e-10)
     {
-        history.s_t += v_rel_t * dt;
+        history.s_t += v_rel_t * dt_contact;
         history.s_t -= normal * normal.dot(history.s_t);
 
         double c_t = ct;
@@ -131,4 +129,7 @@ void contact_force_linear::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdo
     }
 
     torque = r1.cross(force);
+
+    if(finalize || p->R52==0)
+    history.t_last = p->simtime;
 }

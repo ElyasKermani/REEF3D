@@ -38,6 +38,6 @@ void dem_nhflow_void::initialize(lexer*, fdm_nhf*, ghostcell*)
 {
 }
 
-void dem_nhflow_void::start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool)
+void dem_nhflow_void::start(lexer*, fdm_nhf*, ghostcell*, vector<sixdof_obj*>&, int, bool, double)
 {
 }

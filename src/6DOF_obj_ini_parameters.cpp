@@ -112,6 +112,7 @@ void sixdof_obj::ini_fbvel(lexer *p, ghostcell *pgc)
     
     // Forces
     Xext = Yext = Zext = Kext = Mext = Next = 0.0;
+    Xext_dem = Yext_dem = Zext_dem = Kext_dem = Mext_dem = Next_dem = 0.0;
     Ffb_ << 0.0, 0.0, 0.0;
     Mfb_ << 0.0, 0.0, 0.0;
     

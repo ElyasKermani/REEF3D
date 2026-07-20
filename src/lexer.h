@@ -598,7 +598,8 @@ public:
     // R40–R43: rolling/twisting resistance — μ_r, k_r [N·m/rad], c_r [N·m·s/rad], τ_r,max [N·m]
     double R40, R41, R42, R43;
     // R50: max substeps for overlap resolution (≥1); R51: enable substeps (0 = off, 1 = on)
-    int R50, R51;
+    // R52: contact pass per fluid step (0 = once on finalize, 1 = every fluid RK stage)
+    int R50, R51, R52;
 
 	// Sediment Transport
 	int S10,S11,S12,S15,S16,S17,S25,S27,S28,S31,S32,S33,S34,S37,S41,S42,S43,S44,S50,S60,S73,S77,S78,S79,S80,S83,S84,S85,S90,S91,S94,S100,S101;

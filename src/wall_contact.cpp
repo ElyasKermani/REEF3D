@@ -63,7 +63,7 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
             const double v_normal = obj->u_fb(0);
             const double F_normal = k_eff * overlap - c_eff * std::min(v_normal, 0.0);
 
-            obj->Xext += F_normal;
+            obj->Xext_dem += F_normal;
 
             const double v_y = obj->u_fb(1);
             const double v_z = obj->u_fb(2);
@@ -75,8 +75,8 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
                 const double vy_norm = v_y / std::max(nu_, v_tangential);
                 const double vz_norm = v_z / std::max(nu_, v_tangential);
 
-                obj->Yext -= F_friction_mag * std::sin(PI/2.0 * vy_norm);
-                obj->Zext -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
+                obj->Yext_dem -= F_friction_mag * std::sin(PI/2.0 * vy_norm);
+                obj->Zext_dem -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
             }
 
             if(p->mpirank == 0 && p->count % 100 == 0)
@@ -100,7 +100,7 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
             const double v_normal = obj->u_fb(0);
             const double F_normal = k_eff * overlap + c_eff * std::max(v_normal, 0.0);
 
-            obj->Xext -= F_normal;
+            obj->Xext_dem -= F_normal;
 
             const double v_y = obj->u_fb(1);
             const double v_z = obj->u_fb(2);
@@ -112,8 +112,8 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
                 const double vy_norm = v_y / std::max(nu_, v_tangential);
                 const double vz_norm = v_z / std::max(nu_, v_tangential);
 
-                obj->Yext -= F_friction_mag * std::sin(PI/2.0 * vy_norm);
-                obj->Zext -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
+                obj->Yext_dem -= F_friction_mag * std::sin(PI/2.0 * vy_norm);
+                obj->Zext_dem -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
             }
 
             if(p->mpirank == 0 && p->count % 100 == 0)
@@ -136,7 +136,7 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
             const double v_normal = obj->u_fb(1);
             const double F_normal = k_eff * overlap - c_eff * std::min(v_normal, 0.0);
 
-            obj->Yext += F_normal;
+            obj->Yext_dem += F_normal;
 
             const double v_x = obj->u_fb(0);
             const double v_z = obj->u_fb(2);
@@ -148,8 +148,8 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
                 const double vx_norm = v_x / std::max(nu_, v_tangential);
                 const double vz_norm = v_z / std::max(nu_, v_tangential);
 
-                obj->Xext -= F_friction_mag * std::sin(PI/2.0 * vx_norm);
-                obj->Zext -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
+                obj->Xext_dem -= F_friction_mag * std::sin(PI/2.0 * vx_norm);
+                obj->Zext_dem -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
             }
 
             if(p->mpirank == 0 && p->count % 100 == 0)
@@ -173,7 +173,7 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
             const double v_normal = obj->u_fb(1);
             const double F_normal = k_eff * overlap + c_eff * std::max(v_normal, 0.0);
 
-            obj->Yext -= F_normal;
+            obj->Yext_dem -= F_normal;
 
             const double v_x = obj->u_fb(0);
             const double v_z = obj->u_fb(2);
@@ -185,8 +185,8 @@ void wall_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
                 const double vx_norm = v_x / std::max(nu_, v_tangential);
                 const double vz_norm = v_z / std::max(nu_, v_tangential);
 
-                obj->Xext -= F_friction_mag * std::sin(PI/2.0 * vx_norm);
-                obj->Zext -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
+                obj->Xext_dem -= F_friction_mag * std::sin(PI/2.0 * vx_norm);
+                obj->Zext_dem -= F_friction_mag * std::sin(PI/2.0 * vz_norm);
             }
 
             if(p->mpirank == 0 && p->count % 100 == 0)

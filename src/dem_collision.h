@@ -92,7 +92,8 @@ public:
     virtual ~dem_collision();
     
     // Compute object-object collision forces and apply them as external loads
-    void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj);
+    void calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj,
+                                    double dt_contact, bool finalize);
 
     // Select the contact-force model used for object-object contacts
     void set_contact_force_model(ContactForceModel model);
@@ -160,6 +161,23 @@ private:
     std::vector<Eigen::Vector3d> t_col;  // object–object contact torque (world frame)
     int nobj;                            // number of floating bodies (from lexer X20 after inference)
 
+    struct BodySnapshotState
+    {
+        Eigen::Vector3d p;
+        Eigen::Vector3d c;
+        Eigen::Vector3d h;
+        Eigen::Vector4d e;
+        Eigen::Vector3d omega_B;
+        Eigen::Vector3d omega_I;
+    };
+
+    int estimate_substep_count(lexer *p, const vector<sixdof_obj*> &fb_obj, double dt_contact) const;
+    void accumulate_object_contacts(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj,
+                                    double dt_step, bool finalize);
+    void snapshot_body_states(const vector<sixdof_obj*> &fb_obj, vector<BodySnapshotState> &snaps) const;
+    void restore_body_states(lexer *p, vector<sixdof_obj*> &fb_obj, const vector<BodySnapshotState> &snaps);
+    void integrate_contact_net_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, double dt_sub);
+
     // AABBs for the currently active objects
     std::vector<AABB> aabbs;             // broad-phase AABB per object index
     void update_aabbs(std::vector<sixdof_obj*> &fb_obj);
@@ -171,15 +189,7 @@ private:
 
     double calculate_distance_between_objects(sixdof_obj *obj1, sixdof_obj *obj2);
 
-    // Resolve large overlaps by integrating the contact load over sub-time-steps
-    void resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                       const Eigen::Vector3d &contact_point,
-                                       const Eigen::Vector3d &normal,
-                                       const double overlap,
-                                       Eigen::Vector3d &force,
-                                       Eigen::Vector3d &torque);
-
-    // Symplectic velocity-Verlet update used inside the sub-step loop
+    // Symplectic velocity-Verlet update used inside the contact sub-step loop
     void velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj,
                             const Eigen::Vector3d &force,
                             const Eigen::Vector3d &torque,

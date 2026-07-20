@@ -159,133 +159,63 @@ void dem_collision::update_aabbs(vector<sixdof_obj*> &fb_obj)
     }
 }
 
-void dem_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj)
+void dem_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj,
+                                               double dt_contact, bool finalize)
 {
+    nobj = static_cast<int>(fb_obj.size());
+    if(nobj < 2)
+    return;
+
     clear_forces();
 
-    // Rank 0 owns the contact-force computation; results are broadcast below
+    const int n_sub = estimate_substep_count(p, fb_obj, dt_contact);
+
     if(p->mpirank == 0)
     {
-        update_aabbs(fb_obj);
         update_contact_history(p);
-        collision_grid->update_grid(p, pgc, fb_obj);
 
-        std::vector<std::pair<int, int>> potential_collisions =
-            collision_grid->find_potential_collisions(p, pgc, fb_obj);
-
-        if(p->count%p->P12==0 && potential_collisions.size() > 0)
+        if(n_sub <= 1)
         {
-            cout<<"DEM collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
+            accumulate_object_contacts(p, pgc, fb_obj, dt_contact, finalize);
         }
-
-        for(const auto& pair : potential_collisions)
+        else
         {
-            int i = pair.first;
-            int j = pair.second;
+            vector<BodySnapshotState> snaps;
+            snapshot_body_states(fb_obj, snaps);
 
-            Eigen::Vector3d contact_point, normal;
-            double overlap = 0.0;
+            vector<Eigen::Vector3d> f_sum(nobj, Eigen::Vector3d::Zero());
+            vector<Eigen::Vector3d> t_sum(nobj, Eigen::Vector3d::Zero());
 
-            // Cheap AABB rejection before the narrow-phase test
-            if(!aabbs[i].overlaps(aabbs[j]))
+            const double dt_sub = dt_contact / static_cast<double>(n_sub);
+
+            if(p->count%p->P12==0)
             {
-                continue;
+                cout<<"DEM contact subcycling: "<<n_sub<<" steps, dt_sub="<<dt_sub
+                    <<" s (dt_contact="<<dt_contact<<" s)"<<endl;
             }
 
-            bool collision_detected = false;
-            
-            if(detection_mode == CollisionDetectionMode::SphereOnly)
+            for(int sub = 0; sub < n_sub; ++sub)
             {
-                collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
-                                                     contact_point, normal, overlap);
+                const bool step_finalize = finalize && (sub == n_sub - 1);
+
+                accumulate_object_contacts(p, pgc, fb_obj, dt_sub, step_finalize);
+
+                for(int i = 0; i < nobj; ++i)
+                {
+                    f_sum[i] += f_col[i];
+                    t_sum[i] += t_col[i];
+                }
+
+                integrate_contact_net_forces(p, pgc, fb_obj, dt_sub);
             }
-            else if(detection_mode == CollisionDetectionMode::TriangleSATOnly)
+
+            restore_body_states(p, fb_obj, snaps);
+
+            const double inv_n = 1.0 / static_cast<double>(n_sub);
+            for(int i = 0; i < nobj; ++i)
             {
-                collision_detected = detect_triangle_collision(p, pgc, fb_obj[i], fb_obj[j],
-                                                              contact_point, normal, overlap);
-            }
-            else
-            {
-                if(adaptive)
-                {
-                    collision_detected = detect_collision_adaptive(p, pgc, fb_obj[i], fb_obj[j],
-                                                                  contact_point, normal, overlap);
-                }
-                else
-                {
-                    collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
-                                                         contact_point, normal, overlap);
-                }
-            }
-            
-            if(collision_detected)
-            {
-                Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
-
-                const int id1 = fb_obj[i]->n6DOF;
-                const int id2 = fb_obj[j]->n6DOF;
-                const std::pair<int,int> key = std::make_pair(std::min(id1,id2), std::max(id1,id2));
-
-                // Initialize a fresh contact-history entry the first time this pair touches
-                if(contact_history.find(key) == contact_history.end())
-                {
-                    ContactHistory h;
-                    h.s_t.setZero();
-                    h.in_contact = true;
-                    h.t_last = p->simtime;
-                    contact_history[key] = h;
-                }
-
-                p_force->compute(p, pgc, fb_obj[i], fb_obj[j],
-                                 contact_point, normal, overlap,
-                                 contact_history[key],
-                                 force, torque);
-
-                calculate_rolling_friction_torque(p, pgc, fb_obj[i], fb_obj[j],
-                                                contact_point, normal, overlap,
-                                                rolling_torque);
-
-                calculate_twisting_resistance(p, pgc, fb_obj[i], fb_obj[j],
-                                            contact_point, normal, overlap,
-                                            twisting_torque);
-
-                if(use_substeps && overlap > 0.01 * fb_obj[i]->radius)
-                {
-                    resolve_collision_with_substeps(p, pgc, fb_obj[i], fb_obj[j],
-                                                 contact_point, normal, overlap,
-                                                 force, torque);
-                }
-
-                // Apply force/torque pair: action +force on obj j, reaction -force on obj i.
-                // Each contact torque uses its own lever arm; rolling/twisting torques are
-                // returned in the obj j frame and flipped on obj i.
-                const Eigen::Vector3d r1 = contact_point - fb_obj[i]->c_;
-                const Eigen::Vector3d r2 = contact_point - fb_obj[j]->c_;
-
-                f_col[i]  -= force;
-                f_col[j]  += force;
-
-                t_col[i] += r1.cross(-force) - rolling_torque - twisting_torque;
-                t_col[j] += r2.cross( force) + rolling_torque + twisting_torque;
-
-                if(p->count%p->P12==0)
-                {
-                    cout<<"DEM collision detected between objects "<<i<<" and "<<j<<endl;
-                    cout<<"  Model: ";
-                    switch(contact_model) {
-                        case ContactForceModel::Linear: cout<<"Linear"; break;
-                        case ContactForceModel::DemLinearLimited: cout<<"DEM-Linear-Limited"; break;
-                        case ContactForceModel::DemLinearNonLimited: cout<<"DEM-Linear-NonLimited"; break;
-                        case ContactForceModel::Hertz: cout<<"Hertz"; break;
-                        case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
-                        case ContactForceModel::DemHertzianLimited: cout<<"DEM-Hertzian-Limited"; break;
-                        case ContactForceModel::DemHertzianNonLimited: cout<<"DEM-Hertzian-NonLimited"; break;
-                        default: cout<<"Unknown"; break;
-                    }
-                    cout<<endl;
-                    cout<<"  Overlap: "<<overlap<<endl;
-                    cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
-                }
+                f_col[i] = f_sum[i] * inv_n;
+                t_col[i] = t_sum[i] * inv_n;
             }
         }
     }
@@ -295,17 +225,17 @@ void dem_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<
     // Apply the synchronized force/torque to each body on every rank
     for(int i = 0; i < nobj; ++i)
     {
-        fb_obj[i]->Xext += f_col[i](0);
-        fb_obj[i]->Yext += f_col[i](1);
-        fb_obj[i]->Zext += f_col[i](2);
+        fb_obj[i]->Xext_dem = f_col[i](0);
+        fb_obj[i]->Yext_dem = f_col[i](1);
+        fb_obj[i]->Zext_dem = f_col[i](2);
 
-        fb_obj[i]->Kext += t_col[i](0);
-        fb_obj[i]->Mext += t_col[i](1);
-        fb_obj[i]->Next += t_col[i](2);
+        fb_obj[i]->Kext_dem = t_col[i](0);
+        fb_obj[i]->Mext_dem = t_col[i](1);
+        fb_obj[i]->Next_dem = t_col[i](2);
     }
 
-    // Domain boundary contact (ground, walls) folds into Xext/Yext/Zext so hydrodynamic
-    // force routines that reset Xe/Ye/Ze do not erase these loads before solve_eqmotion.
+    // Domain boundary contact (ground, walls) folds into Xext_dem/Yext_dem/Zext_dem so
+    // hydrodynamic force routines that reset Xe/Ye/Ze do not erase these loads before solve_eqmotion.
     ground_.apply(p, pgc, fb_obj);
     wall_.apply(p, pgc, fb_obj);
 
@@ -329,6 +259,143 @@ void dem_collision::calculate_collision_forces(lexer *p, ghostcell *pgc, vector<
         }
 
         // verify_sync(p, pgc); // Enable to check MPI sync
+    }
+}
+
+int dem_collision::estimate_substep_count(lexer *p, const vector<sixdof_obj*> &fb_obj, double dt_contact) const
+{
+    if(!use_substeps || dt_contact <= 0.0 || fb_obj.size() < 2)
+    return 1;
+
+    const double kn = std::max(p->R30, 1.0);
+
+    double m_min = fb_obj[0]->Mass_fb;
+    for(size_t i = 0; i < fb_obj.size(); ++i)
+    m_min = std::min(m_min, fb_obj[i]->Mass_fb);
+
+    if(m_min <= 0.0)
+    return 1;
+
+    // Critical contact step ~ 0.2*sqrt(m/kn) (Cundall & Strack stability criterion)
+    constexpr double beta = 0.2;
+    const double dt_crit = beta * std::sqrt(m_min / kn);
+
+    int n_stiff = 1;
+    if(dt_crit > 1.0e-18)
+    n_stiff = static_cast<int>(std::ceil(dt_contact / dt_crit));
+
+    return std::max(1, std::min(n_stiff, max_substeps));
+}
+
+void dem_collision::accumulate_object_contacts(lexer *p, ghostcell *pgc, vector<sixdof_obj*> &fb_obj,
+                                               double dt_step, bool finalize)
+{
+    clear_forces();
+
+    update_aabbs(fb_obj);
+    collision_grid->update_grid(p, pgc, fb_obj);
+
+    const vector<pair<int, int>> potential_collisions =
+        collision_grid->find_potential_collisions(p, pgc, fb_obj);
+
+    if(p->count%p->P12==0 && potential_collisions.size() > 0)
+    {
+        cout<<"DEM collision: Found "<<potential_collisions.size()<<" potential collision pairs"<<endl;
+    }
+
+    for(const auto& pair : potential_collisions)
+    {
+        const int i = pair.first;
+        const int j = pair.second;
+
+        Eigen::Vector3d contact_point, normal;
+        double overlap = 0.0;
+
+        if(!aabbs[i].overlaps(aabbs[j]))
+        continue;
+
+        bool collision_detected = false;
+
+        if(detection_mode == CollisionDetectionMode::SphereOnly)
+        {
+            collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
+                                                 contact_point, normal, overlap);
+        }
+        else if(detection_mode == CollisionDetectionMode::TriangleSATOnly)
+        {
+            collision_detected = detect_triangle_collision(p, pgc, fb_obj[i], fb_obj[j],
+                                                          contact_point, normal, overlap);
+        }
+        else if(adaptive)
+        {
+            collision_detected = detect_collision_adaptive(p, pgc, fb_obj[i], fb_obj[j],
+                                                          contact_point, normal, overlap);
+        }
+        else
+        {
+            collision_detected = detect_collision(p, pgc, fb_obj[i], fb_obj[j],
+                                                 contact_point, normal, overlap);
+        }
+
+        if(!collision_detected)
+        continue;
+
+        Eigen::Vector3d force, torque, rolling_torque, twisting_torque;
+
+        const int id1 = fb_obj[i]->n6DOF;
+        const int id2 = fb_obj[j]->n6DOF;
+        const std::pair<int,int> key = std::make_pair(std::min(id1,id2), std::max(id1,id2));
+
+        if(contact_history.find(key) == contact_history.end())
+        {
+            ContactHistory h;
+            h.s_t.setZero();
+            h.in_contact = true;
+            h.t_last = p->simtime;
+            contact_history[key] = h;
+        }
+
+        p_force->compute(p, pgc, fb_obj[i], fb_obj[j],
+                         contact_point, normal, overlap,
+                         contact_history[key],
+                         dt_step, finalize,
+                         force, torque);
+
+        calculate_rolling_friction_torque(p, pgc, fb_obj[i], fb_obj[j],
+                                        contact_point, normal, overlap,
+                                        rolling_torque);
+
+        calculate_twisting_resistance(p, pgc, fb_obj[i], fb_obj[j],
+                                    contact_point, normal, overlap,
+                                    twisting_torque);
+
+        const Eigen::Vector3d r1 = contact_point - fb_obj[i]->c_;
+        const Eigen::Vector3d r2 = contact_point - fb_obj[j]->c_;
+
+        f_col[i]  -= force;
+        f_col[j]  += force;
+
+        t_col[i] += r1.cross(-force) - rolling_torque - twisting_torque;
+        t_col[j] += r2.cross( force) + rolling_torque + twisting_torque;
+
+        if(p->count%p->P12==0)
+        {
+            cout<<"DEM collision detected between objects "<<i<<" and "<<j<<endl;
+            cout<<"  Model: ";
+            switch(contact_model) {
+                case ContactForceModel::Linear: cout<<"Linear"; break;
+                case ContactForceModel::DemLinearLimited: cout<<"DEM-Linear-Limited"; break;
+                case ContactForceModel::DemLinearNonLimited: cout<<"DEM-Linear-NonLimited"; break;
+                case ContactForceModel::Hertz: cout<<"Hertz"; break;
+                case ContactForceModel::HertzMindlin: cout<<"Hertz-Mindlin"; break;
+                case ContactForceModel::DemHertzianLimited: cout<<"DEM-Hertzian-Limited"; break;
+                case ContactForceModel::DemHertzianNonLimited: cout<<"DEM-Hertzian-NonLimited"; break;
+                default: cout<<"Unknown"; break;
+            }
+            cout<<endl;
+            cout<<"  Overlap: "<<overlap<<endl;
+            cout<<"  Force: ["<<force(0)<<", "<<force(1)<<", "<<force(2)<<"]"<<endl;
+        }
     }
 }
 

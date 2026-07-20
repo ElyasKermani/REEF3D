@@ -43,6 +43,8 @@ void contact_force_dem_hertzian_nonlimited::compute(lexer *p, ghostcell*, sixdof
                                                             const Eigen::Vector3d &normal,
                                                             double overlap,
                                                             ContactHistory &history,
+                                                            double dt_contact,
+                                                            bool finalize,
                                                             Eigen::Vector3d &force, Eigen::Vector3d &torque)
 {
     Eigen::Vector3d center1 = obj1->c_;
@@ -62,11 +64,7 @@ void contact_force_dem_hertzian_nonlimited::compute(lexer *p, ghostcell*, sixdof
     double v_rel_n = v_rel.dot(normal);
     Eigen::Vector3d v_rel_t = v_rel - v_rel_n * normal;
 
-    double dt = p->simtime - history.t_last;
-    if(dt <= 0.0) dt = p->dt;
-
     history.in_contact = true;
-    history.t_last = p->simtime;
 
     double R_eff = (obj1->radius * obj2->radius) / (obj1->radius + obj2->radius);
     double E_eff = effective_young_modulus(E, E, nu, nu);
@@ -87,7 +85,7 @@ void contact_force_dem_hertzian_nonlimited::compute(lexer *p, ghostcell*, sixdof
 
     if(v_rel_t.norm() > 1.0e-10)
     {
-        overlap_t += v_rel_t * dt;
+        overlap_t += v_rel_t * dt_contact;
         overlap_t -= normal * normal.dot(overlap_t);
 
         double kt = 8.0 * G * std::sqrt(R_eff * overlap);
@@ -115,4 +113,7 @@ void contact_force_dem_hertzian_nonlimited::compute(lexer *p, ghostcell*, sixdof
     }
 
     torque = r1.cross(force);
+
+    if(finalize || p->R52==0)
+    history.t_last = p->simtime;
 }

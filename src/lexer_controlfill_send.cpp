@@ -1400,6 +1400,8 @@ void lexer::ctrlsend()
     ii++;
     ictrl[ii] = R51;
     ii++;
+    ictrl[ii] = R52;
+    ii++;
     dctrl[dd] = R22;
 	dd++;
     dctrl[dd] = R30;

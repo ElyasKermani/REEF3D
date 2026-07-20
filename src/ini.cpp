@@ -715,6 +715,7 @@ void lexer::ini_default()
     R43=1.0e-3;         // rolling torque cap τ_r,max [N·m]
     R50=10;             // max contact substeps
     R51=1;              // substeps enabled (1=yes)
+    R52=0;              // contact once per fluid dt (0=yes, 1=every RK stage)
 
 	// Sediment Transport
 	S10=0;                  // int sediment transport module

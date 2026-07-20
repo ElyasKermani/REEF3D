@@ -43,6 +43,8 @@ void contact_force_hertz::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof
                                   const Eigen::Vector3d &normal,
                                   double overlap,
                                   ContactHistory &history,
+                                  double dt_contact,
+                                  bool finalize,
                                   Eigen::Vector3d &force, Eigen::Vector3d &torque)
 {
     Eigen::Vector3d center1 = obj1->c_;
@@ -83,16 +85,12 @@ void contact_force_hertz::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof
     double fn = fn_elastic + fn_damping;
     fn = std::max(fn, 0.0);
 
-    double dt = p->simtime - history.t_last;
-    if(dt <= 0.0) dt = p->dt;
-
     history.in_contact = true;
-    history.t_last = p->simtime;
 
     if(v_rel_t_mag > 1.0e-10)
     {
         Eigen::Vector3d &th = history.s_t;
-        th += v_rel_t * dt;
+        th += v_rel_t * dt_contact;
         th -= normal * normal.dot(th);
 
         const double G = E / (2.0 * (1.0 + nu));
@@ -120,4 +118,7 @@ void contact_force_hertz::compute(lexer *p, ghostcell*, sixdof_obj *obj1, sixdof
     }
 
     torque = r1.cross(force);
+
+    if(finalize || p->R52==0)
+    history.t_last = p->simtime;
 }

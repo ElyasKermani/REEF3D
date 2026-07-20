@@ -42,40 +42,39 @@ void dem_nhflow_collision::initialize(lexer*, fdm_nhf*, ghostcell*)
 {
 }
 
-void dem_nhflow_collision::start(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int iter, bool finalize)
+void dem_nhflow_collision::start(lexer *p, fdm_nhf *d, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int iter, bool finalize, double dt_contact)
 {
     if(fb_obj.size()<2)
     return;
 
-    // R12 = narrow-phase detection mode (0 = adaptive, 1 = sphere-only, 2 = triangle-SAT)
     if(p->R12==1)
-    start_sphere_sphere(p,d,pgc,fb_obj,iter,finalize);
+    start_sphere_sphere(p,d,pgc,fb_obj,iter,finalize,dt_contact);
     else if(p->R12==2)
-    start_triangle_sat(p,d,pgc,fb_obj,iter,finalize);
+    start_triangle_sat(p,d,pgc,fb_obj,iter,finalize,dt_contact);
     else
-    start_adaptive(p,d,pgc,fb_obj,iter,finalize);
+    start_adaptive(p,d,pgc,fb_obj,iter,finalize,dt_contact);
 }
 
-void dem_nhflow_collision::start_sphere_sphere(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_nhflow_collision::start_sphere_sphere(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::SphereOnly);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }
 
-void dem_nhflow_collision::start_triangle_sat(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_nhflow_collision::start_triangle_sat(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::TriangleSATOnly);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }
 
-void dem_nhflow_collision::start_adaptive(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool)
+void dem_nhflow_collision::start_adaptive(lexer *p, fdm_nhf*, ghostcell *pgc, vector<sixdof_obj*> &fb_obj, int, bool finalize, double dt_contact)
 {
     p_collision->set_detection_mode(CollisionDetectionMode::Adaptive);
 
     policy.apply(p,fb_obj,*p_collision);
-    p_collision->calculate_collision_forces(p,pgc,fb_obj);
+    p_collision->calculate_collision_forces(p,pgc,fb_obj,dt_contact,finalize);
 }

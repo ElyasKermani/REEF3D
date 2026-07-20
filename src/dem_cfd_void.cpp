@@ -38,6 +38,6 @@ void dem_cfd_void::initialize(lexer*, fdm*, ghostcell*)
 {
 }
 
-void dem_cfd_void::start(lexer*, fdm*, ghostcell*, vector<sixdof_obj*>&, int, bool)
+void dem_cfd_void::start(lexer*, fdm*, ghostcell*, vector<sixdof_obj*>&, int, bool, double)
 {
 }

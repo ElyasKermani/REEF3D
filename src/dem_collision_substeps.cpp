@@ -28,61 +28,51 @@ Author: Elyas Larkermani
 #include<Eigen/Dense>
 #include<iostream>
 
-void dem_collision::resolve_collision_with_substeps(lexer *p, ghostcell *pgc, sixdof_obj *obj1, sixdof_obj *obj2,
-                                                    const Eigen::Vector3d &contact_point, 
-                                                    const Eigen::Vector3d &normal, 
-                                                    const double overlap,
-                                                    Eigen::Vector3d &force, 
-                                                    Eigen::Vector3d &torque)
+void dem_collision::snapshot_body_states(const vector<sixdof_obj*> &fb_obj,
+                                         vector<BodySnapshotState> &snaps) const
 {
-    // Number of sub-steps grows with the overlap severity, capped at max_substeps
-    int num_substeps = std::min(static_cast<int>(ceil(overlap / (0.01 * std::min(obj1->radius, obj2->radius)))), max_substeps);
+    snaps.resize(fb_obj.size());
 
-    if(p->mpirank==0 && p->count%p->P12==0)
+    for(size_t i = 0; i < fb_obj.size(); ++i)
     {
-        cout<<"Using "<<num_substeps<<" sub-steps for collision resolution"<<endl;
+        snaps[i].p = fb_obj[i]->p_;
+        snaps[i].c = fb_obj[i]->c_;
+        snaps[i].h = fb_obj[i]->h_;
+        snaps[i].e = fb_obj[i]->e_;
+        snaps[i].omega_B = fb_obj[i]->omega_B;
+        snaps[i].omega_I = fb_obj[i]->omega_I;
     }
-
-    double dt_sub = p->dt / static_cast<double>(num_substeps);
-
-    // Snapshot the body states so we can roll them back at the end. The actual
-    // force/torque is applied at the main time-step level by the caller; this
-    // routine only previews the response over a finer sub-stepping schedule.
-    Eigen::Vector3d orig_p1 = obj1->p_;
-    Eigen::Vector3d orig_c1 = obj1->c_;
-    Eigen::Vector3d orig_h1 = obj1->h_;
-    Eigen::Vector4d orig_e1 = obj1->e_;
-
-    Eigen::Vector3d orig_p2 = obj2->p_;
-    Eigen::Vector3d orig_c2 = obj2->c_;
-    Eigen::Vector3d orig_h2 = obj2->h_;
-    Eigen::Vector4d orig_e2 = obj2->e_;
-
-    for(int step = 0; step < num_substeps; ++step)
-    {
-        Eigen::Vector3d sub_force  = force  / static_cast<double>(num_substeps);
-        Eigen::Vector3d sub_torque = torque / static_cast<double>(num_substeps);
-
-        velocity_verlet_step(p, pgc, obj1, -sub_force, -sub_torque, dt_sub);
-        velocity_verlet_step(p, pgc, obj2,  sub_force,  sub_torque, dt_sub);
-    }
-
-    // Restore the original states; the caller stores the load once via the
-    // standard force accumulators to avoid double-counting.
-    obj1->p_ = orig_p1;
-    obj1->c_ = orig_c1;
-    obj1->h_ = orig_h1;
-    obj1->e_ = orig_e1;
-
-    obj2->p_ = orig_p2;
-    obj2->c_ = orig_c2;
-    obj2->h_ = orig_h2;
-    obj2->e_ = orig_e2;
 }
 
-void dem_collision::velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj, 
-                                          const Eigen::Vector3d &force, 
-                                          const Eigen::Vector3d &torque, 
+void dem_collision::restore_body_states(lexer *p, vector<sixdof_obj*> &fb_obj,
+                                        const vector<BodySnapshotState> &snaps)
+{
+    for(size_t i = 0; i < fb_obj.size(); ++i)
+    {
+        fb_obj[i]->p_ = snaps[i].p;
+        fb_obj[i]->c_ = snaps[i].c;
+        fb_obj[i]->h_ = snaps[i].h;
+        fb_obj[i]->e_ = snaps[i].e;
+        fb_obj[i]->omega_B = snaps[i].omega_B;
+        fb_obj[i]->omega_I = snaps[i].omega_I;
+
+        fb_obj[i]->quat_matrices(p);
+    }
+}
+
+void dem_collision::integrate_contact_net_forces(lexer *p, ghostcell *pgc,
+                                                 vector<sixdof_obj*> &fb_obj,
+                                                 double dt_sub)
+{
+    for(size_t i = 0; i < fb_obj.size(); ++i)
+    {
+        velocity_verlet_step(p, pgc, fb_obj[i], f_col[i], t_col[i], dt_sub);
+    }
+}
+
+void dem_collision::velocity_verlet_step(lexer *p, ghostcell *pgc, sixdof_obj *obj,
+                                          const Eigen::Vector3d &force,
+                                          const Eigen::Vector3d &torque,
                                           double dt)
 {
     // Velocity-Verlet symplectic integrator: half kick, drift, half kick.

@@ -64,7 +64,7 @@ void ground_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
         const double v_normal = obj->u_fb(2);
         const double F_normal = k_eff * overlap - c_eff * std::max(v_normal, 0.0);
 
-        obj->Zext += F_normal;
+        obj->Zext_dem += F_normal;
 
         const double v_x = obj->u_fb(0);
         const double v_y = obj->u_fb(1);
@@ -77,8 +77,8 @@ void ground_contact::apply(lexer *p, ghostcell*, vector<sixdof_obj*> &fb_obj)
         const double Fx_friction = -F_friction_mag * std::sin(PI/2.0 * vx_norm);
         const double Fy_friction = -F_friction_mag * std::sin(PI/2.0 * vy_norm);
 
-        obj->Xext += Fx_friction;
-        obj->Yext += Fy_friction;
+        obj->Xext_dem += Fx_friction;
+        obj->Yext_dem += Fy_friction;
 
         if(p->mpirank == 0 && p->count % 100 == 0)
         {

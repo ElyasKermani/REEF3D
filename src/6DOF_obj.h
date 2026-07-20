@@ -81,6 +81,8 @@ public:
     
     void solve_eqmotion_oneway_onestep(lexer*,ghostcell*,bool);
     void clearExternalForces();
+    void clearDemForces();
+    double rk_stage_dt(lexer *p, int iter) const;
     
     // NHFLOW
     void solve_eqmotion_nhflow(lexer*,fdm_nhf*,ghostcell*,int,bool);
@@ -356,6 +358,7 @@ private:
     
     // Forces
     double Xext, Yext, Zext, Kext, Mext, Next;
+    double Xext_dem, Yext_dem, Zext_dem, Kext_dem, Mext_dem, Next_dem;
     Eigen::Vector3d Ffb_, Mfb_;
     double Xe, Ye, Ze, Ke, Me, Ne;
 
