@@ -45,11 +45,15 @@ int   reef3d_chrono_add_mesh(void*,
                              const double c[3], const double e[4],
                              const double v[3], const double w[3]);
 void  reef3d_chrono_set_wrench(void*, int nb, const double F[3], const double M[3]);
+void  reef3d_chrono_set_state(void*, int nb, const double c[3], const double e[4],
+                             const double v[3], const double w[3]);
+void  reef3d_chrono_setup(void*);
 void  reef3d_chrono_set_locks(void*, int free_u, int free_v, int free_w,
                              int free_p, int free_q, int free_r);
 void  reef3d_chrono_step(void*, double dt, int nsub);
 void  reef3d_chrono_get_state(void*, int nb, double c[3], double e[4], double v[3], double w[3]);
 int   reef3d_chrono_ncontacts(void*);
+int   reef3d_chrono_project_contacts(void*);
 
 #ifdef __cplusplus
 }

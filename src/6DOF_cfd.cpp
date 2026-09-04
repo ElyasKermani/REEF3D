@@ -34,7 +34,7 @@ sixdof_cfd::sixdof_cfd(lexer *p, fdm *a, ghostcell *pgc) : fb_union(p), pchrono(
         cout<<"6DOF startup ..."<<endl;
         cout<<"6DOF bodies: "<<p->X20;
         if(p->X13==1)
-        cout<<"  motion: Chrono"<<(p->X16==1?" SMC":" NSC");
+        cout<<"  motion: native + Chrono contact"<<(p->X16==1?" SMC":" NSC");
         else
         cout<<"  motion: native";
         cout<<endl;
@@ -76,12 +76,13 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uv
         fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
     }
 
-    if(p->X13==0)
-    {
-        for (int nb=0; nb<number6DOF;++nb)
-        fb_obj[nb]->solve_eqmotion_cfd(p,a,pgc,iter,finalize);
-    }
-    else if(pchrono)
+    // Hydro always uses native RK (same scheme as the fluid). Chrono only
+    // projects contacts; integrating heave in Chrono with a frozen hull
+    // through the RK stages is a 2Δt FSI oscillator.
+    for (int nb=0; nb<number6DOF;++nb)
+    fb_obj[nb]->solve_eqmotion_cfd(p,a,pgc,iter,finalize);
+
+    if(pchrono)
     pchrono->advance(p,a,pgc,fb_obj,iter,finalize);
 
     for (int nb=0; nb<number6DOF;++nb)

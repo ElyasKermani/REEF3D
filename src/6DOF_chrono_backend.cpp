@@ -27,12 +27,11 @@ Author: Elyas Larkermani
 #include "6DOF_chrono_backend.h"
 
 #include "chrono/collision/ChCollisionModel.h"
-#include "chrono/collision/ChCollisionShapeBox.h"
 #include "chrono/collision/ChCollisionShapeTriangleMesh.h"
-#include "chrono/core/ChFrame.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChBodyEasy.h"
+#include "chrono/physics/ChContactContainer.h"
 #include "chrono/physics/ChContactMaterialNSC.h"
 #include "chrono/physics/ChContactMaterialSMC.h"
 #include "chrono/physics/ChSystem.h"
@@ -54,9 +53,14 @@ struct Backend
     std::vector<unsigned int> acc;
     std::vector<::chrono::ChVector3d> c0;
     std::shared_ptr<::chrono::ChContactMaterial> mat;
+    std::vector<::chrono::ChVector3d> amin;
+    std::vector<::chrono::ChVector3d> amax;
+    double ox, oy, oz, ex, ey, ez;
+    bool has_domain;
     int free_u, free_v, free_w, free_p, free_q, free_r;
 
-    Backend() : free_u(1), free_v(1), free_w(1), free_p(1), free_q(1), free_r(1)
+    Backend() : ox(0), oy(0), oz(0), ex(0), ey(0), ez(0), has_domain(false),
+                free_u(1), free_v(1), free_w(1), free_p(1), free_q(1), free_r(1)
     {
     }
 
@@ -91,6 +95,194 @@ struct Backend
                     body->SetRot(::chrono::ChQuaterniond(std::cos(0.5*psi), 0.0, 0.0, std::sin(0.5*psi)));
             }
         }
+    }
+
+    bool is_free(::chrono::ChBody* body) const
+    {
+        if(!body || body->IsFixed())
+            return false;
+        for(size_t nb=0; nb<bodies.size(); ++nb)
+        {
+            if(bodies[nb].get() == body)
+                return true;
+        }
+        return false;
+    }
+
+    static double keff_along(::chrono::ChBody* body, const ::chrono::ChVector3d& r_world,
+                             const ::chrono::ChVector3d& n_world)
+    {
+        const double m = body->GetMass();
+        if(m < 1.0e-14)
+            return 0.0;
+        const ::chrono::ChVector3d r_loc = body->TransformDirectionParentToLocal(r_world);
+        const ::chrono::ChVector3d n_loc = body->TransformDirectionParentToLocal(n_world);
+        const ::chrono::ChVector3d rcn = r_loc.Cross(n_loc);
+        return 1.0 / m + rcn.Dot(body->GetInvInertia() * rcn);
+    }
+
+    static void apply_impulse(::chrono::ChBody* body, const ::chrono::ChVector3d& n_world,
+                              const ::chrono::ChVector3d& r_world, double J, bool move_pos)
+    {
+        const double m = body->GetMass();
+        if(m < 1.0e-14 || std::abs(J) < 1.0e-16)
+            return;
+
+        const ::chrono::ChVector3d r_loc = body->TransformDirectionParentToLocal(r_world);
+        const ::chrono::ChVector3d n_loc = body->TransformDirectionParentToLocal(n_world);
+        const ::chrono::ChVector3d dw_loc = body->GetInvInertia() * r_loc.Cross(n_loc * J);
+        const ::chrono::ChVector3d dw_world = body->TransformDirectionLocalToParent(dw_loc);
+
+        if(move_pos)
+        {
+            body->SetPos(body->GetPos() + (J / m) * n_world);
+            ::chrono::ChQuaterniond dq;
+            dq.SetFromRotVec(dw_world);
+            body->SetRot(dq * body->GetRot());
+        }
+        else
+        {
+            body->SetPosDt(body->GetPosDt() + (J / m) * n_world);
+            body->SetAngVelParent(body->GetAngVelParent() + dw_world);
+        }
+    }
+
+    static double yaw_of(const ::chrono::ChQuaterniond& q)
+    {
+        const double e0=q.e0(), e1=q.e1(), e2=q.e2(), e3=q.e3();
+        return std::atan2(2.0*(e1*e2 + e3*e0), 1.0 - 2.0*(e2*e2 + e3*e3));
+    }
+
+    static ::chrono::ChQuaterniond quat_yaw(double psi)
+    {
+        return ::chrono::ChQuaterniond(std::cos(0.5*psi), 0.0, 0.0, std::sin(0.5*psi));
+    }
+
+    void local_corners(size_t nb, ::chrono::ChVector3d c[8]) const
+    {
+        const auto& mn = amin[nb];
+        const auto& mx = amax[nb];
+        int k = 0;
+        for(int ix=0; ix<2; ++ix)
+        for(int iy=0; iy<2; ++iy)
+        for(int iz=0; iz<2; ++iz)
+            c[k++] = ::chrono::ChVector3d(ix ? mx.x() : mn.x(),
+                                          iy ? mx.y() : mn.y(),
+                                          iz ? mx.z() : mn.z());
+    }
+
+    void world_span(size_t nb, ::chrono::ChVector3d& wmin, ::chrono::ChVector3d& wmax) const
+    {
+        ::chrono::ChVector3d loc[8];
+        local_corners(nb, loc);
+        wmin = ::chrono::ChVector3d(1.0e20, 1.0e20, 1.0e20);
+        wmax = ::chrono::ChVector3d(-1.0e20, -1.0e20, -1.0e20);
+        for(int i=0; i<8; ++i)
+        {
+            const ::chrono::ChVector3d w = bodies[nb]->TransformPointLocalToParent(loc[i]);
+            wmin.x() = std::min(wmin.x(), w.x()); wmax.x() = std::max(wmax.x(), w.x());
+            wmin.y() = std::min(wmin.y(), w.y()); wmax.y() = std::max(wmax.y(), w.y());
+            wmin.z() = std::min(wmin.z(), w.z()); wmax.z() = std::max(wmax.z(), w.z());
+        }
+    }
+
+    int project_domain()
+    {
+        if(!has_domain)
+            return 0;
+
+        const double marg = 5.0e-3;
+        int nproj = 0;
+
+        for(size_t nb=0; nb<bodies.size(); ++nb)
+        {
+            auto& body = bodies[nb];
+            bool moved = false;
+
+            ::chrono::ChVector3d wmin, wmax;
+            world_span(nb, wmin, wmax);
+            const double ly_allow = (ey - oy) - 2.0 * marg;
+            const double lx_allow = (ex - ox) - 2.0 * marg;
+
+            if(free_r && std::abs(yaw_of(body->GetRot())) > 1.0e-3 &&
+               (wmax.y() - wmin.y() > ly_allow || wmax.x() - wmin.x() > lx_allow))
+            {
+                const double psi0 = yaw_of(body->GetRot());
+                double lo = 0.0, hi = std::abs(psi0);
+                const ::chrono::ChQuaterniond qsave = body->GetRot();
+                for(int it=0; it<24; ++it)
+                {
+                    const double mid = 0.5 * (lo + hi);
+                    body->SetRot(quat_yaw(std::copysign(mid, psi0)));
+                    world_span(nb, wmin, wmax);
+                    if(wmax.y()-wmin.y() <= ly_allow && wmax.x()-wmin.x() <= lx_allow)
+                        lo = mid;
+                    else
+                        hi = mid;
+                }
+                body->SetRot(quat_yaw(std::copysign(lo, psi0)));
+                if(std::abs(lo - std::abs(psi0)) > 1.0e-8)
+                {
+                    ::chrono::ChVector3d w = body->GetAngVelParent();
+                    w.z() = 0.0;
+                    body->SetAngVelParent(w);
+                    moved = true;
+                }
+                else
+                    body->SetRot(qsave);
+            }
+
+            world_span(nb, wmin, wmax);
+            ::chrono::ChVector3d p = body->GetPos();
+            ::chrono::ChVector3d v = body->GetPosDt();
+            const double maxshift = 0.05;
+            if(free_u)
+            {
+                double dx = 0.0;
+                if(wmin.x() < ox + marg) dx += (ox + marg) - wmin.x();
+                if(wmax.x() > ex - marg) dx -= wmax.x() - (ex - marg);
+                if(std::abs(dx) > 1.0e-12 && std::abs(dx) <= maxshift)
+                {
+                    p.x() += dx;
+                    if(dx>0.0 && v.x()<0.0) v.x()=0.0;
+                    if(dx<0.0 && v.x()>0.0) v.x()=0.0;
+                    moved = true;
+                }
+            }
+            if(free_v)
+            {
+                double dy = 0.0;
+                if(wmin.y() < oy + marg) dy += (oy + marg) - wmin.y();
+                if(wmax.y() > ey - marg) dy -= wmax.y() - (ey - marg);
+                if(std::abs(dy) > 1.0e-12 && std::abs(dy) <= maxshift)
+                {
+                    p.y() += dy;
+                    if(dy>0.0 && v.y()<0.0) v.y()=0.0;
+                    if(dy<0.0 && v.y()>0.0) v.y()=0.0;
+                    moved = true;
+                }
+            }
+            if(free_w)
+            {
+                double dz = 0.0;
+                if(wmin.z() < oz + marg) dz += (oz + marg) - wmin.z();
+                if(wmax.z() > ez - marg) dz -= wmax.z() - (ez - marg);
+                if(std::abs(dz) > 1.0e-12 && std::abs(dz) <= maxshift)
+                {
+                    p.z() += dz;
+                    if(dz>0.0 && v.z()<0.0) v.z()=0.0;
+                    if(dz<0.0 && v.z()>0.0) v.z()=0.0;
+                    moved = true;
+                }
+            }
+            body->SetPos(p);
+            body->SetPosDt(v);
+            if(moved)
+                ++nproj;
+        }
+
+        apply_locks();
+        return nproj;
     }
 };
 
@@ -145,13 +337,31 @@ void reef3d_chrono_add_floor(void* ptr, double ox, double oy, double oz,
     Backend* b = static_cast<Backend*>(ptr);
     const double Lx = ex - ox;
     const double Ly = ey - oy;
+    const double Lz = ez - oz;
     const double thick = 0.2;
-    auto floor = chrono_types::make_shared<::chrono::ChBodyEasyBox>(
-        Lx + 2.0, Ly + 2.0, thick, 1000.0, false, true, b->mat);
-    floor->SetPos(::chrono::ChVector3d(0.5 * (ox + ex), 0.5 * (oy + ey), oz - 0.5 * thick));
-    floor->SetFixed(true);
-    floor->SetName("floor");
-    b->sys->Add(floor);
+    const double cx = 0.5 * (ox + ex);
+    const double cy = 0.5 * (oy + ey);
+    const double cz = 0.5 * (oz + ez);
+
+    auto add_wall = [&](const char* name, double dx, double dy, double dz, double x, double y, double z)
+    {
+        auto wall = chrono_types::make_shared<::chrono::ChBodyEasyBox>(
+            dx, dy, dz, 1000.0, false, true, b->mat);
+        wall->SetPos(::chrono::ChVector3d(x, y, z));
+        wall->SetFixed(true);
+        wall->SetName(name);
+        b->sys->Add(wall);
+    };
+
+    add_wall("floor", Lx + 2.0, Ly + 2.0, thick, cx, cy, oz - 0.5 * thick);
+    add_wall("wall_ymin", Lx + 2.0, thick, Lz + 2.0, cx, oy - 0.5 * thick, cz);
+    add_wall("wall_ymax", Lx + 2.0, thick, Lz + 2.0, cx, ey + 0.5 * thick, cz);
+    add_wall("gate_xmin", thick, Ly + 2.0, Lz + 2.0, ox - 0.5 * thick, cy, cz);
+    add_wall("gate_xmax", thick, Ly + 2.0, Lz + 2.0, ex + 0.5 * thick, cy, cz);
+
+    b->ox = ox; b->oy = oy; b->oz = oz;
+    b->ex = ex; b->ey = ey; b->ez = ez;
+    b->has_domain = true;
 }
 
 int reef3d_chrono_add_box(void* ptr,
@@ -182,6 +392,8 @@ int reef3d_chrono_add_box(void* ptr,
     b->bodies.push_back(body);
     b->acc.push_back(idx);
     b->c0.push_back(::chrono::ChVector3d(c[0], c[1], c[2]));
+    b->amin.push_back(::chrono::ChVector3d(-0.5*dx, -0.5*dy, -0.5*dz));
+    b->amax.push_back(::chrono::ChVector3d( 0.5*dx,  0.5*dy,  0.5*dz));
     return int(b->bodies.size() - 1);
 }
 
@@ -247,6 +459,8 @@ int reef3d_chrono_add_mesh(void* ptr,
     b->bodies.push_back(body);
     b->acc.push_back(idx);
     b->c0.push_back(::chrono::ChVector3d(c[0], c[1], c[2]));
+    b->amin.push_back(::chrono::ChVector3d(xmin, ymin, zmin));
+    b->amax.push_back(::chrono::ChVector3d(xmax, ymax, zmax));
     return int(b->bodies.size() - 1);
 }
 
@@ -260,6 +474,20 @@ void reef3d_chrono_set_wrench(void* ptr, int nb, const double F[3], const double
     body->AccumulateTorque(idx, ::chrono::ChVector3d(M[0], M[1], M[2]), false);
 }
 
+void reef3d_chrono_set_state(void* ptr, int nb, const double c[3], const double e[4],
+                             const double v[3], const double w[3])
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    auto& body = b->bodies[size_t(nb)];
+    body->SetPos(::chrono::ChVector3d(c[0], c[1], c[2]));
+    const double en = std::sqrt(e[0]*e[0] + e[1]*e[1] + e[2]*e[2] + e[3]*e[3]);
+    if(en > 1.0e-14)
+        body->SetRot(::chrono::ChQuaterniond(e[0]/en, e[1]/en, e[2]/en, e[3]/en));
+    body->SetPosDt(::chrono::ChVector3d(v[0], v[1], v[2]));
+    body->SetAngVelParent(::chrono::ChVector3d(w[0], w[1], w[2]));
+    body->EmptyAccumulator(b->acc[size_t(nb)]);
+}
+
 void reef3d_chrono_set_locks(void* ptr, int free_u, int free_v, int free_w,
                             int free_p, int free_q, int free_r)
 {
@@ -270,6 +498,13 @@ void reef3d_chrono_set_locks(void* ptr, int free_u, int free_v, int free_w,
     b->free_p = free_p;
     b->free_q = free_q;
     b->free_r = free_r;
+}
+
+void reef3d_chrono_setup(void* ptr)
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    b->sys->Setup();
+    b->sys->Update();
 }
 
 void reef3d_chrono_step(void* ptr, double dt, int nsub)
@@ -305,6 +540,129 @@ int reef3d_chrono_ncontacts(void* ptr)
     return int(b->sys->GetNumContacts());
 }
 
+int reef3d_chrono_project_contacts(void* ptr)
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    int nproj = b->project_domain();
+
+    int nfree = 0;
+    for(size_t nb=0; nb<b->bodies.size(); ++nb)
+        if(b->is_free(b->bodies[nb].get()))
+            ++nfree;
+    if(nfree < 2)
+        return nproj;
+
+    struct Hit
+    {
+        double dist;
+        ::chrono::ChVector3d pA, pB, n;
+        ::chrono::ChBody *A, *B;
+        Hit() : dist(1.0e20), A(0), B(0) {}
+        bool ok() const { return A != 0 && B != 0; }
+    };
+
+    class Deepest : public ::chrono::ChContactContainer::ReportContactCallback
+    {
+    public:
+        Hit* hit;
+        Backend* b;
+        Deepest(Hit* h, Backend* backend) : hit(h), b(backend) {}
+        virtual bool OnReportContact(const ::chrono::ChVector3d& pA,
+                                     const ::chrono::ChVector3d& pB,
+                                     const ::chrono::ChMatrix33<>& plane_coord,
+                                     double distance, double,
+                                     const ::chrono::ChVector3d&,
+                                     const ::chrono::ChVector3d&,
+                                     ::chrono::ChContactable* objA,
+                                     ::chrono::ChContactable* objB,
+                                     int) override
+        {
+            if(distance >= -1.0e-7)
+                return true;
+            if(distance >= hit->dist)
+                return true;
+            auto* A = dynamic_cast<::chrono::ChBody*>(objA);
+            auto* B = dynamic_cast<::chrono::ChBody*>(objB);
+            if(!b->is_free(A) || !b->is_free(B))
+                return true;
+            hit->dist = distance;
+            hit->pA = pA;
+            hit->pB = pB;
+            hit->n = plane_coord.GetAxisX();
+            hit->A = A;
+            hit->B = B;
+            return true;
+        }
+    };
+
+    for(int it=0; it<4; ++it)
+    {
+        b->sys->ComputeCollisions();
+        Hit hit;
+        auto cb = chrono_types::make_shared<Deepest>(&hit, b);
+        b->sys->GetContactContainer()->ReportAllContacts(cb);
+        if(!hit.ok())
+            break;
+
+        ::chrono::ChVector3d n = hit.n;
+        if((hit.pA - hit.pB).Dot(n) < 0.0)
+            n = -n;
+
+        const double depth = std::min(-hit.dist, 0.05);
+        const bool Af = b->is_free(hit.A);
+        const bool Bf = b->is_free(hit.B);
+        if(!Af || !Bf)
+            break;
+
+        const ::chrono::ChVector3d rA = Af ? (hit.pA - hit.A->GetPos()) : ::chrono::ChVector3d(0,0,0);
+        const ::chrono::ChVector3d rB = Bf ? (hit.pB - hit.B->GetPos()) : ::chrono::ChVector3d(0,0,0);
+        double keff = 0.0;
+        if(Af)
+            keff += Backend::keff_along(hit.A, rA, n);
+        if(Bf)
+            keff += Backend::keff_along(hit.B, rB, -n);
+        if(keff < 1.0e-16)
+            break;
+
+        const double Jpos = depth / keff;
+        if(Af)
+            Backend::apply_impulse(hit.A, n, rA, Jpos, true);
+        if(Bf)
+            Backend::apply_impulse(hit.B, -n, rB, Jpos, true);
+
+        auto rel_vn = [&]()
+        {
+            double vn = 0.0;
+            if(Af)
+            {
+                const ::chrono::ChVector3d vpt = hit.A->GetPosDt() + hit.A->GetAngVelParent().Cross(rA);
+                vn += vpt.Dot(n);
+            }
+            if(Bf)
+            {
+                const ::chrono::ChVector3d vpt = hit.B->GetPosDt() + hit.B->GetAngVelParent().Cross(rB);
+                vn -= vpt.Dot(n);
+            }
+            return vn;
+        };
+
+        const double vn = rel_vn();
+        if(vn < 0.0)
+        {
+            const double Jvel = -vn / keff;
+            if(Af)
+                Backend::apply_impulse(hit.A, n, rA, Jvel, false);
+            if(Bf)
+                Backend::apply_impulse(hit.B, -n, rB, Jvel, false);
+        }
+
+        b->apply_locks();
+        ++nproj;
+    }
+
+    return nproj;
+}
+
 }
 
 #else
@@ -323,10 +681,13 @@ int   reef3d_chrono_add_mesh(void*, int, const double*, double,
                              double, double, double, double, double, double,
                              const double*, const double*, const double*, const double*) { return -1; }
 void  reef3d_chrono_set_wrench(void*, int, const double*, const double*) {}
+void  reef3d_chrono_set_state(void*, int, const double*, const double*, const double*, const double*) {}
 void  reef3d_chrono_set_locks(void*, int, int, int, int, int, int) {}
+void  reef3d_chrono_setup(void*) {}
 void  reef3d_chrono_step(void*, double, int) {}
 void  reef3d_chrono_get_state(void*, int, double*, double*, double*, double*) {}
 int   reef3d_chrono_ncontacts(void*) { return 0; }
+int   reef3d_chrono_project_contacts(void*) { return 0; }
 
 }
 

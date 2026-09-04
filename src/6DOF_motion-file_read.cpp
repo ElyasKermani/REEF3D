@@ -24,6 +24,8 @@ Authors: Hans Bihs
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
+#include<cstdio>
+#include<fstream>
 
 void sixdof_motionext_file::read_format_1(lexer *p, ghostcell *pgc)
 {
@@ -32,18 +34,27 @@ void sixdof_motionext_file::read_format_1(lexer *p, ghostcell *pgc)
     double sign,beta,s;
 	int count;
 	
-	sprintf(name,"6DOF_motion.dat");
+    sprintf(name,"6DOF_motion-%i.dat",body_id);
+    ifstream probe(name);
+    if(!probe && body_id==0)
+    {
+        probe.close();
+        sprintf(name,"6DOF_motion.dat");
+    }
+    else
+        probe.close();
 
     try {
         auto table = readTable(name, colnum);
         ptnum = table.size();
-        
-        // copy data directly
         data = std::move(table);
     } catch(const std::exception& e) {
         cout << "Error: " << e.what() << endl;
         pgc->final(EXIT_FAILURE);
     }
+
+    if(p->mpirank==0)
+    cout<<"6DOF motion file body "<<body_id<<"  "<<name<<"  rows "<<ptnum<<endl;
     
     ts = data[0][0];
     te = data[ptnum-1][0];

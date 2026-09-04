@@ -25,30 +25,21 @@ Authors: Hans Bihs
 #include"fdm.h"
 #include"ghostcell.h"
 
-sixdof_motionext_file::sixdof_motionext_file(lexer *p, ghostcell *pgc)
+sixdof_motionext_file::sixdof_motionext_file(lexer *p, ghostcell *pgc, int number)
 {
+    body_id = number;
     ini(p,pgc);
-    
-    //cout<<"6DOF MOTION START"<<endl;
-    
-    // number of file columns
+
     if(p->X240==1)
     colnum = 3;
-    
-    if(p->X240==2)
+    else if(p->X240==2 || p->X240==3)
     colnum = 4;
-    
-    if(p->X240==3)
-    colnum = 4;
-    
-    if(p->X240==4)
+    else
     colnum = 5;
-    
+
     timecount_old=0;
 	timecount=1;
-    
-    // read file
-    //if(p->mpirank==0)
+
     read_format_1(p,pgc);
 }
 

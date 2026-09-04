@@ -122,9 +122,17 @@ void sixdof_obj::apply_kinematics(lexer *p, const Eigen::Vector3d& c, const Eige
                                   const Eigen::Vector3d& v, const Eigen::Vector3d& omegaI)
 {
     c_ = c;
-    e_ = e;
-    if(e_.norm()>1.0e-14)
-    e_.normalize();
+    const double en = e.norm();
+    if(en > 1.0e-14)
+    e_ = e / en;
+    else
+    {
+        // Zero quaternion → R_ = 0 → STL vertices collapse to the CoG → Fz_p = 0.
+        if(e_.norm() <= 1.0e-14)
+        e_ << 1.0, 0.0, 0.0, 0.0;
+        if(p->mpirank==0)
+        cout<<"WARNING: 6DOF quaternion degenerate, keeping previous orientation"<<endl;
+    }
 
     quat_matrices(p);
 

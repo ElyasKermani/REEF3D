@@ -110,48 +110,49 @@ void sixdof_chrono::initialize(lexer *p, std::vector<sixdof_obj*> &fb_obj)
 
     reef3d_chrono_set_locks(pimpl->backend, p->X11_u, p->X11_v, p->X11_w,
                             p->X11_p, p->X11_q, p->X11_r);
+    reef3d_chrono_setup(pimpl->backend);
 
     pimpl->ready = true;
     if(p->mpirank==0)
     {
         if(p->X16==1)
-        cout<<"Chrono SMC soft contact (Hooke, kn=2e5 N/m)  bodies: "<<fb_obj.size()<<endl;
+        cout<<"Chrono SMC contact projection  bodies: "<<fb_obj.size()<<endl;
         else
-        cout<<"Chrono NSC hard contact initialized  bodies: "<<fb_obj.size()<<endl;
+        cout<<"Chrono NSC contact projection  bodies: "<<fb_obj.size()<<endl;
+        cout<<"Chrono domain: geometric chamber walls (OBB); Bullet only for free-free contact"<<endl;
     }
 #endif
 }
 
 void sixdof_chrono::advance(lexer *p, fdm *a, ghostcell *pgc, std::vector<sixdof_obj*> &fb_obj, int iter, bool finalize)
 {
+    (void)a;
+    (void)pgc;
+    (void)iter;
+
     if(!pimpl->ready)
+    return;
+
+    // Native RK already advanced the pose. Chrono must not integrate hydro.
+    if(finalize==false)
     return;
 
     for(size_t nb=0; nb<fb_obj.size(); ++nb)
     {
-        fb_obj[nb]->prepare_external_loads(p, a, pgc, finalize);
-
-        Eigen::Vector3d F, M;
-        fb_obj[nb]->get_wrench(F, M);
-        double FF[3] = {F(0), F(1), F(2)};
-        double MM[3] = {M(0), M(1), M(2)};
-        reef3d_chrono_set_wrench(pimpl->backend, int(nb), FF, MM);
+        Eigen::Vector3d c, v, w;
+        Eigen::Vector4d e;
+        fb_obj[nb]->get_pose_vel(c, e, v, w);
+        double cc[3] = {c(0), c(1), c(2)};
+        double ee[4] = {e(0), e(1), e(2), e(3)};
+        double vv[3] = {v(0), v(1), v(2)};
+        double ww[3] = {w(0), w(1), w(2)};
+        reef3d_chrono_set_state(pimpl->backend, int(nb), cc, ee, vv, ww);
     }
 
-    if(finalize==true)
-    {
-        const double dt = p->dt;
-        const double cdt = std::min(dt, 1.0e-4);
-        int nsub = int(dt/cdt + 0.5);
-        if(nsub<1)
-        nsub=1;
-
-        reef3d_chrono_step(pimpl->backend, dt, nsub);
-
-        const int nc = reef3d_chrono_ncontacts(pimpl->backend);
-        if(p->mpirank==0 && (p->count%20==0 || nc>0))
-        cout<<"Chrono contacts: "<<nc<<"  substeps: "<<nsub<<endl;
-    }
+    const int nproj = reef3d_chrono_project_contacts(pimpl->backend);
+    const int nc = reef3d_chrono_ncontacts(pimpl->backend);
+    if(p->mpirank==0 && (p->count%20==0 || nproj>0 || nc>0))
+    cout<<"Chrono contacts: "<<nc<<"  projected: "<<nproj<<endl;
 
     for(size_t nb=0; nb<fb_obj.size(); ++nb)
     {

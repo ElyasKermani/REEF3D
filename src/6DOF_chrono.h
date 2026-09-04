@@ -21,8 +21,8 @@ Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
 // In-process Chrono contact for CFD 6DOF bodies (X 13 1).
-// Chrono owns gravity-free rigid-body EOM and contact (NSC hard or SMC soft).
-// REEF3D hydro wrenches (already include gravity) are applied each step.
+// Native RK integrates hydro. Chrono copies that pose, detects mesh-wall
+// and mesh-mesh contacts, and projects the bodies out of penetration.
 
 #ifndef SIXDOF_CHRONO_H_
 #define SIXDOF_CHRONO_H_
