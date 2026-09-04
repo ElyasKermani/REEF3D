@@ -191,7 +191,11 @@ struct Backend
         if(!has_domain)
             return 0;
 
-        const double marg = 5.0e-3;
+        const double Lmin = std::min({std::max(ex - ox, 1.0e-12),
+                                      std::max(ey - oy, 1.0e-12),
+                                      std::max(ez - oz, 1.0e-12)});
+        const double marg = std::min(5.0e-3, 0.02 * Lmin);
+        const double maxshift = std::min(0.05, 0.25 * Lmin);
         int nproj = 0;
 
         for(size_t nb=0; nb<bodies.size(); ++nb)
@@ -235,7 +239,6 @@ struct Backend
             world_span(nb, wmin, wmax);
             ::chrono::ChVector3d p = body->GetPos();
             ::chrono::ChVector3d v = body->GetPosDt();
-            const double maxshift = 0.05;
             if(free_u)
             {
                 double dx = 0.0;
@@ -346,7 +349,7 @@ void reef3d_chrono_add_floor(void* ptr, double ox, double oy, double oz,
     auto add_wall = [&](const char* name, double dx, double dy, double dz, double x, double y, double z)
     {
         auto wall = chrono_types::make_shared<::chrono::ChBodyEasyBox>(
-            dx, dy, dz, 1000.0, false, true, b->mat);
+            dx, dy, dz, 1000.0, false, false, b->mat);
         wall->SetPos(::chrono::ChVector3d(x, y, z));
         wall->SetFixed(true);
         wall->SetName(name);
@@ -362,6 +365,10 @@ void reef3d_chrono_add_floor(void* ptr, double ox, double oy, double oz,
     b->ox = ox; b->oy = oy; b->oz = oz;
     b->ex = ex; b->ey = ey; b->ez = ez;
     b->has_domain = true;
+
+    const double env = std::min(8.0e-3, std::max(1.0e-5, 0.02 * std::min({Lx, Ly, Lz})));
+    ::chrono::ChCollisionModel::SetDefaultSuggestedEnvelope(env);
+    ::chrono::ChCollisionModel::SetDefaultSuggestedMargin(env);
 }
 
 int reef3d_chrono_add_box(void* ptr,
