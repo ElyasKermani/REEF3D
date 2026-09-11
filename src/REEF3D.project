@@ -1410,6 +1410,7 @@
             <File Name="ini_para.cpp"/>
             <File Name="ini_hydrostatic.cpp"/>
             <File Name="ini_droplet.cpp"/>
+            <File Name="initialize_trip.cpp"/>
           </VirtualDirectory>
           <VirtualDirectory Name="Gradient">
             <File Name="gradient_momscalar_generic.cpp"/>

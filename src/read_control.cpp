@@ -1456,6 +1456,9 @@ void control::read_control(lexer* p)
                 case 58: control>>I58_1>>I58_2;
                          clear(c,numint);
                          break;
+                case 59: control>>I59;
+                         clear(c,numint);
+                         break;
                 case 230: control>>I230;
                          clear(c,numint);
                          break;

@@ -567,6 +567,7 @@ void control::ini_default()
 	I56=0;          // int pressure above F56 set to zero
 	I58_1=0.0;      // double vertical velocity for sphere initialization
 	I58_2=0.0;      // double radius for sphere initialization
+    I59=0.0;        // double amplitude of initial 3D velocity trip (m/s)
     I230=0;         // int read 2D flowfile
     I231=0.0;       // double starting x for flowfile
     I232=0.0;       // double starting y for flowfile

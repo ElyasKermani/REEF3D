@@ -44,6 +44,7 @@ public:
 
 	void start(fdm*, lexer*, ghostcell*);
     void droplet_ini(lexer*,fdm*,ghostcell*);
+    void trip_ini(lexer*,fdm*,ghostcell*);
 	void hydrostatic(lexer*,fdm*,ghostcell*);
 	void iniphi_io(fdm*, lexer*,ghostcell*);
 	void inivof_io(fdm*, lexer*,ghostcell*);

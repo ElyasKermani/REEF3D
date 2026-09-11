@@ -182,6 +182,9 @@ void driver::driver_ini_cfd()
     if(p->I58_2>0.0)
 	pini->droplet_ini(p,a,pgc);
 
+    if(p->I59>0.0 && p->I40==0)
+    pini->trip_ini(p,a,pgc);
+
 	pflow->pressure_io(p,a,pgc);
     
     ppress->ini(p,a,pgc);
