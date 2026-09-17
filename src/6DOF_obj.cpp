@@ -49,6 +49,7 @@ sixdof_obj::sixdof_obj(lexer *p, ghostcell *pgc, int number) : ddweno_f_nug(p), 
     
     triangle_token=0;
     printnormal_count=0;
+    thrust_file_state=0;
     
     alpha[0] = 8.0/15.0;
     alpha[1] = 2.0/15.0;

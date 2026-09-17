@@ -71,7 +71,9 @@ void sixdof_motionext_file::motionext_trans(lexer *p, ghostcell *pgc, Eigen::Vec
     }
     
     
-    if(p->X11_u==2)
+    // Body 0 follows X 11. Extra bodies (gates) always take x and z from
+    // the file so a free-surge / free-heave ship does not let the gates drift.
+    if(p->X11_u==2 || body_id>0)
     {
         Uext = 0.0;
         
@@ -93,7 +95,7 @@ void sixdof_motionext_file::motionext_trans(lexer *p, ghostcell *pgc, Eigen::Vec
         dc_(1) = Vext*ramp_vel(p);
     }
     
-    if (p->X11_w==2)
+    if (p->X11_w==2 || body_id>0)
     {
         Wext = 0.0;
         

@@ -26,6 +26,9 @@ Author: Tobias Martin
 #include"ghostcell.h"
 #include"mooring.h"
 #include"net_interface.h"
+#include<cstdio>
+#include<fstream>
+#include<cmath>
 
 void sixdof_obj::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double alpha, bool finalize)
 {
@@ -136,27 +139,105 @@ void sixdof_obj::netForces_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc, double a
     }
 }
 
+void sixdof_obj::load_thrust_file(lexer *p)
+{
+    if(thrust_file_state!=0)
+    return;
+
+    char name[200];
+    sprintf(name,"6DOF_thrust-%i.dat",n6DOF);
+    std::ifstream in(name);
+    if(!in)
+    {
+        thrust_file_state = -1;
+        return;
+    }
+
+    double t,fx,fy,fz;
+    while(in>>t>>fx>>fy>>fz)
+    {
+        std::vector<double> row(4);
+        row[0]=t; row[1]=fx; row[2]=fy; row[3]=fz;
+        thrust_table.push_back(row);
+    }
+    in.close();
+
+    if(thrust_table.size()<2)
+    {
+        thrust_file_state = -1;
+        thrust_table.clear();
+        return;
+    }
+
+    thrust_file_state = 1;
+    if(p->mpirank==0)
+    cout<<"6DOF thrust file body "<<n6DOF<<"  "<<name<<"  rows "<<thrust_table.size()<<endl;
+}
+
+void sixdof_obj::interpolate_thrust(lexer *p, double &fx, double &fy, double &fz)
+{
+    fx = fy = fz = 0.0;
+    const int n = int(thrust_table.size());
+    const double t = p->simtime;
+    if(t<=thrust_table[0][0])
+    {
+        fx = thrust_table[0][1];
+        fy = thrust_table[0][2];
+        fz = thrust_table[0][3];
+        return;
+    }
+    if(t>=thrust_table[n-1][0])
+    {
+        fx = thrust_table[n-1][1];
+        fy = thrust_table[n-1][2];
+        fz = thrust_table[n-1][3];
+        return;
+    }
+
+    int i=1;
+    while(i<n && t>thrust_table[i][0])
+        ++i;
+
+    const double t0 = thrust_table[i-1][0];
+    const double t1 = thrust_table[i][0];
+    const double s = (t-t0)/std::max(t1-t0,1.0e-16);
+    fx = thrust_table[i-1][1] + s*(thrust_table[i][1]-thrust_table[i-1][1]);
+    fy = thrust_table[i-1][2] + s*(thrust_table[i][2]-thrust_table[i-1][2]);
+    fz = thrust_table[i-1][3] + s*(thrust_table[i][3]-thrust_table[i-1][3]);
+}
+
 void sixdof_obj::add_constant_force(lexer *p)
 {
+    load_thrust_file(p);
+
+    if(thrust_file_state==1)
+    {
+        double fx,fy,fz;
+        interpolate_thrust(p,fx,fy,fz);
+        Xext += fx;
+        Yext += fy;
+        Zext += fz;
+        return;
+    }
+
     if(p->X104<=0)
     return;
 
-    // X 20 1: sum every X 104 token (compound body).
-    // X 20 N: body n uses only X 104 token n.
+    const double ramp = ramp_vel(p);
     if(p->X20<=1)
     {
         for(int qn=0;qn<p->X104;++qn)
         {
-            Xext += p->X104_x[qn];
-            Yext += p->X104_y[qn];
-            Zext += p->X104_z[qn];
+            Xext += ramp*p->X104_x[qn];
+            Yext += ramp*p->X104_y[qn];
+            Zext += ramp*p->X104_z[qn];
         }
     }
     else if(n6DOF < p->X104)
     {
-        Xext += p->X104_x[n6DOF];
-        Yext += p->X104_y[n6DOF];
-        Zext += p->X104_z[n6DOF];
+        Xext += ramp*p->X104_x[n6DOF];
+        Yext += ramp*p->X104_y[n6DOF];
+        Zext += ramp*p->X104_z[n6DOF];
     }
 }
 

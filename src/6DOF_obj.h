@@ -132,6 +132,8 @@ private:
     void ini_fbvel(lexer*, ghostcell*);
     void apply_ini_momentum(lexer*);
     void add_constant_force(lexer*);
+    void load_thrust_file(lexer*);
+    void interpolate_thrust(lexer*, double&, double&, double&);
     void maxvel(lexer*, ghostcell*);
     
     void externalForces_cfd(lexer*, fdm*, ghostcell*, double, bool);
@@ -391,6 +393,8 @@ private:
 
     // Number
     int n6DOF;
+    int thrust_file_state;
+    vector<vector<double> > thrust_table;
     
     // Wavemaker
     double xwm1,zwm1,xwm2,zwm2;
