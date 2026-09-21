@@ -45,7 +45,17 @@ public:
 	void diff_v(lexer*, fdm*, ghostcell*, solver*, field&, field&, field&, field&, field&, double) override final;
 	void diff_w(lexer*, fdm*, ghostcell*, solver*, field&, field&, field&, field&, field&, double) override final;
 	
-private:    
+private:
+	// D22=2 mixed wall: C-type 3 (Neumann/slip) copies the interior
+	// velocity; type 21/OBJ keep the Dirichlet ghost value.
+	inline double visc_gvel(int flg, double ughost, double uinterior)
+	{
+        if(flg==-3)
+        return uinterior;
+
+        return ughost;
+	}
+
 	double D;
 	double time,starttime,endtime;
 	int count,q;

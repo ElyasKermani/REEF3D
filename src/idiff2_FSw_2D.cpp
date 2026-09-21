@@ -132,13 +132,13 @@ void idiff2_FS_2D::diff_w(lexer* p, fdm* a, ghostcell *pgc, solver *psolv, field
 	{      
 		if(p->flag3[Im1JK]<0)
 		{
-		a->rhsvec.V[n] -= a->M.s[n]*w(i-1,j,k);
+		a->rhsvec.V[n] -= a->M.s[n]*visc_gvel(p->flag3[Im1JK],w(i-1,j,k),w(i,j,k));
 		a->M.s[n] = 0.0;
 		}
 		
 		if(p->flag3[Ip1JK]<0)
 		{
-		a->rhsvec.V[n] -= a->M.n[n]*w(i+1,j,k);
+		a->rhsvec.V[n] -= a->M.n[n]*visc_gvel(p->flag3[Ip1JK],w(i+1,j,k),w(i,j,k));
 		a->M.n[n] = 0.0;
 		}
 

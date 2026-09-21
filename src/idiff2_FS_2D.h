@@ -45,6 +45,13 @@ public:
 	void diff_w(lexer*, fdm*, ghostcell*, solver*, field&, field&, field&, field&, field&, double) override final;
 
 private:
+	inline double visc_gvel(int flg, double ughost, double uinterior)
+	{
+        if(flg==-3)
+        return uinterior;
+
+        return ughost;
+	}
 
 	double D;
 	double time,starttime,endtime;
