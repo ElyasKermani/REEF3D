@@ -32,7 +32,10 @@ void initialize::trip_ini(lexer* p, fdm *a, ghostcell* pgc)
     const double A = p->I59;
     const double lx = p->xcoormax - p->xcoormin;
     const double ly = p->ycoormax - p->ycoormin;
-    const double h = (p->F60>-1.0e20) ? p->F60 : (p->zcoormax - p->zcoormin);
+    const double lz = p->zcoormax - p->zcoormin;
+    double h = (p->F60>-1.0e20) ? p->F60 : lz;
+    if(h>lz)
+    h=lz;
 
     if(p->mpirank==0)
     cout<<"initial 3D trip  I 59 "<<A<<"  water depth "<<h<<endl;
