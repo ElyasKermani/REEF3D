@@ -1991,6 +1991,8 @@ void control::ctrlrecv()
     ii++;
     X164 = ictrl[ii];
     ii++;
+    X165 = ictrl[ii];
+    ii++;
     X170 = ictrl[ii];
     ii++;
     X170_xs = dctrl[dd];
@@ -3224,6 +3226,14 @@ void control::ctrlrecv()
         Darray(X164_x8,X164);
         Darray(X164_y8,X164);
         Darray(X164_z8,X164);
+    }
+
+    if(X165>0)
+    {
+        Darray(X165_xm,X165);
+        Darray(X165_ym,X165);
+        Darray(X165_zm,X165);
+        Darray(X165_r,X165);
     }
 
     if(X311>0)
@@ -4848,6 +4858,18 @@ void control::ctrlrecv()
         X164_y8[n] = dctrl[dd];
         dd++;
         X164_z8[n] = dctrl[dd];
+        dd++;
+    }
+
+    for(n=0;n<X165;++n)
+    {
+        X165_xm[n] = dctrl[dd];
+        dd++;
+        X165_ym[n] = dctrl[dd];
+        dd++;
+        X165_zm[n] = dctrl[dd];
+        dd++;
+        X165_r[n] = dctrl[dd];
         dd++;
     }
 

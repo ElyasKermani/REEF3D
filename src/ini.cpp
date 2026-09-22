@@ -958,6 +958,7 @@ void control::ini_default()
     X153=0;        // int symmetric wedge
     X163=0;        // int wedge
     X164=0;        // int hexahedron
+    X165=0;        // int sphere floating body
     X170=0;        // int piston wavemaker
     X170_xs=X170_xe=X170_ys=X170_ye=X170_zs=X170_ze=0.0;
     X171=0;        // int flap wavemaker

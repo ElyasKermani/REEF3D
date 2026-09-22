@@ -2534,6 +2534,9 @@ void control::read_control(lexer* p)
                 case  164: ++X164;
                          clear(c,numint);
                          break;
+                case  165: ++X165;
+                         clear(c,numint);
+                         break;
                 case  170: control>>X170_xs>>X170_xe>>X170_ys>>X170_ye>>X170_zs>>X170_ze;
                          p->XYin(X170_xs,X170_ys);
                          p->XYin(X170_xe,X170_ye);
@@ -3449,6 +3452,11 @@ void control::read_control(lexer* p)
     Darray(X164_y8,X164);
     Darray(X164_z8,X164);
 
+    Darray(X165_xm,X165);
+    Darray(X165_ym,X165);
+    Darray(X165_zm,X165);
+    Darray(X165_r,X165);
+
     if (X311 > 0)
     {
         Darray(X311_xs,X311);
@@ -3654,6 +3662,7 @@ void control::read_control(lexer* p)
     int countX110=0;
     int countX163=0;
     int countX164=0;
+    int countX165=0;
     int countX311=0;
     int countX312=0;
     int countX320=0;
@@ -4334,6 +4343,11 @@ void control::read_control(lexer* p)
                          p->XYin(X164_x7[countX164],X164_y7[countX164]);
                          p->XYin(X164_x8[countX164],X164_y8[countX164]);
                          ++countX164;
+                         clear(c,numint);
+                         break;
+                case 165: control>>X165_xm[countX165]>>X165_ym[countX165]>>X165_zm[countX165]>>X165_r[countX165];
+                         p->XYin(X165_xm[countX165],X165_ym[countX165]);
+                         ++countX165;
                          clear(c,numint);
                          break;
                 case 311: control>>X311_xs[countX311]>>X311_xe[countX311]>>X311_ys[countX311]>>X311_ye[countX311]>>X311_zs[countX311]>>X311_ze[countX311]

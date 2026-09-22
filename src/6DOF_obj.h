@@ -157,6 +157,7 @@ private:
 	void wedge_sym(lexer*, ghostcell*,int);
     void wedge(lexer*, ghostcell*,int);
     void hexahedron(lexer*, ghostcell*,int);
+    void sphere(lexer*, ghostcell*,int);
     void piston(lexer*, ghostcell*,int);
     void flap(lexer*, ghostcell*,int);
     void flap_double(lexer*, ghostcell*,int);

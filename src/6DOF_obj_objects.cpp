@@ -104,7 +104,21 @@ void sixdof_obj::objects_create(lexer *p, ghostcell *pgc)
         hexahedron(p,pgc,n6DOF);
         ++entity_count;
     }
-    
+
+    if(compound)
+    {
+    for(qn=0;qn<p->X165;++qn)
+    {
+        sphere(p,pgc,qn);
+        ++entity_count;
+    }
+    }
+    else if(p->X180==0 && n6DOF<p->X165)
+    {
+        sphere(p,pgc,n6DOF);
+        ++entity_count;
+    }
+
     if((compound || (n6DOF==0 && p->X180==0)) && p->X170==1)
     {
         tstart[entity_count]=tricount;
@@ -173,31 +187,40 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     entity_sum=1;
     else if(compound)
     {
-    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X170 + p->X171 + p->X172;
+    entity_sum = p->X110 + p->X131 + p->X132 + p->X133 + p->X153 + p->X163 + p->X164 + p->X165 + p->X170 + p->X171 + p->X172;
     
     // box
     trisum+=12*p->X110;
     
-    // cylinder_x   
+    // cylinder_x
+    if(p->X131>0)
+    {
     r=p->X131_rad;
 	U = 2.0 * PI * r;
 	ds = 0.75*(U*p->dx);
 	snum = int(U/ds);
 	trisum+=5*(snum+1)*p->X131;
+    }
     
     // cylinder_y
+    if(p->X132>0)
+    {
     r=p->X132_rad;
 	U = 2.0 * PI * r;
 	ds = 0.75*(U*p->dx);
 	snum = int(U/ds);
 	trisum+=5*(snum+1)*p->X132;
+    }
     
     // cylinder_z
+    if(p->X133>0)
+    {
     r=p->X133_rad;
 	U = 2.0 * PI * r;
 	ds = 0.75*(U*p->dx);
 	snum = int(U/ds);
     trisum+=5*(snum+1)*p->X133;
+    }
     
     // wedge sym
     trisum+=12*p->X153;
@@ -207,7 +230,19 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
     
     // hexahedron
     trisum+=12*p->X164;
-    
+
+    // sphere
+    for(n=0;n<p->X165;++n)
+    {
+        r=p->X165_r[n];
+        U = 2.0 * PI * r;
+        ds = 0.5*MAX(p->DXM,p->dx);
+        if(ds<1.0e-16)
+        ds=1.0e-4;
+        snum = MAX(int(U/ds), 40);
+        trisum+=snum*snum;
+    }
+
     // piston
     trisum+=12*p->X170;
     
@@ -229,21 +264,30 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
         if(n6DOF==0)
         {
             entity_sum += p->X131 + p->X132 + p->X133 + p->X153 + p->X170 + p->X171 + p->X172;
+            if(p->X131>0)
+            {
             r=p->X131_rad;
             U = 2.0 * PI * r;
             ds = 0.75*(U*p->dx);
             snum = int(U/ds);
             trisum+=5*(snum+1)*p->X131;
+            }
+            if(p->X132>0)
+            {
             r=p->X132_rad;
             U = 2.0 * PI * r;
             ds = 0.75*(U*p->dx);
             snum = int(U/ds);
             trisum+=5*(snum+1)*p->X132;
+            }
+            if(p->X133>0)
+            {
             r=p->X133_rad;
             U = 2.0 * PI * r;
             ds = 0.75*(U*p->dx);
             snum = int(U/ds);
             trisum+=5*(snum+1)*p->X133;
+            }
             trisum+=12*p->X153;
             trisum+=12*p->X170;
             trisum+=28*p->X172;
@@ -258,12 +302,23 @@ void sixdof_obj::objects_allocate(lexer *p, ghostcell *pgc)
             ++entity_sum;
             trisum+=12;
         }
+        if(n6DOF<p->X165)
+        {
+            ++entity_sum;
+            r=p->X165_r[n6DOF];
+            U = 2.0 * PI * r;
+            ds = 0.5*MAX(p->DXM,p->dx);
+            if(ds<1.0e-16)
+            ds=1.0e-4;
+            snum = MAX(int(U/ds), 40);
+            trisum+=snum*snum;
+        }
     }
 
     if(entity_sum<1)
     entity_sum=1;
 
-    if(trisum<1)
+    if(!(trisum>=1.0))
     trisum=1;
 
     

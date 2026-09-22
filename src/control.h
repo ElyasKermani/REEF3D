@@ -486,6 +486,7 @@ public:
     double *X163_x5,*X163_y5,*X163_z5;
     double *X163_x6,*X163_y6,*X163_z6;
     int X164;
+    int X165;
     double *X164_x1,*X164_y1,*X164_z1;
     double *X164_x2,*X164_y2,*X164_z2;
     double *X164_x3,*X164_y3,*X164_z3;
@@ -494,6 +495,7 @@ public:
     double *X164_x6,*X164_y6,*X164_z6;
     double *X164_x7,*X164_y7,*X164_z7;
     double *X164_x8,*X164_y8,*X164_z8;
+    double *X165_xm,*X165_ym,*X165_zm,*X165_r;
     double X170_xs,X170_xe,X170_ys,X170_ye,X170_zs,X170_ze;
     double X171_xs,X171_xe,X171_ys,X171_ye,X171_zs,X171_z1,X171_ze;
     double X172_xs,X172_xe,X172_ys,X172_ye,X172_zs,X172_z1,X172_z2,X172_ze;
