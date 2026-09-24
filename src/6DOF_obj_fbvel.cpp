@@ -33,7 +33,14 @@ void sixdof_obj::update_fbvel(lexer *p, ghostcell *pgc)
         u_fb(0) = 0.0;
         
         if(p->X11_u==1)
+        {
+        // Extra bodies are kinematically prescribed in x (motion file).
+        // X 11 stays free for the ship.
+        if(n6DOF>0)
+        u_fb(0) = dc_(0);
+        else
         u_fb(0) = p_(0)/Mass_fb;
+        }
         
         if(p->X11_u==2)
         u_fb(0) = dc_(0);
@@ -55,7 +62,12 @@ void sixdof_obj::update_fbvel(lexer *p, ghostcell *pgc)
         u_fb(2) = 0.0;
         
         if(p->X11_w==1)
+        {
+        if(n6DOF>0)
+        u_fb(2) = dc_(2);
+        else
         u_fb(2) = p_(2)/Mass_fb;
+        }
         
         if(p->X11_w==2)
         u_fb(2) = dc_(2);
