@@ -21,8 +21,9 @@ Author: Elyas Larkermani
 --------------------------------------------------------------------*/
 
 // In-process Chrono contact for CFD 6DOF bodies (X 13 1).
-// Native RK integrates hydro. Chrono copies that pose, detects mesh-wall
-// and mesh-mesh contacts, and projects the bodies out of penetration.
+// Native RK integrates hydro. On the finished fluid step, Chrono resolves
+// overlaps with a soft-sphere (SMC Hooke) contact law. Hydrodynamic forces
+// are not passed into Chrono.
 
 #ifndef SIXDOF_CHRONO_H_
 #define SIXDOF_CHRONO_H_

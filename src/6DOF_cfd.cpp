@@ -76,9 +76,9 @@ void sixdof_cfd::start_cfd(lexer* p, fdm* a, ghostcell* pgc, int iter, field &uv
         fb_obj[nb]->hydrodynamic_forces_cfd(p,a,pgc,uvel,vvel,wvel,iter,finalize);
     }
 
-    // Hydro always uses native RK (same scheme as the fluid). Chrono only
-    // projects contacts; integrating heave in Chrono with a frozen hull
-    // through the RK stages is a 2Δt FSI oscillator.
+    // Hydro always uses native RK (same scheme as the fluid). Chrono resolves
+    // contacts only on the finished step. Integrating heave in Chrono with a
+    // frozen hull through the RK stages is a 2Δt FSI oscillator.
     for (int nb=0; nb<number6DOF;++nb)
     fb_obj[nb]->solve_eqmotion_cfd(p,a,pgc,iter,finalize);
 

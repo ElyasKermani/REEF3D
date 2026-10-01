@@ -9,10 +9,10 @@ under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
-for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, see <https://www.gnu.org/licenses/>.
@@ -24,119 +24,102 @@ Author: Hans Bihs
 #include"lexer.h"
 #include"ghostcell.h"
 
+namespace
+{
+void sphere_vertex(double xc, double yc, double zc, double r,
+                   int i, int j, int n_theta, int n_phi,
+                   double &x, double &y, double &z)
+{
+    const double phi = PI * double(j) / double(n_phi);
+    const double theta = 2.0 * PI * double(i) / double(n_theta);
+    x = xc + r*sin(phi)*cos(theta);
+    y = yc + r*sin(phi)*sin(theta);
+    z = zc + r*cos(phi);
+}
+}
+
 void sixdof_obj::sphere(lexer *p, ghostcell *pgc, int id)
 {
-    double U,ds,dt,phi,theta;
-    int snum;
-    double xm,ym,zm,r;
-    int q;
+    const double xc = p->X165_xm[id];
+    const double yc = p->X165_ym[id];
+    const double zc = p->X165_zm[id];
+    const double r = p->X165_r[id];
 
-    xm=p->X165_xm[id];
-    ym=p->X165_ym[id];
-    zm=p->X165_zm[id];
-    r=p->X165_r[id];
+    // Edge length about half a cell, same budget as the snum*snum allocation.
+    double ds = 0.5*MAX(p->DXM, p->dx);
+    if(ds < 1.0e-16)
+    ds = 1.0e-4;
 
-    U = 2.0*PI*r;
-    ds = 0.5*MAX(p->DXM,p->dx);
-    if(ds<1.0e-16)
-    ds=1.0e-4;
-    snum = MAX(int(U/ds), 40);
+    const int n_theta = MAX(int((2.0*PI*r)/ds), 12);
+    const int n_phi = MAX(n_theta/2, 4);
 
-    ds = (2.0*PI)/double(snum);
+    tstart[entity_count] = tricount;
 
-    dt = ds;
-
-    phi=-0.5*PI;
-    theta=-0.5*PI;
-
-    tstart[entity_count]=tricount;
-
-        // bottom start /triangles
-        for(q=0;q<snum;++q)
-        {
-        tri_x[tricount][0] = xm;
-        tri_y[tricount][0] = ym;
-        tri_z[tricount][0] = zm-r;
-
-        tri_x[tricount][1] = xm + r*cos(theta+dt)*cos(phi);
-        tri_y[tricount][1] = ym + r*cos(theta+dt)*sin(phi);
-        tri_z[tricount][1] = zm + r*sin(theta+dt);
-
-        tri_x[tricount][2] = xm + r*cos(theta+dt)*cos(phi+ds);
-        tri_y[tricount][2] = ym + r*cos(theta+dt)*sin(phi+ds);
-        tri_z[tricount][2] = zm + r*sin(theta+dt);
-
-        ++tricount;
-
-        phi+=ds;
-        }
-
-    theta+=dt;
-
-    // middle section / hexahedrons
-    for(n=1;n<snum/2-1;++n)
+    for(int i=0; i<n_theta; ++i)
     {
-        phi=-0.5*PI;
-        for(q=0;q<snum;++q)
+        const int i2 = (i+1) % n_theta;
+        double x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3;
+
+        sphere_vertex(xc, yc, zc, r, 0, 0, n_theta, n_phi, x0, y0, z0);
+        sphere_vertex(xc, yc, zc, r, i, 1, n_theta, n_phi, x1, y1, z1);
+        sphere_vertex(xc, yc, zc, r, i2, 1, n_theta, n_phi, x2, y2, z2);
+
+        tri_x[tricount][0] = x0;
+        tri_y[tricount][0] = y0;
+        tri_z[tricount][0] = z0;
+        tri_x[tricount][1] = x1;
+        tri_y[tricount][1] = y1;
+        tri_z[tricount][1] = z1;
+        tri_x[tricount][2] = x2;
+        tri_y[tricount][2] = y2;
+        tri_z[tricount][2] = z2;
+        ++tricount;
+
+        for(int j=1; j<n_phi-1; ++j)
         {
-        //side
-        // 1st triangle
-        tri_x[tricount][0] = xm + r*cos(theta)*cos(phi);
-        tri_y[tricount][0] = ym + r*cos(theta)*sin(phi);
-        tri_z[tricount][0] = zm + r*sin(theta);
+            sphere_vertex(xc, yc, zc, r, i,  j,   n_theta, n_phi, x0, y0, z0);
+            sphere_vertex(xc, yc, zc, r, i,  j+1, n_theta, n_phi, x1, y1, z1);
+            sphere_vertex(xc, yc, zc, r, i2, j,   n_theta, n_phi, x2, y2, z2);
+            sphere_vertex(xc, yc, zc, r, i2, j+1, n_theta, n_phi, x3, y3, z3);
 
-        tri_x[tricount][1] = xm + r*cos(theta+dt)*cos(phi);
-        tri_y[tricount][1] = ym + r*cos(theta+dt)*sin(phi);
-        tri_z[tricount][1] = zm + r*sin(theta+dt);
+            tri_x[tricount][0] = x0;
+            tri_y[tricount][0] = y0;
+            tri_z[tricount][0] = z0;
+            tri_x[tricount][1] = x1;
+            tri_y[tricount][1] = y1;
+            tri_z[tricount][1] = z1;
+            tri_x[tricount][2] = x2;
+            tri_y[tricount][2] = y2;
+            tri_z[tricount][2] = z2;
+            ++tricount;
 
-        tri_x[tricount][2] = xm + r*cos(theta+dt)*cos(phi+ds);
-        tri_y[tricount][2] = ym + r*cos(theta+dt)*sin(phi+ds);
-        tri_z[tricount][2] = zm + r*sin(theta+dt);
-
-        ++tricount;
-
-        // 2nd triangle
-        tri_x[tricount][0] = xm + r*cos(theta)*cos(phi);
-        tri_y[tricount][0] = ym + r*cos(theta)*sin(phi);
-        tri_z[tricount][0] = zm + r*sin(theta);
-
-        tri_x[tricount][1] = xm + r*cos(theta+dt)*cos(phi+ds);
-        tri_y[tricount][1] = ym + r*cos(theta+dt)*sin(phi+ds);
-        tri_z[tricount][1] = zm + r*sin(theta+dt);
-
-        tri_x[tricount][2] = xm + r*cos(theta)*cos(phi+ds);
-        tri_y[tricount][2] = ym + r*cos(theta)*sin(phi+ds);
-        tri_z[tricount][2] = zm + r*sin(theta);
-
-        ++tricount;
-
-        phi+=ds;
+            tri_x[tricount][0] = x2;
+            tri_y[tricount][0] = y2;
+            tri_z[tricount][0] = z2;
+            tri_x[tricount][1] = x1;
+            tri_y[tricount][1] = y1;
+            tri_z[tricount][1] = z1;
+            tri_x[tricount][2] = x3;
+            tri_y[tricount][2] = y3;
+            tri_z[tricount][2] = z3;
+            ++tricount;
         }
-    theta+=dt;
+
+        sphere_vertex(xc, yc, zc, r, 0, n_phi, n_theta, n_phi, x0, y0, z0);
+        sphere_vertex(xc, yc, zc, r, i2, n_phi-1, n_theta, n_phi, x1, y1, z1);
+        sphere_vertex(xc, yc, zc, r, i, n_phi-1, n_theta, n_phi, x2, y2, z2);
+
+        tri_x[tricount][0] = x0;
+        tri_y[tricount][0] = y0;
+        tri_z[tricount][0] = z0;
+        tri_x[tricount][1] = x1;
+        tri_y[tricount][1] = y1;
+        tri_z[tricount][1] = z1;
+        tri_x[tricount][2] = x2;
+        tri_y[tricount][2] = y2;
+        tri_z[tricount][2] = z2;
+        ++tricount;
     }
 
-    // top start /triangles
-
-        phi=-0.5*PI;
-        theta=0.5*PI-dt;
-        for(q=0;q<snum;++q)
-        {
-        tri_x[tricount][0] = xm;
-        tri_y[tricount][0] = ym;
-        tri_z[tricount][0] = zm+r;
-
-        tri_x[tricount][1] = xm + r*cos(theta)*cos(phi);
-        tri_y[tricount][1] = ym + r*cos(theta)*sin(phi);
-        tri_z[tricount][1] = zm + r*sin(theta);
-
-        tri_x[tricount][2] = xm + r*cos(theta)*cos(phi+ds);
-        tri_y[tricount][2] = ym + r*cos(theta)*sin(phi+ds);
-        tri_z[tricount][2] = zm + r*sin(theta);
-
-        ++tricount;
-
-        phi+=ds;
-        }
-
-    tend[entity_count]=tricount;
+    tend[entity_count] = tricount;
 }

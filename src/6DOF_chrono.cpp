@@ -63,8 +63,8 @@ void sixdof_chrono::initialize(lexer *p, std::vector<sixdof_obj*> &fb_obj)
     exit(1);
 #else
     pimpl->backend = reef3d_chrono_create(p->X16==1 ? 1 : 0);
-    reef3d_chrono_add_floor(pimpl->backend, p->originx, p->originy, p->originz,
-                            p->endx, p->endy, p->endz);
+    reef3d_chrono_add_floor(pimpl->backend, p->global_xmin, p->global_ymin, p->global_zmin,
+                            p->global_xmax, p->global_ymax, p->global_zmax);
 
     for(size_t nb=0; nb<fb_obj.size(); ++nb)
     {
@@ -110,16 +110,29 @@ void sixdof_chrono::initialize(lexer *p, std::vector<sixdof_obj*> &fb_obj)
 
     reef3d_chrono_set_locks(pimpl->backend, p->X11_u, p->X11_v, p->X11_w,
                             p->X11_p, p->X11_q, p->X11_r);
+    // e = 0.5, mu = 0.2, 1% of the body length at 1 m/s. setup() turns that
+    // overlap target into kn from the body masses and sizes.
+    reef3d_chrono_set_contact_law(pimpl->backend, 0.5, 0.2, 1.0, 0.01);
     reef3d_chrono_setup(pimpl->backend);
 
     pimpl->ready = true;
     if(p->mpirank==0)
     {
         if(p->X16==1)
-        cout<<"Chrono SMC contact projection  bodies: "<<fb_obj.size()<<endl;
+        {
+        double kn=0, e=0, mu=0, V=0, frac=0;
+        reef3d_chrono_contact_law(pimpl->backend, &kn, &e, &mu, &V, &frac);
+        cout<<"Chrono SMC Hooke  bodies: "<<fb_obj.size()
+            <<"  e "<<e<<"  mu "<<mu
+            <<"  kn "<<kn
+            <<"  overlap "<<frac<<" at "<<V<<" m/s"<<endl;
+        cout<<"Chrono domain: six tank walls as fixed collision shapes"<<endl;
+        }
         else
+        {
         cout<<"Chrono NSC contact projection  bodies: "<<fb_obj.size()<<endl;
-        cout<<"Chrono domain: geometric chamber walls (OBB); Bullet only for free-free contact"<<endl;
+        cout<<"Chrono domain: global tank walls (AABB); Bullet only for free-free contact"<<endl;
+        }
     }
 #endif
 }
@@ -149,10 +162,15 @@ void sixdof_chrono::advance(lexer *p, fdm *a, ghostcell *pgc, std::vector<sixdof
         reef3d_chrono_set_state(pimpl->backend, int(nb), cc, ee, vv, ww);
     }
 
-    const int nproj = reef3d_chrono_project_contacts(pimpl->backend);
+    const int nactive = reef3d_chrono_resolve_contacts(pimpl->backend, p->dt);
     const int nc = reef3d_chrono_ncontacts(pimpl->backend);
-    if(p->mpirank==0 && (p->count%20==0 || nproj>0 || nc>0))
-    cout<<"Chrono contacts: "<<nc<<"  projected: "<<nproj<<endl;
+    if(p->mpirank==0 && (p->count%20==0 || nactive>0 || nc>0))
+    cout<<"Chrono contacts: "<<nc<<"  contact-substeps: "<<nactive<<endl;
+
+    // Separated bodies keep the Runge-Kutta pose. A Bullet manifold with no
+    // penetrating overlap did not move them.
+    if(nactive<=0)
+    return;
 
     for(size_t nb=0; nb<fb_obj.size(); ++nb)
     {

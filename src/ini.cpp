@@ -911,7 +911,7 @@ void control::ini_default()
     X13=0;      // int 0 native 6DOF integration, 1 external kinematics (Chrono/preCICE)
     X14=1;      // int tangential velocity cfd
     X15=0;      // int tangential velocity nhflow
-    X16=0;      // int Chrono contact: 0 NSC (hard), 1 SMC (soft penalty, rigid hull)
+    X16=1;      // int Chrono contact: 0 NSC legacy projection, 1 SMC Hooke soft-sphere
     X19=1;        // int print out interval 6DOF log files
     X20=1;        // int number of floating body
     X21=1;        // int presribe homogeneous density floating body

@@ -50,7 +50,19 @@ void  reef3d_chrono_set_state(void*, int nb, const double c[3], const double e[4
 void  reef3d_chrono_setup(void*);
 void  reef3d_chrono_set_locks(void*, int free_u, int free_v, int free_w,
                              int free_p, int free_q, int free_r);
+// Soft-sphere law used when the system is SMC. kn is set in setup from the
+// bodies so a head-on impact at impact_velocity overlaps by overlap_fraction
+// of the smallest body length. Ignored for an NSC system.
+void  reef3d_chrono_set_contact_law(void*, double restitution, double friction,
+                                   double impact_velocity, double overlap_fraction);
+void  reef3d_chrono_contact_law(void*, double* kn, double* restitution, double* friction,
+                               double* impact_velocity, double* overlap_fraction);
 void  reef3d_chrono_step(void*, double dt, int nsub);
+// Contact correction after the fluid step. Separated bodies are left as the
+// Runge-Kutta scheme placed them. Overlapping bodies are integrated with the
+// soft-sphere law and then frozen once the contact force drops to zero.
+// Returns the number of substeps that carried a contact force.
+int   reef3d_chrono_resolve_contacts(void*, double dt);
 void  reef3d_chrono_get_state(void*, int nb, double c[3], double e[4], double v[3], double w[3]);
 int   reef3d_chrono_ncontacts(void*);
 int   reef3d_chrono_project_contacts(void*);

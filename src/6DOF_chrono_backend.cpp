@@ -27,11 +27,13 @@ Author: Elyas Larkermani
 #include "6DOF_chrono_backend.h"
 
 #include "chrono/collision/ChCollisionModel.h"
+#include "chrono/collision/ChCollisionShapeSphere.h"
 #include "chrono/collision/ChCollisionShapeTriangleMesh.h"
-#include "chrono/geometry/ChTriangleMeshConnected.h"
+#include "chrono/geometry/ChTriangleMeshSoup.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChContactContainer.h"
+#include "chrono/physics/ChContactContainerSMC.h"
 #include "chrono/physics/ChContactMaterialNSC.h"
 #include "chrono/physics/ChContactMaterialSMC.h"
 #include "chrono/physics/ChSystem.h"
@@ -40,11 +42,137 @@ Author: Elyas Larkermani
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace {
+
+constexpr double kPi = 3.14159265358979323846;
+
+// Linear Hooke law with damping set from the coefficient of restitution.
+// Chrono's built-in Hooke path stores one gn for every pair; the damping that
+// recovers a chosen restitution depends on the pair's effective mass, so the
+// coefficient is computed here from the two masses passed into each contact.
+class HookeLaw : public ::chrono::ChSystemSMC::ChContactForceTorqueSMC
+{
+public:
+    double kn;
+    double restitution;
+    double dt;
+
+    HookeLaw() : kn(1.0), restitution(0.5), dt(1.0e-4) {}
+
+    virtual ::chrono::ChWrenchd CalculateForceTorque(
+        const ::chrono::ChSystemSMC&,
+        const ::chrono::ChVector3d& normal_dir,
+        const ::chrono::ChVector3d&,
+        const ::chrono::ChVector3d&,
+        const ::chrono::ChVector3d& vel1,
+        const ::chrono::ChVector3d& vel2,
+        const ::chrono::ChContactMaterialCompositeSMC& mat,
+        double delta,
+        double,
+        double mass1,
+        double mass2,
+        ::chrono::ChContactable*,
+        ::chrono::ChContactable*) const override
+    {
+        if(delta <= 0.0 || !(kn > 0.0) || !(mass1 > 0.0) || !(mass2 > 0.0))
+            return {::chrono::VNULL, ::chrono::VNULL};
+
+        const ::chrono::ChVector3d relvel = vel2 - vel1;
+        const double relvel_n_mag = relvel.Dot(normal_dir);
+        const ::chrono::ChVector3d relvel_t = relvel - relvel_n_mag * normal_dir;
+        const double relvel_t_mag = relvel_t.Length();
+
+        const double eff_mass = mass1 * mass2 / (mass1 + mass2);
+        const double e = std::min(std::max(restitution, 1.0e-6), 1.0 - 1.0e-6);
+        const double loge = std::log(e);
+        const double beta = loge / std::sqrt(loge * loge + kPi * kPi);
+        const double gn = -2.0 * beta * std::sqrt(kn * eff_mass);
+
+        const double forceN = kn * delta - gn * relvel_n_mag;
+        double forceT = (kn * dt + gn) * relvel_t_mag;
+        if(forceN <= 0.0)
+            return {::chrono::VNULL, ::chrono::VNULL};
+
+        const double mu = std::max(0.0, (double)mat.mu_eff);
+        forceT = std::min(forceT, mu * forceN);
+
+        ::chrono::ChVector3d force = forceN * normal_dir;
+        if(relvel_t_mag >= 1.0e-4 && forceT > 0.0)
+            force -= (forceT / relvel_t_mag) * relvel_t;
+        return {force, ::chrono::VNULL};
+    }
+};
+
+// Bullet keeps several manifold points for one pair. Summing them multiplies
+// the penalty force, so each pair contributes only its deepest overlap.
+struct PairContact
+{
+    double dist;
+    ::chrono::ChVector3d Fg;
+    ::chrono::ChVector3d pA, pB;
+    ::chrono::ChBody* A;
+    ::chrono::ChBody* B;
+    PairContact() : dist(1.0e300), Fg(0, 0, 0), pA(0, 0, 0), pB(0, 0, 0), A(0), B(0) {}
+};
+
+class DeepestPairs : public ::chrono::ChContactContainer::ReportContactCallback
+{
+public:
+    std::vector<PairContact> hits;
+
+    virtual bool OnReportContact(const ::chrono::ChVector3d& pA,
+                                 const ::chrono::ChVector3d& pB,
+                                 const ::chrono::ChMatrix33<>& plane_coord,
+                                 double distance,
+                                 double,
+                                 const ::chrono::ChVector3d& react_forces,
+                                 const ::chrono::ChVector3d&,
+                                 ::chrono::ChContactable* objA,
+                                 ::chrono::ChContactable* objB,
+                                 int) override
+    {
+        if(distance >= -1.0e-12)
+            return true;
+        auto* A = dynamic_cast<::chrono::ChBody*>(objA);
+        auto* B = dynamic_cast<::chrono::ChBody*>(objB);
+        if(!A || !B)
+            return true;
+
+        const ::chrono::ChVector3d Fg = plane_coord * react_forces;
+        for(size_t i=0; i<hits.size(); ++i)
+        {
+            PairContact& h = hits[i];
+            const bool same = (h.A==A && h.B==B) || (h.A==B && h.B==A);
+            if(!same)
+                continue;
+            if(distance < h.dist)
+            {
+                h.dist = distance;
+                h.Fg = Fg;
+                h.pA = pA;
+                h.pB = pB;
+                h.A = A;
+                h.B = B;
+            }
+            return true;
+        }
+
+        PairContact h;
+        h.dist = distance;
+        h.Fg = Fg;
+        h.pA = pA;
+        h.pB = pB;
+        h.A = A;
+        h.B = B;
+        hits.push_back(h);
+        return true;
+    }
+};
 
 struct Backend
 {
@@ -55,12 +183,18 @@ struct Backend
     std::shared_ptr<::chrono::ChContactMaterial> mat;
     std::vector<::chrono::ChVector3d> amin;
     std::vector<::chrono::ChVector3d> amax;
+    std::vector<double> diam;
     double ox, oy, oz, ex, ey, ez;
     bool has_domain;
     int free_u, free_v, free_w, free_p, free_q, free_r;
+    HookeLaw* law;
+    double kn, m_min, restitution, friction, impact_velocity, overlap_fraction;
+    int last_nc;
 
     Backend() : ox(0), oy(0), oz(0), ex(0), ey(0), ez(0), has_domain(false),
-                free_u(1), free_v(1), free_w(1), free_p(1), free_q(1), free_r(1)
+                free_u(1), free_v(1), free_w(1), free_p(1), free_q(1), free_r(1),
+                law(0), kn(0.0), m_min(1.0), restitution(0.5), friction(0.2),
+                impact_velocity(1.0), overlap_fraction(0.01), last_nc(0)
     {
     }
 
@@ -239,44 +373,41 @@ struct Backend
             world_span(nb, wmin, wmax);
             ::chrono::ChVector3d p = body->GetPos();
             ::chrono::ChVector3d v = body->GetPosDt();
+            auto apply_shift = [&](double d, double& pos, double& vel)
+            {
+                if(std::abs(d) <= 1.0e-12)
+                    return false;
+                if(std::abs(d) > maxshift)
+                    d = std::copysign(maxshift, d);
+                pos += d;
+                if(d>0.0 && vel<0.0) vel=0.0;
+                if(d<0.0 && vel>0.0) vel=0.0;
+                return true;
+            };
+
             if(free_u)
             {
                 double dx = 0.0;
                 if(wmin.x() < ox + marg) dx += (ox + marg) - wmin.x();
                 if(wmax.x() > ex - marg) dx -= wmax.x() - (ex - marg);
-                if(std::abs(dx) > 1.0e-12 && std::abs(dx) <= maxshift)
-                {
-                    p.x() += dx;
-                    if(dx>0.0 && v.x()<0.0) v.x()=0.0;
-                    if(dx<0.0 && v.x()>0.0) v.x()=0.0;
+                if(apply_shift(dx, p.x(), v.x()))
                     moved = true;
-                }
             }
             if(free_v)
             {
                 double dy = 0.0;
                 if(wmin.y() < oy + marg) dy += (oy + marg) - wmin.y();
                 if(wmax.y() > ey - marg) dy -= wmax.y() - (ey - marg);
-                if(std::abs(dy) > 1.0e-12 && std::abs(dy) <= maxshift)
-                {
-                    p.y() += dy;
-                    if(dy>0.0 && v.y()<0.0) v.y()=0.0;
-                    if(dy<0.0 && v.y()>0.0) v.y()=0.0;
+                if(apply_shift(dy, p.y(), v.y()))
                     moved = true;
-                }
             }
             if(free_w)
             {
                 double dz = 0.0;
                 if(wmin.z() < oz + marg) dz += (oz + marg) - wmin.z();
                 if(wmax.z() > ez - marg) dz -= wmax.z() - (ez - marg);
-                if(std::abs(dz) > 1.0e-12 && std::abs(dz) <= maxshift)
-                {
-                    p.z() += dz;
-                    if(dz>0.0 && v.z()<0.0) v.z()=0.0;
-                    if(dz<0.0 && v.z()>0.0) v.z()=0.0;
+                if(apply_shift(dz, p.z(), v.z()))
                     moved = true;
-                }
             }
             body->SetPos(p);
             body->SetPosDt(v);
@@ -286,6 +417,164 @@ struct Backend
 
         apply_locks();
         return nproj;
+    }
+
+    void attach_law(::chrono::ChSystemSMC* s)
+    {
+        auto held = std::make_unique<HookeLaw>();
+        law = held.get();
+        law->restitution = restitution;
+        s->SetContactForceTorqueAlgorithm(std::move(held));
+    }
+
+    void configure_law()
+    {
+        if(!law)
+            return;
+
+        double kn_max = 0.0;
+        double light = 1.0e300;
+        const double V = std::max(impact_velocity, 1.0e-6);
+        const double frac = std::min(std::max(overlap_fraction, 1.0e-4), 0.2);
+        for(size_t nb=0; nb<bodies.size(); ++nb)
+        {
+            const double m = bodies[nb]->GetMass();
+            const double D = std::max(diam[nb], 1.0e-6);
+            const double delta = frac * D;
+            kn_max = std::max(kn_max, m * V * V / (delta * delta));
+            light = std::min(light, m);
+        }
+        if(!(kn_max > 0.0))
+            kn_max = 1.0;
+        if(!(light < 1.0e299))
+            light = 1.0;
+
+        kn = kn_max;
+        m_min = light;
+        law->kn = kn;
+        law->restitution = restitution;
+        if(mat)
+        {
+            mat->SetFriction((float)friction);
+            mat->SetRestitution((float)restitution);
+        }
+    }
+
+    int nsub_for(double T) const
+    {
+        const double mref = std::max(0.5 * m_min, 1.0e-12);
+        const double Tper = 2.0 * kPi * std::sqrt(mref / std::max(kn, 1.0));
+        const double hmax = std::max(0.05 * Tper, 1.0e-8);
+        int nsub = (int)std::ceil(T / hmax);
+        if(nsub < 1)
+            nsub = 1;
+        if(nsub > 2000)
+        {
+            static int warned = 0;
+            if(!warned)
+            {
+                std::cout<<"Chrono contact step capped at 2000 substeps. "
+                         <<"The soft-sphere period is short relative to the fluid step."<<std::endl;
+                warned = 1;
+            }
+            nsub = 2000;
+        }
+        return nsub;
+    }
+
+    // full_motion integrates free flight as well as contact (dry contact test).
+    // The fluid coupling passes false: a separated body keeps the pose the
+    // Runge-Kutta step already computed, and an overlapping body moves only
+    // while the contact force is non-zero.
+    int integrate(double T, bool full_motion)
+    {
+        if(!(T > 0.0) || !law)
+            return 0;
+        if(!(kn > 0.0))
+            configure_law();
+
+        auto* contacts = dynamic_cast<::chrono::ChContactContainerSMC*>(sys->GetContactContainer().get());
+        if(!contacts)
+            return 0;
+
+        const int nsub = nsub_for(T);
+        const double h = T / (double)nsub;
+        law->dt = h;
+        int nactive = 0;
+        last_nc = 0;
+
+        sys->Update();
+        for(int s=0; s<nsub; ++s)
+        {
+            // ComputeCollisions appends. Without the dynamics step's BeginAddContact
+            // the previous substep's contacts stay in the container and the force
+            // is applied once per leftover manifold.
+            contacts->RemoveAllContacts();
+            sys->ComputeCollisions();
+            contacts->ComputeContactForces();
+            last_nc = std::max(last_nc, (int)contacts->GetNumContacts());
+
+            auto report = chrono_types::make_shared<DeepestPairs>();
+            contacts->ReportAllContacts(report);
+
+            std::vector<::chrono::ChVector3d> F(bodies.size(), ::chrono::ChVector3d(0, 0, 0));
+            std::vector<::chrono::ChVector3d> Tau(bodies.size(), ::chrono::ChVector3d(0, 0, 0));
+            std::vector<char> hit(bodies.size(), 0);
+            for(size_t ic=0; ic<report->hits.size(); ++ic)
+            {
+                const PairContact& c = report->hits[ic];
+                ::chrono::ChBody* ends[2] = {c.A, c.B};
+                const double sign[2] = {-1.0, 1.0};
+                const ::chrono::ChVector3d pt[2] = {c.pA, c.pB};
+                for(int e=0; e<2; ++e)
+                {
+                    for(size_t nb=0; nb<bodies.size(); ++nb)
+                    {
+                        if(bodies[nb].get() != ends[e])
+                            continue;
+                        hit[nb] = 1;
+                        const ::chrono::ChVector3d Fe = sign[e] * c.Fg;
+                        F[nb] += Fe;
+                        Tau[nb] += (pt[e] - bodies[nb]->GetPos()).Cross(Fe);
+                    }
+                }
+            }
+
+            bool any = false;
+            for(size_t nb=0; nb<bodies.size(); ++nb)
+            {
+                auto& body = bodies[nb];
+                any = any || hit[nb];
+
+                const double m = body->GetMass();
+                if(m > 1.0e-14)
+                    body->SetPosDt(body->GetPosDt() + (F[nb] / m) * h);
+
+                const ::chrono::ChVector3d t_loc = body->TransformDirectionParentToLocal(Tau[nb]);
+                const ::chrono::ChVector3d dw_loc = body->GetInvInertia() * (t_loc * h);
+                const ::chrono::ChVector3d dw = body->TransformDirectionLocalToParent(dw_loc);
+                body->SetAngVelParent(body->GetAngVelParent() + dw);
+
+                if(full_motion || hit[nb])
+                {
+                    body->SetPos(body->GetPos() + body->GetPosDt() * h);
+                    const ::chrono::ChVector3d w = body->GetAngVelParent();
+                    if(w.Length2() * h * h > 1.0e-28)
+                    {
+                        ::chrono::ChQuaterniond dq;
+                        dq.SetFromRotVec(w * h);
+                        ::chrono::ChQuaterniond q = dq * body->GetRot();
+                        q.Normalize();
+                        body->SetRot(q);
+                    }
+                }
+            }
+            if(any)
+                ++nactive;
+            apply_locks();
+            sys->Update();
+        }
+        return nactive;
     }
 };
 
@@ -302,14 +591,12 @@ void* reef3d_chrono_create(int smc)
         auto s = std::make_unique<::chrono::ChSystemSMC>("reef3d_chrono");
         s->UseMaterialProperties(false);
         s->SetContactForceModel(::chrono::ChSystemSMC::ContactForceModel::Hooke);
+        s->SetTangentialDisplacementModel(::chrono::ChSystemSMC::TangentialDisplacementModel::OneStep);
         auto m = chrono_types::make_shared<::chrono::ChContactMaterialSMC>();
-        m->SetFriction(0.2f);
-        m->SetRestitution(0.0f);
-        m->SetKn(2.0e5f);
-        m->SetKt(8.0e4f);
-        m->SetGn(3.0e3f);
-        m->SetGt(1.2e3f);
+        m->SetFriction((float)b->friction);
+        m->SetRestitution((float)b->restitution);
         b->mat = m;
+        b->attach_law(s.get());
         b->sys = std::move(s);
     }
     else
@@ -324,8 +611,8 @@ void* reef3d_chrono_create(int smc)
 
     b->sys->SetGravitationalAcceleration(::chrono::ChVector3d(0.0, 0.0, 0.0));
     b->sys->SetCollisionSystemType(::chrono::ChCollisionSystem::Type::BULLET);
-    ::chrono::ChCollisionModel::SetDefaultSuggestedEnvelope(0.008);
-    ::chrono::ChCollisionModel::SetDefaultSuggestedMargin(0.008);
+    ::chrono::ChCollisionModel::SetDefaultSuggestedEnvelope(0.0);
+    ::chrono::ChCollisionModel::SetDefaultSuggestedMargin(0.0);
     return b;
 }
 
@@ -349,14 +636,16 @@ void reef3d_chrono_add_floor(void* ptr, double ox, double oy, double oz,
     auto add_wall = [&](const char* name, double dx, double dy, double dz, double x, double y, double z)
     {
         auto wall = chrono_types::make_shared<::chrono::ChBodyEasyBox>(
-            dx, dy, dz, 1000.0, false, false, b->mat);
+            dx, dy, dz, 1000.0, false, true, b->mat);
         wall->SetPos(::chrono::ChVector3d(x, y, z));
         wall->SetFixed(true);
+        wall->SetMass(1.0e12);
         wall->SetName(name);
         b->sys->Add(wall);
     };
 
     add_wall("floor", Lx + 2.0, Ly + 2.0, thick, cx, cy, oz - 0.5 * thick);
+    add_wall("ceiling", Lx + 2.0, Ly + 2.0, thick, cx, cy, ez + 0.5 * thick);
     add_wall("wall_ymin", Lx + 2.0, thick, Lz + 2.0, cx, oy - 0.5 * thick, cz);
     add_wall("wall_ymax", Lx + 2.0, thick, Lz + 2.0, cx, ey + 0.5 * thick, cz);
     add_wall("gate_xmin", thick, Ly + 2.0, Lz + 2.0, ox - 0.5 * thick, cy, cz);
@@ -366,9 +655,8 @@ void reef3d_chrono_add_floor(void* ptr, double ox, double oy, double oz,
     b->ex = ex; b->ey = ey; b->ez = ez;
     b->has_domain = true;
 
-    const double env = std::min(8.0e-3, std::max(1.0e-5, 0.02 * std::min({Lx, Ly, Lz})));
-    ::chrono::ChCollisionModel::SetDefaultSuggestedEnvelope(env);
-    ::chrono::ChCollisionModel::SetDefaultSuggestedMargin(env);
+    ::chrono::ChCollisionModel::SetDefaultSuggestedEnvelope(0.0);
+    ::chrono::ChCollisionModel::SetDefaultSuggestedMargin(0.0);
 }
 
 int reef3d_chrono_add_box(void* ptr,
@@ -401,6 +689,7 @@ int reef3d_chrono_add_box(void* ptr,
     b->c0.push_back(::chrono::ChVector3d(c[0], c[1], c[2]));
     b->amin.push_back(::chrono::ChVector3d(-0.5*dx, -0.5*dy, -0.5*dz));
     b->amax.push_back(::chrono::ChVector3d( 0.5*dx,  0.5*dy,  0.5*dz));
+    b->diam.push_back(std::min({dx, dy, dz}));
     return int(b->bodies.size() - 1);
 }
 
@@ -416,7 +705,9 @@ int reef3d_chrono_add_mesh(void* ptr,
         return -1;
 
     Backend* b = static_cast<Backend*>(ptr);
-    auto mesh = chrono_types::make_shared<::chrono::ChTriangleMeshConnected>();
+    // Soup + convex hull: ChTriangleMeshConnected is a hollow shell, so nested
+    // or deeply overlapping closed bodies never generate Bullet contacts.
+    auto mesh = chrono_types::make_shared<::chrono::ChTriangleMeshSoup>();
 
     double xmin = 1.0e20, xmax = -1.0e20;
     double ymin = 1.0e20, ymax = -1.0e20;
@@ -438,8 +729,6 @@ int reef3d_chrono_add_mesh(void* ptr,
         zmax = std::max({zmax, v0.z(), v1.z(), v2.z()});
     }
 
-    mesh->RepairDuplicateVertices(1.0e-9);
-
     const double charlen = std::min({std::max(xmax-xmin, 1.0e-4),
                                      std::max(ymax-ymin, 1.0e-4),
                                      std::max(zmax-zmin, 1.0e-4)});
@@ -456,9 +745,25 @@ int reef3d_chrono_add_mesh(void* ptr,
     body->SetPosDt(::chrono::ChVector3d(v[0], v[1], v[2]));
     body->SetAngVelParent(::chrono::ChVector3d(w[0], w[1], w[2]));
 
-    auto cshape = chrono_types::make_shared<::chrono::ChCollisionShapeTriangleMesh>(
-        b->mat, mesh, false, false, swept);
-    body->AddCollisionShape(cshape);
+    const double adx = std::max(xmax - xmin, 1.0e-12);
+    const double ady = std::max(ymax - ymin, 1.0e-12);
+    const double adz = std::max(zmax - zmin, 1.0e-12);
+    const double amax = std::max({adx, ady, adz});
+    const double amin_len = std::min({adx, ady, adz});
+    // Connected triangle meshes are hollow shells. A near-cubic AABB (X 165
+    // sphere) uses a solid sphere; otherwise a convex hull of the soup.
+    if(amax <= 1.05 * amin_len)
+    {
+        auto cshape = chrono_types::make_shared<::chrono::ChCollisionShapeSphere>(
+            b->mat, 0.5 * amin_len);
+        body->AddCollisionShape(cshape);
+    }
+    else
+    {
+        auto cshape = chrono_types::make_shared<::chrono::ChCollisionShapeTriangleMesh>(
+            b->mat, mesh, false, true, swept);
+        body->AddCollisionShape(cshape);
+    }
     body->EnableCollision(true);
 
     unsigned int idx = body->AddAccumulator();
@@ -468,6 +773,9 @@ int reef3d_chrono_add_mesh(void* ptr,
     b->c0.push_back(::chrono::ChVector3d(c[0], c[1], c[2]));
     b->amin.push_back(::chrono::ChVector3d(xmin, ymin, zmin));
     b->amax.push_back(::chrono::ChVector3d(xmax, ymax, zmax));
+    b->diam.push_back(std::min({std::max(xmax - xmin, 1.0e-6),
+                                std::max(ymax - ymin, 1.0e-6),
+                                std::max(zmax - zmin, 1.0e-6)}));
     return int(b->bodies.size() - 1);
 }
 
@@ -510,13 +818,41 @@ void reef3d_chrono_set_locks(void* ptr, int free_u, int free_v, int free_w,
 void reef3d_chrono_setup(void* ptr)
 {
     Backend* b = static_cast<Backend*>(ptr);
+    b->configure_law();
     b->sys->Setup();
     b->sys->Update();
+}
+
+void reef3d_chrono_set_contact_law(void* ptr, double restitution, double friction,
+                                   double impact_velocity, double overlap_fraction)
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    b->restitution = restitution;
+    b->friction = friction;
+    b->impact_velocity = impact_velocity;
+    b->overlap_fraction = overlap_fraction;
+    b->configure_law();
+}
+
+void reef3d_chrono_contact_law(void* ptr, double* kn, double* restitution, double* friction,
+                               double* impact_velocity, double* overlap_fraction)
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    if(kn) *kn = b->kn;
+    if(restitution) *restitution = b->restitution;
+    if(friction) *friction = b->friction;
+    if(impact_velocity) *impact_velocity = b->impact_velocity;
+    if(overlap_fraction) *overlap_fraction = b->overlap_fraction;
 }
 
 void reef3d_chrono_step(void* ptr, double dt, int nsub)
 {
     Backend* b = static_cast<Backend*>(ptr);
+    if(b->law)
+    {
+        b->integrate(dt, true);
+        return;
+    }
     if(nsub < 1)
         nsub = 1;
     const double h = dt / double(nsub);
@@ -525,6 +861,14 @@ void reef3d_chrono_step(void* ptr, double dt, int nsub)
         b->sys->DoStepDynamics(h);
         b->apply_locks();
     }
+}
+
+int reef3d_chrono_resolve_contacts(void* ptr, double dt)
+{
+    Backend* b = static_cast<Backend*>(ptr);
+    if(b->law)
+        return b->integrate(dt, false);
+    return reef3d_chrono_project_contacts(ptr);
 }
 
 void reef3d_chrono_get_state(void* ptr, int nb, double c[3], double e[4], double v[3], double w[3])
@@ -544,6 +888,8 @@ void reef3d_chrono_get_state(void* ptr, int nb, double c[3], double e[4], double
 int reef3d_chrono_ncontacts(void* ptr)
 {
     Backend* b = static_cast<Backend*>(ptr);
+    if(b->last_nc > 0)
+        return b->last_nc;
     return int(b->sys->GetNumContacts());
 }
 
@@ -602,6 +948,7 @@ int reef3d_chrono_project_contacts(void* ptr)
         }
     };
 
+    b->sys->Update();
     for(int it=0; it<4; ++it)
     {
         b->sys->ComputeCollisions();
@@ -611,8 +958,10 @@ int reef3d_chrono_project_contacts(void* ptr)
         if(!hit.ok())
             break;
 
+        // Chrono/Bullet n is outward on A (A→B). Overlap has (pA-pB)·n > 0;
+        // flip so the impulses separate the bodies.
         ::chrono::ChVector3d n = hit.n;
-        if((hit.pA - hit.pB).Dot(n) < 0.0)
+        if((hit.pA - hit.pB).Dot(n) > 0.0)
             n = -n;
 
         const double depth = std::min(-hit.dist, 0.05);
@@ -691,7 +1040,18 @@ void  reef3d_chrono_set_wrench(void*, int, const double*, const double*) {}
 void  reef3d_chrono_set_state(void*, int, const double*, const double*, const double*, const double*) {}
 void  reef3d_chrono_set_locks(void*, int, int, int, int, int, int) {}
 void  reef3d_chrono_setup(void*) {}
+void  reef3d_chrono_set_contact_law(void*, double, double, double, double) {}
+void  reef3d_chrono_contact_law(void*, double* kn, double* restitution, double* friction,
+                               double* impact_velocity, double* overlap_fraction)
+{
+    if(kn) *kn = 0.0;
+    if(restitution) *restitution = 0.0;
+    if(friction) *friction = 0.0;
+    if(impact_velocity) *impact_velocity = 0.0;
+    if(overlap_fraction) *overlap_fraction = 0.0;
+}
 void  reef3d_chrono_step(void*, double, int) {}
+int   reef3d_chrono_resolve_contacts(void*, double) { return 0; }
 void  reef3d_chrono_get_state(void*, int, double*, double*, double*, double*) {}
 int   reef3d_chrono_ncontacts(void*) { return 0; }
 int   reef3d_chrono_project_contacts(void*) { return 0; }
