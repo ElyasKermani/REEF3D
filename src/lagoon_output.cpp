@@ -129,7 +129,7 @@ bool lagoon_output::start(lexer *p, ghostcell *pgc, const std::vector<lagoon_sto
 
     // FNPF and NHFLOW: σ-levels, the same in every rank; CFD: Cartesian levels at
     // fixed heights, the grid split in z as well
-    cartesian = solver=="CFD";
+    cartesian = solver=="CFD" || solver=="COMP";
     std::vector<double> levels;
     if(cartesian)
     {

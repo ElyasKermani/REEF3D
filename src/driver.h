@@ -94,6 +94,7 @@ class particle_base;
 using namespace std;
 
 class regression_dump;
+class comp_euler;
 
 class driver : public increment
 {
@@ -109,12 +110,14 @@ public:
     void fnpf_driver();
     void sflow_driver();
     void seastate_driver();
+    void comp_driver();
     
 	void loop_cfd(fdm*);
 	void loop_cfd_df(fdm*);
     void loop_cfd_sf(fdm*);
     void loop_nhflow();
     void loop_fnpf();
+    void loop_comp();
     
 	void logic_cfd();
     void logic_fnpf();
@@ -190,6 +193,7 @@ public:
     nhflow_fsf *pnhfsf;
     sflow *psflow;
     seastate *pseastate = nullptr;
+    comp_euler *pcomp = nullptr;
     fnpf_timestep *pftstep;
     patchBC_interface *pBC;
     nhflow *pnhf;

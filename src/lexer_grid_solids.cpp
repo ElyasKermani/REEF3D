@@ -31,7 +31,7 @@ Author: Hans Bihs
 // fields solid_dist/topo_dist and the bed levels; now the triangles are ray cast here,
 // on the Cartesian DIVEMesh grid of the subdomain including its ghost cells:
 //
-//   flag_solid, flag_topo    signed distance (negative inside), CFD and PTF
+//   flag_solid, flag_topo    signed distance (negative inside), CFD, COMP and PTF
 //   solidbed, topobed, bed   bed levels of the columns, all modules
 //   *_gcb*_est               ghost cell estimates for the vector sizes (lexer::vecsize)
 //
@@ -267,8 +267,8 @@ void lexer::grid_solids(ghostcell *pgc)
     const bool solid = build_field(this,G,ray,gx,geo_mesh::role_solid,solidbed,phis);
     const bool topo  = build_field(this,G,ray,gx,geo_mesh::role_topo,topobed,phit);
     
-    // signed distance fields of the CFD solver
-    if(A10==4 || A10==6)
+    // signed distance fields of the CFD solver (and of the COMP prototype, A 10 8)
+    if(A10==4 || A10==6 || A10==8)
     {
         for(i=0; i<knox; ++i)
         for(j=0; j<knoy; ++j)
@@ -282,8 +282,8 @@ void lexer::grid_solids(ghostcell *pgc)
         }
     }
     
-    // the signed distance fields are only used by CFD and PTF
-    if(A10!=4 && A10!=6)
+    // the signed distance fields are only used by CFD, PTF and COMP
+    if(A10!=4 && A10!=6 && A10!=8)
     {
     del_Darray(flag_solid,imax*jmax*kmax);
     del_Darray(flag_topo,imax*jmax*kmax);

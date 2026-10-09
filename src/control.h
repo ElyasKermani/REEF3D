@@ -116,6 +116,22 @@ public:
     int A700,A701,A703,A704,A707,A710,A711,A712_xm,A712_xp,A712_ym,A712_yp,A713,A714,A720;
     double A702_fmin,A702_fmax,A705,A706,A708,A721_us,A721_ue,A721_xs,A721_xe;
 
+    // COMP (A 10 8)
+    int A801,A802,A803,A804,A806,A807,A808,A827,A829_n,A830;
+    int A810_xm,A810_xp,A810_ym,A810_yp,A810_zm,A810_zp;
+    double A800,A805,A814;
+    double A811_rho,A811_u,A811_p;
+    double A812_rho,A812_u,A812_p;
+    double A813_rho,A813_V,A813_ang,A813_p;
+    double A820,A821,A822;
+    double A823_U,A823_H;
+    double A824_U,A824_H,A824_ang,A824_n0;
+    double A825_E,A825_r0,A825_x,A825_z,A825_p0,A825_rho0;
+    double A826_in,A826_out,A826_sigma;
+    double A828_x0,A828_rho,A828_V,A828_ang,A828_p;
+    double A829_x,A829_z;
+    double A830_nx,A830_ny,A830_nz;
+
     // NHFLOW Lagrangian particles
     int L10,L11;
     int L21,L22,L23;

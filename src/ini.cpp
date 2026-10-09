@@ -279,6 +279,33 @@ void control::ini_default()
     A721_us=A721_ue=0.0; // double U at xs and at xe [m/s]
     A721_xs=A721_xe=0.0; // double xs, xe [m]
 
+    // COMP (A 10 8)
+    A800=1.4;            // double gamma
+    A801=1;              // int reconstruction: 0 first order, 1 WENO5-Z
+    A802=1;              // int flux: 0 HLL, 1 HLLC
+    A803=0;              // int case: 0 Riemann, 1 Shu-Osher, 2 freestream, 3 shearwave, 4 channelwave, 5 entropywave, 6 blast
+    A804=0;              // int Riemann direction 0 x, 1 y, 2 z
+    A805=0.5;            // double Riemann interface location
+    A806=1;              // int immersed-wall curvature correction
+    A807=1;              // int WENO weights from the actual cell widths
+    A808=0;              // int immersed bodies: 0 slip, 1 no-slip
+    A810_xm=A810_xp=A810_ym=A810_yp=A810_zm=A810_zp=1;  // int COMP bc: 0 transmissive, 1 slip, 2 free stream, 3 no-slip, 4/5 subsonic in/out
+    A811_rho=1.0; A811_u=0.0; A811_p=1.0;               // double left Riemann state
+    A812_rho=0.125; A812_u=0.0; A812_p=0.1;             // double right Riemann state
+    A813_rho=1.4; A813_V=0.0; A813_ang=0.0; A813_p=1.0; // double free stream: density, speed, angle [deg], pressure
+    A814=-1.0e30;        // double -z wall starts at x (free stream or symmetry upstream)
+    A820=0.0;            // double dynamic viscosity (0: Euler)
+    A821=0.72;           // double Prandtl number
+    A822=0.0;            // double Sutherland S/T_inf (0: constant mu)
+    A823_U=0.1; A823_H=1.0;
+    A824_U=0.05; A824_H=1.0; A824_ang=0.0; A824_n0=0.0;
+    A825_E=1.0; A825_r0=0.02; A825_x=0.0; A825_z=0.0; A825_p0=1.0e-5; A825_rho0=1.0;
+    A826_in=-1.0e30; A826_out=1.0e30; A826_sigma=0.0;
+    A827=0;              // int sponge: 0 whole state, 1 pressure only
+    A828_x0=1.0e30; A828_rho=1.4; A828_V=0.0; A828_ang=0.0; A828_p=1.0;
+    A829_x=0.0; A829_z=0.0; A829_n=0;
+    A830=0; A830_nx=1.0; A830_ny=0.0; A830_nz=0.0;
+
     // NHFLOW Lagrangian particles
     L10=0;       // int particle tracking
     L11=1;       // int random seed

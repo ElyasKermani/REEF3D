@@ -79,6 +79,9 @@ driver::driver(int& argc, char **argv)
 
     if(p->A10==7)
     cout<<endl<<"REEF3D::SEASTATE" <<endl<<endl;
+
+    if(p->A10==8)
+    cout<<endl<<"REEF3D::COMP (prototype)" <<endl<<endl;
     }
 
     // PTF (A 10 4) was removed
@@ -134,6 +137,16 @@ driver::driver(int& argc, char **argv)
         makegrid2D(p,pgc);
 
         nhflow_driver();
+    }
+
+    // fixed grid - COMP, compressible Euler (prototype, stage 1)
+    if(p->A10==8)
+    {
+        p->flagini();
+        pgc->flagfield(p);
+        makegrid(p,pgc);
+
+        comp_driver();
     }
 
     // fixed grid - CFD
