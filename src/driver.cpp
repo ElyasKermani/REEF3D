@@ -240,6 +240,7 @@ void driver::cfd_driver()
     driver_ini_cfd();
 
     preg = new regression_dump(p);
+    preg->set_heat(pheat);
     preg->cfd_ini(p,a,pgc,pturb,pconc);
 
     // Start MAINLOOP

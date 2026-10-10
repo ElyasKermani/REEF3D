@@ -52,7 +52,7 @@ void bc_noflux_mask(lexer *p, std::vector<int> &mask, int what)
         if((what & BC_NOFLUX_INFLOW) && bc>=100 && bc<=222 && bc/100==2 && (bc/10)%10==1)
         noflux=true;
 
-        if((what & BC_NOFLUX_SCALAR) && fixed_scalar[cs]==1)
+        if((what & BC_NOFLUX_SCALAR) && fixed_scalar[cs]==1 && bc_domain_face(p,p->gcb4[n][0],p->gcb4[n][1],p->gcb4[n][2],cs))
         noflux=false;
 
         if(noflux)
@@ -85,6 +85,29 @@ bool bc_periodic_face(lexer *p, int i, int j, int k, int cs)
 
     if(cs==6 && p->periodic3==1 && k+p->origin_k==p->gknoz-1)
     return true;
+
+    return false;
+}
+
+bool bc_domain_face(lexer *p, int i, int j, int k, int cs)
+{
+    if(cs==1)
+    return i+p->origin_i==0;
+
+    if(cs==4)
+    return i+p->origin_i==p->gknox-1;
+
+    if(cs==3)
+    return j+p->origin_j==0;
+
+    if(cs==2)
+    return j+p->origin_j==p->gknoy-1;
+
+    if(cs==5)
+    return k+p->origin_k==0;
+
+    if(cs==6)
+    return k+p->origin_k==p->gknoz-1;
 
     return false;
 }

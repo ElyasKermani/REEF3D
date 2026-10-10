@@ -40,42 +40,56 @@ concentration_RK2::~concentration_RK2()
 {
 }
 
+// The explicit terms of a stage are combined first and the implicit diffusion is solved afterwards with
+// the stage weight (as momentum_rk). Before, C was overwritten by its diffused value in the first stage and
+// reused in the final combination: the effective diffusivity was 1.25x (RK2) and 1.48x (RK3) too large.
 void concentration_RK2::start(fdm* a, lexer* p, convection* pconvec, diffusion* pdiff, turbulence *pturb, solver* psolv, ghostcell* pgc, ioflow* pflow)
 {
     field4 ark1(p);
-    
-    // Step 1
+
     starttime=pgc->timer();
 
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,C,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,C,a->visc,a->eddyv,1.0,1.0);
+    auto rhs_of = [&](field &f)
+    {
+        clearrhs(p,a,pgc);
+        pconvec->start(p,a,f,4,a->u,a->v,a->w);
+
+        if(p->D20==1)
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,1.0);
+    };
+
+    auto implicit = [&](field &f, double w)
+    {
+        if(p->D20>=2)
+        {
+        clearrhs(p,a,pgc);
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,w);
+        }
+    };
+
+// Step 1
+    rhs_of(C);
 
 	LOOP
-	ark1(i,j,k) = C(i,j,k)
-				+ p->dt*a->L(i,j,k);
+	ark1(i,j,k) = C(i,j,k) + p->dt*a->L(i,j,k);
 
+    implicit(ark1,1.0);
     bc_concentration_start(p,a,pgc,ark1);
 	pgc->start4(p,ark1,gcval_concentration);
 
-
 // Step 2
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,ark1,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,ark1,a->visc,a->eddyv,1.0,0.5);
+    rhs_of(ark1);
 
 	LOOP
-	C(i,j,k) = 0.5*C(i,j,k)
-				+ 0.5*ark1(i,j,k)
-				+ 0.5*p->dt*a->L(i,j,k);
-	
+	C(i,j,k) = 0.5*C(i,j,k) + 0.5*ark1(i,j,k) + 0.5*p->dt*a->L(i,j,k);
+
+    implicit(C,0.5);
     bc_concentration_start(p,a,pgc,C);
 	pgc->start4(p,C,gcval_concentration);
 
 	pupdate->start(p,a,pgc,a->u,a->v,a->w);
 
 	p->concentrationtime=pgc->timer()-starttime;
-
 }
 
 void concentration_RK2::ttimesave(lexer *p, fdm* a)

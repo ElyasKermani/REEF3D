@@ -23,31 +23,24 @@ Author: Elyas Larkermani
 #ifndef HEAT_RK3CN_H_
 #define HEAT_RK3CN_H_
 
-#include"heat_print.h"
-#include"field4.h"
-#include"bcheat.h"
+#include"heat_base.h"
 
-class heat;
 using namespace std;
 
-class heat_RK3CN final :public bcheat, public heat_print
+// low-storage 3rd-order Runge-Kutta (Wray) with Crank-Nicolson diffusion in each substep (Rai & Moin)
+class heat_RK3CN final : public heat_base
 {
 public:
     heat_RK3CN(lexer *, fdm*, ghostcell*,heat*&);
 	virtual ~heat_RK3CN();
-    
+
 	void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*) override final;
 	void ttimesave(lexer*, fdm*) override final;
-    void diff_update(lexer*, fdm*, ghostcell*) override final;
-    
-    field4 thermdiff;
-    field4 ark1,ark2,Tdiff;
 
 private:
-        void clearrhs(lexer*,fdm*,ghostcell*);
-        void addrhs(lexer*,fdm*,ghostcell*,double);
-	int gcval_heat;
-	double starttime, endtime;
+    void substep(lexer*, fdm*, ghostcell*, convection*, solver*, field&, field&, int);
+
+    field4 ark1,ark2,E,Eold,Dk;
 };
 
 #endif

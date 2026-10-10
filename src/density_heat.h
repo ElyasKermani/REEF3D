@@ -43,28 +43,9 @@ public:
 	double roface(lexer*,fdm*,int,int,int) override final;
 	
 	double H,roval,phival;
-	int ii,jj,kk;
-	const double epsi,eps;
     double psi;
     
     heat *pheat;
-private:
-    void material(lexer*);
-    double material_ipol(double**,int,double);
-
-    static int iocheck,iter;
-    //--
-    double visc_1,visc_2,ro_1,ro_2,alpha_air,alpha_water;
-	double **water_density;
-	double **water_viscosity;
-	double **air_density;
-	double **air_viscosity;
-
-	int water_density_num;
-	int water_viscosity_num;
-	int air_density_num;
-	int air_viscosity_num;
-
 };
 
 #endif

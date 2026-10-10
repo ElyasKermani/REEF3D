@@ -86,7 +86,7 @@ void driver::loop_cfd_sf(fdm* a)
         pturb->start(a,p,pturbdisc,pturbdiff,psolv,pgc,pflow,pvrans);
         
         // Heat computation
-        pheat->start(a,p,pconvec,pdiff,psolv,pgc,pflow);
+        pheat->start(a,p,pheatdisc,pdiff,psolv,pgc,pflow);
         
         // Concentration computation
         pconc->start(a,p,pconcdisc,pconcdiff,pturb,psolv,pgc,pflow);

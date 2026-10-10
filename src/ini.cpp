@@ -668,6 +668,8 @@ void control::ini_default()
     H4=0;           // int use beta coeff
     H4_beta1=0.0;   // double beta1
     H4_beta2=0.0;   // double beta2
+    H5_1=4182.0;    // double specific heat capacity water
+    H5_2=1005.0;    // double specific heat capacity air
     H9=1;           // int air-water assignment
 	H10=0;          // int heat transfer on/off
     H15=5;          // int convection for heat transfer
@@ -699,6 +701,24 @@ void control::ini_default()
     H64_T=0.0;      // double heat bc
     H65_T=0.0;      // double heat bc
     H66_T=0.0;      // double heat bc
+    H71=0;          // int heat flux bc
+    H72=0;          // int heat flux bc
+    H73=0;          // int heat flux bc
+    H74=0;          // int heat flux bc
+    H75=0;          // int heat flux bc
+    H76=0;          // int heat flux bc
+    H71_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H72_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H73_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H74_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H75_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H76_q=0.0;      // double heat flux bc (W/m2, into the domain)
+    H81=0;          // int immersed solids: surface temperature
+    H82=0;          // int immersed solids: surface heat flux
+    H83=0;          // int immersed solids: total heat output
+    H81_T=0.0;      // double surface temperature of immersed solids
+    H82_q=0.0;      // double heat flux from immersed solids into the fluid (W/m2)
+    H83_P=0.0;      // double total heat output of the immersed solids (W)
 
     // Initialize
     I10=0;          // int initialize all

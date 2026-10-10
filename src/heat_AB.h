@@ -23,15 +23,12 @@ Author: Hans Bihs
 #ifndef HEAT_AB_H_
 #define HEAT_AB_H_
 
-#include"heat_print.h"
-#include"field4.h"
-#include"bcheat.h"
-
-class heat;
+#include"heat_base.h"
 
 using namespace std;
 
-class heat_AB final :public bcheat, public heat_print
+// 2nd-order Adams-Bashforth for convection (and explicit diffusion), Crank-Nicolson for implicit diffusion
+class heat_AB final : public heat_base
 {
 public:
     heat_AB(lexer *, fdm*, ghostcell*,heat*&);
@@ -39,17 +36,11 @@ public:
 
 	void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*) override final;
 	void ttimesave(lexer*, fdm*) override final;
-    void diff_update(lexer*, fdm*, ghostcell*) override final;
-    
-    field4 thermdiff;
-private:
-    void clearrhs(lexer*,fdm*,ghostcell*);
-    
-	field4 tab;
-    fluid_update *pupdate;
 
-	int gcval_heat;
-	double starttime, endtime;
+private:
+	field4 E,Eold,Dn;
+    bool first;
+    double dt_prev;
 };
 
 #endif

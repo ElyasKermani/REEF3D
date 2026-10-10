@@ -1,0 +1,6 @@
+{
+ "description": "Single-phase conduction (F30=0) around an immersed solid box with a fixed surface temperature (H81). Checks that flagsf4<0 faces take H81 rather than the default adiabatic solid, without a dummy level set.",
+ "np": 1, "steps": 50,
+ "tags": ["quick", "2d", "heat", "closed", "solid", "singlephase"],
+ "covers": ["H10=1 heat_AB", "H81 immersed-solid temperature", "flagsf4 adiabatic default"]
+}

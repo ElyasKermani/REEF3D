@@ -1,0 +1,6 @@
+{
+ "description": "Quiescent water below warmer air in a closed box, no gravity, heat transfer H10=3 with implicit diffusion (D20=2), physical properties. The interface heat flux is dominated by water (effusivity ratio ~280): the water surface must stay near its initial temperature. Catches the shared-solver blow-up and the diffusivity-form interface error.",
+ "np": 1, "steps": 60,
+ "tags": ["quick", "2d", "heat", "levelset", "closed"],
+ "covers": ["H10=3 heat_RK3", "heat_base energy form", "H5", "H3=2 Boussinesq", "own heat solver instance"]
+}

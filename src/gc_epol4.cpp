@@ -21,6 +21,7 @@ Author: Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"ghostcell.h"
+#include"bc_noflux.h"
 #include"lexer.h"
 
 int ghostcell::gceval4(lexer *p, int gcv, int bc, int cs)
@@ -260,8 +261,9 @@ int ghostcell::gceval4(lexer *p, int gcv, int bc, int cs)
 
 // Heat
 	else
-	if(gcv==80 && ((p->H61==1 && cs==1) || (p->H62==1 && cs==2) || (p->H63==1 && cs==3) 
-                || (p->H64==1 && cs==4) || (p->H65==1 && cs==5) || (p->H66==1 && cs==6)))
+	if(gcv==80 && ((p->H61==1 && cs==1) || (p->H62==1 && cs==2) || (p->H63==1 && cs==3)
+                || (p->H64==1 && cs==4) || (p->H65==1 && cs==5) || (p->H66==1 && cs==6))
+                && bc_domain_face(p,i,j,k,cs))   // fixed temperature on the domain surfaces only, not on objects
 	return 61;
     
     else

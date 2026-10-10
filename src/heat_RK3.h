@@ -23,31 +23,22 @@ Author: Hans Bihs
 #ifndef HEAT_RK3_H_
 #define HEAT_RK3_H_
 
-#include"heat_print.h"
-#include"field4.h"
-#include"bcheat.h"
+#include"heat_base.h"
 
-class heat;
 using namespace std;
 
-class heat_RK3 final :public bcheat, public heat_print
+// 3rd-order TVD Runge-Kutta; implicit diffusion as a 2nd-order, L-stable IMEX combination
+class heat_RK3 final : public heat_base
 {
 public:
     heat_RK3(lexer *, fdm*, ghostcell*,heat*&);
 	virtual ~heat_RK3();
-    
+
 	void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*) override final;
 	void ttimesave(lexer*, fdm*) override final;
-    void diff_update(lexer*, fdm*, ghostcell*) override final;
-    
-    field4 thermdiff;
-    field4 ark1,ark2,Tdiff;
 
 private:
-    void clearrhs(lexer*,fdm*,ghostcell*);
-    
-	int gcval_heat;
-	double starttime, endtime;
+    field4 ark1,ark2,E,D1,D2;
 };
 
 #endif

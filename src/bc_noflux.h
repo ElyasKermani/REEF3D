@@ -39,9 +39,9 @@ mask[IJK] has bit (cs-1) set for the face on side cs (1 x-, 2 y+, 3 y-,
   BC_NOFLUX_WALLS    lid (3), bed (5), walls and solid surfaces (21, 22)
   BC_NOFLUX_INFLOW   inflow / wave generation (1, 6) and patches with
                      prescribed velocity and Neumann pressure (2x1, 2x2 -> tens digit 1)
-  BC_NOFLUX_SCALAR   leave out sides with a fixed scalar value (H 61-66),
+  BC_NOFLUX_SCALAR   leave out the domain surfaces with a fixed scalar value (H 61-66),
                      for heat and concentration (ghost-cell label 61)
---------------------------------------------------------------------*/
+ --------------------------------------------------------------------*/
 
 enum
 {
@@ -55,5 +55,9 @@ void bc_noflux_mask(lexer *p, std::vector<int> &mask, int what);
 // true if face cs of cell (i,j,k) lies on a serial periodic boundary (periodic = 1): DIVEMesh keeps the
 // boundary code of the side (e.g. 21 from C 11) in the ghost-cell lists there, but it is not a wall
 bool bc_periodic_face(lexer *p, int i, int j, int k, int cs);
+
+// true if face cs of cell (i,j,k) lies on the outer boundary of the domain (surface cs: 1 xmin, 2 ymax,
+// 3 ymin, 4 xmax, 5 zmin, 6 zmax), not on an object, topography or solid inside the domain
+bool bc_domain_face(lexer *p, int i, int j, int k, int cs);
 
 #endif

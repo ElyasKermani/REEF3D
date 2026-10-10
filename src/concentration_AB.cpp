@@ -34,6 +34,8 @@ Author: Hans Bihs
 concentration_AB::concentration_AB(lexer* p, fdm* a, ghostcell *pgc) : bc_concentration(p), concentration_io(p,a), cab(p)
 {
 	gcval_concentration=80;
+    first=true;
+    dt_prev=0.0;
 }
 
 concentration_AB::~concentration_AB()
@@ -42,26 +44,49 @@ concentration_AB::~concentration_AB()
 
 void concentration_AB::start(fdm* a, lexer* p, convection* pconvec, diffusion* pdiff, turbulence *pturb, solver* psolv, ghostcell* pgc, ioflow* pflow)
 {
-
     starttime=pgc->timer();
-    
-    clearrhs(p,a,pgc);
-	pconvec->start(p,a,C,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,C,a->visc,a->eddyv,1.0,1.0);
 
-	if(p->count==1)
+    // explicit right-hand side of a stage: convection and, with explicit diffusion (D 20 1), diffusion
+    auto rhs_of = [&](field &f)
+    {
+        clearrhs(p,a,pgc);
+        pconvec->start(p,a,f,4,a->u,a->v,a->w);
+
+        if(p->D20==1)
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,1.0);
+    };
+
+    // implicit diffusion (D 20 >= 2) of the combined stage with its weight: f = (I - w dt D)^-1 f
+    auto implicit = [&](field &f, double w)
+    {
+        if(p->D20>=2)
+        {
+        clearrhs(p,a,pgc);
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,w);
+        }
+    };
+
+    rhs_of(C);
+
+    // AB2 with its own previous step size (p->dt_old is not set by the fixed time stepping), Euler first
+    if(first)
 	LOOP
 	cab(i,j,k)=a->L(i,j,k);
+
+    const double r = first ? 1.0 : p->dt/dt_prev;
 
 	LOOP
 	{
-	C(i,j,k)+=p->dt*0.5*(((p->dt+2.0*p->dt_old)/p->dt_old)*a->L(i,j,k)
-								-(p->dt/p->dt_old)*cab(i,j,k));
+	C(i,j,k) += p->dt*((1.0+0.5*r)*a->L(i,j,k) - 0.5*r*cab(i,j,k));
 	cab(i,j,k)=a->L(i,j,k);
 	}
-	
+
+    implicit(C,1.0);
     bc_concentration_start(p,a,pgc,C);
 	pgc->start4(p,C,gcval_concentration);
+
+    first=false;
+    dt_prev=p->dt;
 
 	pupdate->start(p,a,pgc,a->u,a->v,a->w);
 

@@ -1,0 +1,6 @@
+{
+ "description": "1D conduction in a single fluid with no free surface (F30=0): insulated box, no flow, fixed temperature H61 at x_min, heat flux H76 at z_max, AB2 + Crank-Nicolson (H10=1). Checks the energy-form heat operator, face Dirichlet and flux boundaries, and single-phase heat without a dummy level set.",
+ "np": 1, "steps": 50,
+ "tags": ["quick", "2d", "heat", "closed", "singlephase"],
+ "covers": ["H10=1 heat_AB", "H61 fixed temperature", "H76 heat flux", "F30=0 single-phase heat", "heat_base boundaries"]
+}

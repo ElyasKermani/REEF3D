@@ -33,6 +33,7 @@ class fdm;
 class ghostcell;
 class turbulence;
 class concentration;
+class heat;
 class field;
 class fdm_nhf;
 class fdm_fnpf;
@@ -64,6 +65,7 @@ public:
     virtual ~regression_dump();
 
     bool active() const {return is_active;}
+    void set_heat(heat *ppheat) {pheat=ppheat;}
 
     // CFD
     void cfd_ini(lexer*, fdm*, ghostcell*, turbulence*, concentration*);     // after initialisation
@@ -105,6 +107,7 @@ private:
     void write_state(lexer*);
 
     bool is_active;
+    heat *pheat=nullptr;
     int every;
     int last_written;
     std::string dir;

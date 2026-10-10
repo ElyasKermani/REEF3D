@@ -23,15 +23,12 @@ Author: Hans Bihs
 #ifndef HEAT_RK2_H_
 #define HEAT_RK2_H_
 
-#include"heat_print.h"
-#include"field4.h"
-#include"bcheat.h"
-
-class heat;
+#include"heat_base.h"
 
 using namespace std;
 
-class heat_RK2 final :public bcheat, public heat_print
+// 2nd-order TVD Runge-Kutta; implicit diffusion as a 2nd-order IMEX pair
+class heat_RK2 final : public heat_base
 {
 public:
     heat_RK2(lexer *, fdm*, ghostcell*,heat*&);
@@ -39,15 +36,9 @@ public:
 
 	void start(fdm*, lexer*, convection*, diffusion*, solver*, ghostcell*, ioflow*) override final;
 	void ttimesave(lexer*, fdm*) override final;
-    void diff_update(lexer*, fdm*, ghostcell*) override final;
-    
-    field4 thermdiff;
 
 private:
-    void clearrhs(lexer*,fdm*,ghostcell*);
-    
-	int gcval_heat;
-	double starttime, endtime;
+	field4 ark1,E,D0,D1;
 };
 
 #endif

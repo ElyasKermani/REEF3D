@@ -44,6 +44,8 @@ private:
     void clearrhs(lexer*,fdm*,ghostcell*);
     
 	field4 cab;
+    bool first=true;
+    double dt_prev=0.0;
 	
 	int gcval_concentration;
 	double starttime, endtime;

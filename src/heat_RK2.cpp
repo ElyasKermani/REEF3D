@@ -27,107 +27,68 @@ Author: Hans Bihs
 #include"convection.h"
 #include"diffusion.h"
 #include"ioflow.h"
-#include"turbulence.h"
 #include"solver.h"
-#include"fluid_update_fsf_heat.h"
+#include"fluid_update.h"
 
-heat_RK2::heat_RK2(lexer* p, fdm* a, ghostcell *pgc, heat *&pheat) : bcheat(p), heat_print(p,a), thermdiff(p)
+heat_RK2::heat_RK2(lexer* p, fdm* a, ghostcell *pgc, heat *&pheat) : heat_base(p,a), ark1(p), E(p), D0(p), D1(p)
 {
-	gcval_heat=80;
 }
 
 heat_RK2::~heat_RK2()
 {
 }
 
+/*--------------------------------------------------------------------
+explicit part: T1 = T + dt E(T),  T(n+1) = 1/2 T + 1/2 (T1 + dt E(T1))
+implicit diffusion (dmode 2), with D the same discrete operator:
+    (I - dt D) T1      = T + dt E(T)
+    (I - dt D) T(n+1)  = 1/2 T + 1/2 T1 + 1/2 dt E(T1) + dt (1/2 D(T) - D(T1))
+implicit weights (1/2, -1/2, 1) on (T, T1, T(n+1)): 2nd order in time
+together with the explicit part, A-stable, |G| -> 1/2 for stiff modes
+--------------------------------------------------------------------*/
+
 void heat_RK2::start(fdm* a, lexer* p, convection* pconvec, diffusion* pdiff, solver* psolv, ghostcell* pgc, ioflow* pflow)
 {
-    field4 ark1(p);
-    
-    // Step 1
     starttime=pgc->timer();
     diff_update(p,a,pgc);
 
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,T,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,T,thermdiff,a->eddyv,p->sigT,1.0);
+// Step 1
+    heat_E(p,a,pgc,pconvec,T,E);
+
+    if(dmode==2)
+    heat_D(p,a,T,D0);
 
 	LOOP
-	ark1(i,j,k) = T(i,j,k)
-				+ p->dt*a->L(i,j,k);
-	
-    bcheat_start(p,a,pgc,ark1);
-	pgc->start4(p,ark1,gcval_heat);
+	ark1(i,j,k) = T(i,j,k) + p->dt*E(i,j,k);
 
+    if(dmode==2)
+    heat_solve(p,a,pgc,psolv,ark1,1.0);
+
+    heat_bc(p,a,pgc,ark1);
 
 // Step 2
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,ark1,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,ark1,thermdiff,a->eddyv,p->sigT,0.5);
+    heat_E(p,a,pgc,pconvec,ark1,E);
 
 	LOOP
-	T(i,j,k) = 0.5*T(i,j,k)
-				+ 0.5*ark1(i,j,k)
-				+ 0.5*p->dt*a->L(i,j,k);
-				
-    bcheat_start(p,a,pgc,T);
-	pgc->start4(p,T,gcval_heat);
+	T(i,j,k) = 0.5*T(i,j,k) + 0.5*ark1(i,j,k) + 0.5*p->dt*E(i,j,k);
+
+    if(dmode==2)
+    {
+        heat_D(p,a,ark1,D1);
+
+        LOOP
+        T(i,j,k) += p->dt*(0.5*D0(i,j,k) - D1(i,j,k));
+
+        heat_solve(p,a,pgc,psolv,T,1.0);
+    }
+
+    heat_bc(p,a,pgc,T);
 
 	pupdate->start(p,a,pgc,a->u,a->v,a->w);
 
 	p->heattime=pgc->timer()-starttime;
-
 }
 
 void heat_RK2::ttimesave(lexer *p, fdm* a)
 {
-}
-
-void heat_RK2::diff_update(lexer *p, fdm *a, ghostcell *pgc)
-{
-    double alpha_1;
-	double alpha_2;
-    double H;
-    double epsi=p->F45*(1.0/3.0)*(p->DXN[IP] + p->DYN[JP] + p->DZN[KP]);
-    
-    if(p->H9==1)
-    {
-    alpha_1 = p->H1;
-	alpha_2 = p->H2;
-    }
-    
-    if(p->H9==2)
-    {
-    alpha_1 = p->H2;
-	alpha_2 = p->H1;
-    }
-    
-    
-    
-    LOOP
-	{
-		if(a->phi(i,j,k)>epsi)
-		H=1.0;
-
-		if(a->phi(i,j,k)<-epsi)
-		H=0.0;
-
-		if(fabs(a->phi(i,j,k))<=epsi)
-		H=0.5*(1.0 + a->phi(i,j,k)/epsi + (1.0/PI)*sin((PI*a->phi(i,j,k))/epsi));
-
-		thermdiff(i,j,k) = alpha_1*H + alpha_2*(1.0-H);
-	}
-    
-    pgc->start4(p,thermdiff,1);
-}
-
-void heat_RK2::clearrhs(lexer *p, fdm *a, ghostcell *pgc)
-{
-    int n=0;
-	LOOP
-	{
-    a->L(i,j,k)=0.0;
-	a->rhsvec.V[n]=0.0;
-	++n;
-	}
 }

@@ -317,8 +317,8 @@
             <File Name="fluid_update_void.h"/>
             <File Name="fluid_update_vof.h"/>
             <File Name="fluid_update_rheology.h"/>
-            <File Name="fluid_update_fsf_heat_Bouss.h"/>
             <File Name="fluid_update_fsf_heat.h"/>
+            <File Name="heat_material.h"/>
             <File Name="fluid_update_fsf_concentration.h"/>
             <File Name="fluid_update_fsf_comp.h"/>
             <File Name="fluid_update_fsf.h"/>
@@ -936,6 +936,7 @@
           <File Name="heat_print.h"/>
         </VirtualDirectory>
         <File Name="heat.h"/>
+        <File Name="heat_base.h"/>
         <File Name="heat_AB.h"/>
         <File Name="heat_RK2.h"/>
         <File Name="heat_RK3.h"/>
@@ -1500,8 +1501,8 @@
             <File Name="fluid_update_void.cpp"/>
             <File Name="fluid_update_vof.cpp"/>
             <File Name="fluid_update_rheology.cpp"/>
-            <File Name="fluid_update_fsf_heat_Bouss.cpp"/>
             <File Name="fluid_update_fsf_heat.cpp"/>
+            <File Name="heat_material.cpp"/>
             <File Name="fluid_update_fsf_concentration.cpp"/>
             <File Name="fluid_update_fsf_comp.cpp"/>
             <File Name="fluid_update_fsf.cpp"/>
@@ -2489,6 +2490,7 @@
           <File Name="heat_ini.cpp"/>
           <File Name="heat_print.cpp"/>
         </VirtualDirectory>
+        <File Name="heat_base.cpp"/>
         <File Name="heat_AB.cpp"/>
         <File Name="heat_RK2.cpp"/>
         <File Name="heat_RK3.cpp"/>

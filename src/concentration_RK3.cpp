@@ -42,53 +42,61 @@ concentration_RK3::~concentration_RK3()
 
 void concentration_RK3::start(fdm* a, lexer* p, convection* pconvec, diffusion* pdiff, turbulence *pturb, solver* psolv, ghostcell* pgc, ioflow* pflow)
 {
-    
     field4 ark1(p),ark2(p);
-    
-// Step 1
+
     starttime=pgc->timer();
-    
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,C,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,C,a->visc,a->eddyv,1.0,1.0);
+
+    auto rhs_of = [&](field &f)
+    {
+        clearrhs(p,a,pgc);
+        pconvec->start(p,a,f,4,a->u,a->v,a->w);
+
+        if(p->D20==1)
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,1.0);
+    };
+
+    auto implicit = [&](field &f, double w)
+    {
+        if(p->D20>=2)
+        {
+        clearrhs(p,a,pgc);
+        pdiff->diff_scalar(p,a,pgc,psolv,f,a->visc,a->eddyv,1.0,w);
+        }
+    };
+
+// Step 1
+    rhs_of(C);
 
 	LOOP
-	ark1(i,j,k) = C(i,j,k)
-                   + p->dt*a->L(i,j,k);
-	
+	ark1(i,j,k) = C(i,j,k) + p->dt*a->L(i,j,k);
+
+    implicit(ark1,1.0);
     bc_concentration_start(p,a,pgc,ark1);
 	pgc->start4(p,ark1,gcval_concentration);
 
 // Step 2
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,ark1,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,ark1,a->visc,a->eddyv,1.0,0.25);
+    rhs_of(ark1);
 
 	LOOP
-	ark2(i,j,k) = 0.75*C(i,j,k)
-                   + 0.25*ark1(i,j,k)
-				   + 0.25*p->dt*a->L(i,j,k);
-	
+	ark2(i,j,k) = 0.75*C(i,j,k) + 0.25*ark1(i,j,k) + 0.25*p->dt*a->L(i,j,k);
+
+    implicit(ark2,0.25);
     bc_concentration_start(p,a,pgc,ark2);
 	pgc->start4(p,ark2,gcval_concentration);
 
 // Step 3
-    clearrhs(p,a,pgc);
-    pconvec->start(p,a,ark2,4,a->u,a->v,a->w);
-	pdiff->diff_scalar(p,a,pgc,psolv,ark2,a->visc,a->eddyv,1.0,2.0/3.0);
+    rhs_of(ark2);
 
 	LOOP
-	C(i,j,k) =    (1.0/3.0)*C(i,j,k)
-				+ (2.0/3.0)*ark2(i,j,k)
-				+ (2.0/3.0)*p->dt*a->L(i,j,k);
+	C(i,j,k) = (1.0/3.0)*C(i,j,k) + (2.0/3.0)*ark2(i,j,k) + (2.0/3.0)*p->dt*a->L(i,j,k);
 
+    implicit(C,2.0/3.0);
     bc_concentration_start(p,a,pgc,C);
 	pgc->start4(p,C,gcval_concentration);
 
 	pupdate->start(p,a,pgc,a->u,a->v,a->w);
 
-	p->susptime=pgc->timer()-starttime;
-
+	p->concentrationtime=pgc->timer()-starttime;
 }
 
 void concentration_RK3::ttimesave(lexer *p, fdm* a)

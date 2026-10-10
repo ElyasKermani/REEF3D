@@ -39,7 +39,6 @@ Author: Hans Bihs
 #include"picard_void.h"
 #include"fluid_update_fsf.h"
 #include"fluid_update_fsf_heat.h"
-#include"fluid_update_fsf_heat_Bouss.h"
 #include"fluid_update_fsf_comp.h"
 #include"fluid_update_fsf_concentration.h"
 #include"fluid_update_rheology.h"
@@ -152,11 +151,8 @@ momentum_rk::momentum_rk(lexer *p, fdm *a, ghostcell *pgc, convection *pconvecti
         if(p->F30>0 && p->H10==0 && p->W30==1 && p->F300==0 && p->W90==0)
         pupdate = new fluid_update_fsf_comp(p,a,pgc);
 
-        if(p->F30>0 && p->H10>0 && p->W90==0 && p->F300==0 && p->H3==1)
+        if(p->H10>0 && p->W90==0 && p->F300==0)
         pupdate = new fluid_update_fsf_heat(p,a,pgc,pheat);
-
-        if(p->F30>0 && p->H10>0 && p->W90==0 && p->F300==0 && p->H3==2)
-        pupdate = new fluid_update_fsf_heat_Bouss(p,a,pgc,pheat);
 
         if(p->F30>0 && p->C10>0 && p->W90==0 && p->F300==0)
         pupdate = new fluid_update_fsf_concentration(p,a,pgc,pconc);
@@ -165,7 +161,7 @@ momentum_rk::momentum_rk(lexer *p, fdm *a, ghostcell *pgc, convection *pconvecti
         pupdate = new fluid_update_rheology(p);
 
         // single phase (F 30 0) or multiphase: no density/viscosity update from the level set
-        if(p->F300>0 || p->F30==0 || pupdate==nullptr)
+        if(p->F300>0 || (p->F30==0 && p->H10==0) || pupdate==nullptr)
         pupdate = new fluid_update_void();
 
         if(p->F46==2)

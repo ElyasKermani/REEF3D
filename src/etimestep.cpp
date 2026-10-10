@@ -154,6 +154,11 @@ void etimestep::start(fdm *a, lexer *p, ghostcell *pgc, turbulence *pturb)
     dx = MIN3(p->DXP[IP],p->DYN[JP],p->DZN[KP]);
     
     visc = 0.5*(a->eddyv(i,j,k) + a->eddyv(i+1,j,k)) + 0.5*(a->visc(i,j,k) + a->visc(i+1,j,k));
+
+    // explicit heat diffusion (H 10 > 0, D 20 = 1): the thermal diffusivity constrains the step as well;
+    // Adams-Bashforth (H 10 = 1) has half the diffusive stability range of the Runge-Kutta schemes
+    if(p->H10>0 && p->D20==1)
+    visc = MAX(visc, (p->H10==1 ? 2.0 : 1.0)*(MAX(p->H1,p->H2) + 0.5*(a->eddyv(i,j,k) + a->eddyv(i+1,j,k))/p->sigT));
     
 	cu = MIN(cu, 2.0/((sqrt(p->umax*p->umax + p->vmax*p->vmax + p->wmax*p->wmax)/dx +  visc*(6.0/pow(dx,2.0)))
     
@@ -168,6 +173,11 @@ void etimestep::start(fdm *a, lexer *p, ghostcell *pgc, turbulence *pturb)
     dx = MIN3(p->DXP[IP],p->DYN[JP],p->DZN[KP]);
     
     visc = 0.5*(a->eddyv(i,j,k) + a->eddyv(i+1,j,k)) + 0.5*(a->visc(i,j,k) + a->visc(i+1,j,k));
+
+    // explicit heat diffusion (H 10 > 0, D 20 = 1): the thermal diffusivity constrains the step as well;
+    // Adams-Bashforth (H 10 = 1) has half the diffusive stability range of the Runge-Kutta schemes
+    if(p->H10>0 && p->D20==1)
+    visc = MAX(visc, (p->H10==1 ? 2.0 : 1.0)*(MAX(p->H1,p->H2) + 0.5*(a->eddyv(i,j,k) + a->eddyv(i+1,j,k))/p->sigT));
     
 	cu = MIN(cu, 2.0/((sqrt(p->umax*p->umax)/p->DXP[IP] +  visc*(6.0/pow(p->DXP[IP],2.0)))
     

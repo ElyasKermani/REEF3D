@@ -26,6 +26,7 @@ Author: Hans Bihs
 #include"ghostcell.h"
 #include"turbulence.h"
 #include"concentration.h"
+#include"heat.h"
 #include"fdm_nhf.h"
 #include"fdm_fnpf.h"
 #include"fdm2D.h"
@@ -129,6 +130,13 @@ void regression_dump::cfd_collect(lexer *p, fdm *a, turbulence *pturb, concentra
     add("conc",p->cellnum);
     LOOP
     data.back().push_back(pconc->val(i,j,k));
+
+    if(pheat!=nullptr && p->H10>0)
+    {
+    add("T",p->cellnum);
+    LOOP
+    data.back().push_back(pheat->val(i,j,k));
+    }
 
     // discrete divergence of the velocity field, as seen by the pressure projection
     add("div",p->cellnum);
