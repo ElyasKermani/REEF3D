@@ -33,7 +33,7 @@ sixdof_motionext_file::sixdof_motionext_file(lexer *p, ghostcell *pgc)
     
     // number of file columns
     if(p->X240==1)
-    colnum = 3;
+    colnum = 4;   // local fix: format 1 is t, x, y, z (4 columns); data[][3] is read for w
     
     if(p->X240==2)
     colnum = 4;

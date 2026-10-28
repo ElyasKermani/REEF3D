@@ -1,3 +1,4 @@
+#include<map>
 /*--------------------------------------------------------------------
 REEF3D
 Copyright 2008-2026 Hans Bihs
@@ -28,6 +29,7 @@ Author: Tobias Martin
 #include"ghostcell.h"
 #include"mooring.h"
 #include"net_interface.h"
+#include"6DOF_motionext_bodyfile.h"
 
 void sixdof_obj_cfd::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double alpha, bool finalize)
 {
@@ -40,6 +42,28 @@ void sixdof_obj_cfd::externalForces_cfd(lexer *p, fdm* a, ghostcell *pgc, double
     // Net forces
 	if (p->X320>0)
 	netForces_cfd(p,a,pgc,alpha,finalize);
+
+    // local extension: thrust file 6DOF_thrust-<n>.dat
+    {
+        double tfx,tfy,tfz;
+        if(sixdof_body_thrust(n6DOF,p->simtime,tfx,tfy,tfz))
+        { Xext += tfx; Yext += tfy; Zext += tfz; }
+        
+        // virtual surge mooring (time-windowed spring-damper), anchor = CoG x when it engages
+        static std::map<int,double> moor_x0; static std::map<int,bool> moor_on;
+        double mkx, mcx, mxe;
+        if(sixdof_body_mooring(n6DOF,p->simtime,mkx,mcx,mxe))
+        {
+            if(mkx>0.0 || mcx>0.0)
+            {
+                if(!moor_on[n6DOF] && c_(0) >= mxe) { moor_x0[n6DOF] = c_(0); moor_on[n6DOF] = true;
+                    if(p->mpirank==0) cout<<"6DOF body "<<n6DOF<<": mooring engaged at t="<<p->simtime<<" x="<<c_(0)<<endl; }
+                if(moor_on[n6DOF]) Xext += -mkx*(c_(0)-moor_x0[n6DOF]) - mcx*u_fb(0);
+            }
+            else if(moor_on[n6DOF]) { moor_on[n6DOF] = false;
+                if(p->mpirank==0) cout<<"6DOF body "<<n6DOF<<": mooring released at t="<<p->simtime<<" x="<<c_(0)<<endl; }
+        }
+    }
     
     // VRANS forces
 }
@@ -55,6 +79,28 @@ void sixdof_obj_nhflow::externalForces_nhflow(lexer *p, fdm_nhf* d, ghostcell *p
     // Net forces
 	if (p->X320>0)
 	netForces_nhflow(p,d,pgc,alpha,finalize);
+
+    // local extension: thrust file 6DOF_thrust-<n>.dat
+    {
+        double tfx,tfy,tfz;
+        if(sixdof_body_thrust(n6DOF,p->simtime,tfx,tfy,tfz))
+        { Xext += tfx; Yext += tfy; Zext += tfz; }
+        
+        // virtual surge mooring (time-windowed spring-damper), anchor = CoG x when it engages
+        static std::map<int,double> moor_x0; static std::map<int,bool> moor_on;
+        double mkx, mcx, mxe;
+        if(sixdof_body_mooring(n6DOF,p->simtime,mkx,mcx,mxe))
+        {
+            if(mkx>0.0 || mcx>0.0)
+            {
+                if(!moor_on[n6DOF] && c_(0) >= mxe) { moor_x0[n6DOF] = c_(0); moor_on[n6DOF] = true;
+                    if(p->mpirank==0) cout<<"6DOF body "<<n6DOF<<": mooring engaged at t="<<p->simtime<<" x="<<c_(0)<<endl; }
+                if(moor_on[n6DOF]) Xext += -mkx*(c_(0)-moor_x0[n6DOF]) - mcx*u_fb(0);
+            }
+            else if(moor_on[n6DOF]) { moor_on[n6DOF] = false;
+                if(p->mpirank==0) cout<<"6DOF body "<<n6DOF<<": mooring released at t="<<p->simtime<<" x="<<c_(0)<<endl; }
+        }
+    }
     
     // Membrane forces (X 330): load of rigid or flexible membranes attached to the body
     if (p->X330>0)

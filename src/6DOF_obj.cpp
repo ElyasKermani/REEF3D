@@ -21,6 +21,7 @@ Authors: Tobias Martin, Hans Bihs
 --------------------------------------------------------------------*/
 
 #include"6DOF_obj.h"
+#include"6DOF_motionext_bodyfile.h"
 #include"lexer.h"
 #include"fdm.h"
 #include"ghostcell.h"
@@ -130,6 +131,22 @@ sixdof_obj::sixdof_obj(lexer *p, ghostcell *pgc, int number) : ddweno_f_nug(p),
     
     if(p->X240==21)
     pmotion = new sixdof_motionext_wavemaker(p,pgc);
+    
+    // local extension: per-body DOF modes and prescribed motion (6DOF_dof-<n>.dat, 6DOF_motion-<n>.dat)
+    {
+        int bdof[6];
+        if(sixdof_body_dof(number,bdof))
+        {
+            for(int q=0; q<6; ++q) rb.dof[q] = bdof[q];
+            if(p->mpirank==0)
+            cout<<"6DOF body "<<number<<": DOF modes from 6DOF_dof-"<<number<<".dat: "<<bdof[0]<<" "<<bdof[1]<<" "<<bdof[2]<<" "<<bdof[3]<<" "<<bdof[4]<<" "<<bdof[5]<<endl;
+            
+            const std::string mname = "6DOF_motion-"+std::to_string(number)+".dat";
+            std::ifstream mtest(mname);
+            if(mtest.good() && (bdof[0]==2 || bdof[1]==2 || bdof[2]==2 || bdof[3]==2 || bdof[4]==2 || bdof[5]==2))
+            pmotion = new sixdof_motionext_bodyfile(p,pgc,mname,bdof);
+        }
+    }
     
     Mass_fb =  Rfb = Vfb = 1.0;
     
