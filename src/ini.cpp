@@ -1178,6 +1178,12 @@ void control::ini_default()
     E32=0;              // int unresolved: shear lift, 0 off, 1 Saffman-Mei (fluid vorticity at the centroid), 2 bed grains (velocity difference over the grain, E 34)
     E33=0;              // int unresolved: rotational lift (Magnus, Oesterle & Bui Dinh), 0 off, 1 on
     E34=0.2;            // double unresolved: lift coefficient of the bed-grain lift (E 32 2)
+    E35=0;              // int unresolved: near-bed closure of bed grains, 0 off, 1 on: bed level from the particles around a grain, the exposed part of the grain takes the velocity of the logarithmic law under a reference point above the bed (drag with its moment, lift E 32 2); 2: as 1, and CFD: eddy viscosity in and above the bed limited to the mixing length of Li & Sawamoto (1995), l_m = kappa int (phi_max - phi)/phi_max dz
+    E36=2.5;            // double near-bed closure (E 35): roughness height of the logarithmic law in mean equivalent diameters, k_s = E 36 d
+    E37=1.0;            // double near-bed closure (E 35): height of the reference point above the bed level in mean equivalent diameters (at least one cell)
+    E38=0.0;            // double near-bed closure (E 35): turbulent velocity fluctuations at the exposed grains, factor on the intensities 2.30 u* (streamwise) and 1.63 u* (lateral) of Nezu & Nakagawa (1993); 0 off
+    E39=1.0;            // double near-bed closure (E 35): time scale of the velocity fluctuations, T = E 39 d/u*
+    E40=0.6;            // double near-bed closure (E 35 2): solid fraction of the packed bed, phi_max of the mixing length (no turbulent mixing where the bed is this dense)
 
     // Particles
     R10=0;              // int HYDRO rain: 0 off, 1 constant R 11, 2 time series rain.dat, 3 raster series rain_series.dat

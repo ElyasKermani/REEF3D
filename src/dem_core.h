@@ -146,6 +146,14 @@ struct dem_cpl
     // lift (E 32, E 33): fluid vorticity at the centroid, fluid velocity at the top and bottom of the
     // particle (along -g), and the lift force of the step (its reaction goes to the fluid)
     dem_vec wfl = dem_vec::Zero(), uT = dem_vec::Zero(), uB = dem_vec::Zero(), Flift = dem_vec::Zero();
+    // near-bed closure of bed grains (E 35), heights along -g: bed level around the particle, top and
+    // bottom of the particle, reference point; fluid velocity at the reference point; exposed fraction,
+    // velocity and drag coefficient K of the exposed part; state of the velocity fluctuations (E 38)
+    int nb_on = 0;
+    double nb_zs = 0.0, nb_zt = 0.0, nb_zb = 0.0, nb_zr = 0.0;
+    dem_vec nb_uref = dem_vec::Zero(), nb_ue = dem_vec::Zero();
+    double nb_w = 0.0, nb_ke = 0.0, nb_ust = 0.0;
+    double nb_xi[2] = {0.0,0.0};
 };
 
 struct dem_body

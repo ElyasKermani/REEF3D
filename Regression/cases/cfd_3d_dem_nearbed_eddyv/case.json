@@ -1,0 +1,17 @@
+{
+ "base": "cfd_3d_dem_nearbed",
+ "np": 1,
+ "steps": 100,
+ "ctrl_set": {
+  "E 35": "2"
+ },
+ "description": "cfd_3d_dem_nearbed with the mixing length of Li & Sawamoto (1995) in and above the particle bed (E 35 2, phi_max E 40 0.6): solid fraction of the cells from the volume quadrature of the particles (fixed and moving), eddy viscosity limited from the floor of the bed columns up to the first cell where the limit no longer binds.",
+ "tags": [
+  "3d",
+  "cfd",
+  "dem"
+ ],
+ "covers": [
+  "dem_f::nearbed_eddyv"
+ ]
+}

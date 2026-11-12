@@ -1,0 +1,15 @@
+{
+ "base": "cfd_3d_dem_nearbed_eddyv",
+ "np": 2,
+ "steps": 100,
+ "description": "cfd_3d_dem_nearbed_eddyv on 2 ranks: the solid fraction of the cells from the quadrature points of the owned particles and the ghosts, the horizontal mean and the sweep of the mixing length with the ghost cells of the neighbour rank.",
+ "tags": [
+  "3d",
+  "cfd",
+  "dem",
+  "mpi"
+ ],
+ "covers": [
+  "dem_f::nearbed_eddyv on several ranks"
+ ]
+}

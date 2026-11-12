@@ -28,8 +28,9 @@ Coupling modes (ctrl E 11):
  1 unresolved particles smaller than the grid: drag (Haider-Levenspiel with
               Di Felice voidage correction, implicit in the DEM step), buoyancy from
               volume quadrature, added mass and fluid acceleration, optional lift
-              (E 32 shear lift Saffman-Mei or bed grains, E 33 Magnus); the reaction is
-              spread to the fluid momentum with a compact kernel
+              (E 32 shear lift Saffman-Mei or bed grains, E 33 Magnus), optional near-bed
+              closure of bed grains (E 35: exposure, velocity of the logarithmic law, velocity
+              fluctuations); the reaction is spread to the fluid momentum with a compact kernel
  2 resolved   particles larger than the grid: direct forcing of the fluid velocity
               inside the particle level set, hydrodynamic force from the volume
               integral of the forcing (Uhlmann 2005)
@@ -244,6 +245,26 @@ private:
     int liftmodel, magnus;
     double liftcoef;
     dem_vec upvec;
+
+    // near-bed closure of bed grains (E 35-E 39, unresolved particles): bed level from the particles
+    // around a grain, velocity of the exposed part of the grain from the logarithmic law under a
+    // reference point above the bed, turbulent velocity fluctuations; drag of the exposed part with
+    // its moment, top and bottom velocities of the bed-grain lift (E 32 2)
+    static const int nnear = 4;
+    void nearbed_geometry(lexer*, ghostcell*, const std::function<double(const dem_vec&)>&, const std::function<double(const dem_vec&)>&);
+    void nearbed_sample(lexer*, int, const std::function<dem_vec(const dem_vec&)>&, const std::function<bool(const dem_vec&)>&, double*);
+    void nearbed_store(int, const double*);
+    dem_vec nearbed(lexer*, int);
+    double dragcoef(double, double) const;
+    double gauss(int, int, int) const;
+    void nearbed_eddyv(lexer*, fdm*, ghostcell*);
+    int nearmodel;
+    double near_ks, near_zref, near_fluc, near_tscale, near_phimax;
+    double dref = 0.0;          // mean equivalent diameter of the unresolved particles
+    // surface of the particles seen from above: highest point and its particle per raster column
+    struct nb_cell {double top; int id;};
+    std::unordered_map<long long,nb_cell> nb_ras;
+    static long long nb_key(long long a, long long b) {return (a + 1073741824LL)*4294967296LL + (b + 1073741824LL);}
 
     // parameters
     double hybrid_ratio, Ca, hs_factor, travel, kernel_cells, void_factor;

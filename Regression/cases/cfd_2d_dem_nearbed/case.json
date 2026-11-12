@@ -1,0 +1,16 @@
+{
+ "np": 1,
+ "steps": 100,
+ "files": [
+  "dem.txt"
+ ],
+ "description": "2D slab of cfd_3d_dem_nearbed (one row of fixed spheres, a sphere and a box on the bed, a box on the fixed box, a falling sphere): the surface raster along x only, fluctuations along the flow only (E 35 1, E 32 2, E 38 1).",
+ "tags": [
+  "2d",
+  "cfd",
+  "dem"
+ ],
+ "covers": [
+  "dem_f::nearbed_geometry and nearbed in 2D"
+ ]
+}

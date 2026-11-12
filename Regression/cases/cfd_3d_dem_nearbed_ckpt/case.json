@@ -1,0 +1,20 @@
+{
+ "base": "cfd_3d_dem_nearbed_mpi2",
+ "np": 2,
+ "steps": 60,
+ "ctrl_set": {
+  "P 48": "20",
+  "P 49": "0"
+ },
+ "description": "cfd_3d_dem_nearbed_mpi2 with a checkpoint every 20 steps, all kept (P 48 20, P 49 0): the uninterrupted run of cfd_3d_dem_nearbed_restart.",
+ "tags": [
+  "3d",
+  "cfd",
+  "dem",
+  "mpi",
+  "checkpoint"
+ ],
+ "covers": [
+  "dem_f::ckpt_state with the state of the velocity fluctuations (E 38)"
+ ]
+}

@@ -35,7 +35,8 @@ Author: Hans Bihs
 
 void dem_f::fluid_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
 {
-    const int nv = 24 + nlift;     // 0-13 as before; E 26: 14-16 sum qw u_q, 17 sum qw, 18-20 sum qw r x u_q, 21-23 sum qw r; 24-32 lift samples (E 32, E 33)
+    const int nv = 24 + nlift + nnear;     // 0-13 as before; E 26: 14-16 sum qw u_q, 17 sum qw, 18-20 sum qw r x u_q, 21-23 sum qw r; 24-32 lift samples (E 32, E 33); 33-36 near-bed reference velocity (E 35)
+    const int kn = 24 + nlift;
     bool dolift = liftmodel>0 || magnus>0;
 
     // fluid velocity for the lift samples: zero inside the bed and the solids, and between the bed and
@@ -123,6 +124,35 @@ void dem_f::fluid_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
         }
     }
 
+    // near-bed closure (E 35): bed level around the particles and their reference points; the fixed
+    // floor of a column without particles is the NHFLOW bed, columns inside a solid have none
+    auto wet = [&](const dem_vec &x) -> bool
+    {
+        double wl = p->ccslipol4(d->WL,x(0),x(1));
+        return wl>p->A544 && x(2)<p->ccslipol4(d->bed,x(0),x(1)) + wl;
+    };
+    if(nearmodel>0)
+    {
+        auto floorz = [&](const dem_vec &x) -> double
+        {
+            if(gridwalls!=1)
+            return -1.0e20;
+            // within the cells and ghost cells of the rank
+            double rm = 2.0*dxs;
+            if(x(0)<p->originx-rm || x(0)>p->endx+rm || (p->j_dir==1 && (x(1)<p->originy-rm || x(1)>p->endy+rm)))
+            return -1.0e20;
+            // a point inside a solid (A 581-590, e.g. a pile): no floor in this column
+            if(wallphi_nhflow(p,d,x(0),x(1),x(2))<0.0 && x(2)>p->ccslipol4(d->bed,x(0),x(1)))
+            return -1.0e20;
+            return p->ccslipol4(d->bed,x(0),x(1));
+        };
+        auto dzloc = [&](const dem_vec &x) -> double
+        {
+            return p->DZN[0+marge]*p->ccslipol4(d->WL,x(0),x(1));
+        };
+        nearbed_geometry(p,pgc,floorz,dzloc);
+    }
+
     for(int n=0; n<nb; ++n)
     {
         const dem_body &B = core.bodies[n];
@@ -131,6 +161,9 @@ void dem_f::fluid_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
         continue;
 
         double *b = &buf[n*nv];
+
+        if(nearmodel>0)
+        nearbed_sample(p,n,uat,wet,&b[kn]);
 
         if(owns(p,B.x(0),B.x(1),B.x(2)))
         {
@@ -213,6 +246,9 @@ void dem_f::fluid_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
 
         if(dolift)
         lift_store(n,&b[24],cnt);
+
+        if(nearmodel>0)
+        nearbed_store(n,&b[kn]);
 
         // E 26: volume-averaged fluid velocity over the submerged part, and the moment of the
         // velocity variation over the particle (gives the drag torque of a non-uniform flow)
@@ -407,8 +443,9 @@ void dem_f::feedback_nhflow(lexer *p, fdm_nhf *d, ghostcell *pgc)
         for(int q=0; q<3; ++q)
         ffp[nf*n+q] = B.cpl.Ffp(q);
         ffp[nf*n+3] = B.cpl.vsub;
-        // drag coefficient with respect to the (superficial) fluid velocity
-        ffp[nf*n+4] = B.K/std::max(0.2,std::min(1.0,B.cpl.epsf));
+        // drag coefficient with respect to the (superficial) fluid velocity; the drag of the exposed part
+        // of a bed grain (E 35) follows the velocity above the bed and stays explicit
+        ffp[nf*n+4] = (B.K - B.cpl.nb_ke)/std::max(0.2,std::min(1.0,B.cpl.epsf));
     }
     owner_to_ghosts(pgc,ffp,nf);
     vector<double> kd(nb,0.0);

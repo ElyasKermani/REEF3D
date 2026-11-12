@@ -1,0 +1,19 @@
+{
+ "np": 1,
+ "steps": 100,
+ "files": [
+  "dem.txt"
+ ],
+ "description": "CFD open channel (k-omega, U 0.5 m/s) over a rough bed of 64 fixed spheres (d 10 mm) with a fixed box on it and four grains: a sphere in a pocket of the bed, a box on the bed, a box on top of the fixed box and a sphere that falls onto the bed: near-bed closure of bed grains (E 35 1) with the bed-grain lift (E 32 2, C_L 0.2) and velocity fluctuations (E 38 1); the exposed fraction and the velocity of the exposed part are written to the DEM state file (expo uex uey uez ust).",
+ "tags": [
+  "3d",
+  "cfd",
+  "dem"
+ ],
+ "covers": [
+  "dem_f::nearbed_geometry (surface raster of spheres and node shapes, fixed particles, floor from the walls of dem.txt)",
+  "dem_f::nearbed_sample / nearbed_store with CFD",
+  "dem_f::nearbed (drag of the exposed part, moment, lift velocities, fluctuations)",
+  "dem_f::print_state near-bed columns"
+ ]
+}

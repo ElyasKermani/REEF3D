@@ -218,6 +218,9 @@ double dem_f::halo(const dem_body &B)
     double h = rb + rmax0 + std::max(rmax0,std::max(2.0*dxs,2.0*travel*rmax0));
     h = std::max(h, std::max(std::max(S.deq,void_factor*S.deq),kernel_cells*dxs) + 2.0*dxs);
     h = std::max(h, rb + (hs_factor+3.0)*dxs);
+    // near-bed closure (E 35): the particles within the radius of the bed level around a grain
+    if(nearmodel>0)
+    h = std::max(h, rb + 3.0*dref);
     return h;
 }
 
@@ -413,6 +416,7 @@ void dem_f::pack_body(vector<double> &buf, const dem_body &B)
     w.v(c.vprev); w.v(c.wprev); w.v(c.Ffp); w.v(c.Fhyd);
     for(int s=0; s<4; ++s) w.d(c.sw[s]);
     w.d(c.basemode);
+    w.d(c.nb_xi[0]); w.d(c.nb_xi[1]);
 }
 
 void dem_f::unpack_body(dem_reader &r, dem_body &B)
@@ -429,6 +433,7 @@ void dem_f::unpack_body(dem_reader &r, dem_body &B)
     c.vprev = r.v(); c.wprev = r.v(); c.Ffp = r.v(); c.Fhyd = r.v();
     for(int s=0; s<4; ++s) c.sw[s] = r.d();
     c.basemode = r.i();
+    c.nb_xi[0] = r.d(); c.nb_xi[1] = r.d();
 
     B.R = B.q.toRotationMatrix();
     B.tier = 0;
@@ -882,7 +887,7 @@ void dem_f::global_stats(ghostcell *pgc, double &vmax, double &rmin)
 // gather the owned particles on rank 0 for output (sorted by global id)
 void dem_f::gather_output(ghostcell *pgc, vector<dem_body> &out)
 {
-    const int nv = 26;
+    const int nv = 31;
     vector<double> loc;
     for(auto &B : core.bodies)
     {
@@ -896,6 +901,9 @@ void dem_f::gather_output(ghostcell *pgc, vector<dem_body> &out)
         for(int q=0; q<3; ++q) loc.push_back(B.cpl.Fhyd(q));
         for(int q=0; q<3; ++q) loc.push_back(B.cpl.ufl(q));
         for(int q=0; q<3; ++q) loc.push_back(B.cpl.Flift(q));
+        loc.push_back(B.cpl.nb_w);
+        for(int q=0; q<3; ++q) loc.push_back(B.cpl.nb_ue(q));
+        loc.push_back(B.cpl.nb_ust);
     }
 
     int nloc = loc.size();
@@ -922,6 +930,7 @@ void dem_f::gather_output(ghostcell *pgc, vector<dem_body> &out)
         B.id = r.i(); B.shape = r.i(); B.mode = r.i(); B.active = r.i()==1;
         B.x = r.v(); B.q = r.q(); B.v = r.v(); B.w = r.v();
         B.cpl.Fhyd = r.v(); B.cpl.ufl = r.v(); B.cpl.Flift = r.v();
+        B.cpl.nb_w = r.d(); B.cpl.nb_ue = r.v(); B.cpl.nb_ust = r.d();
         B.R = B.q.toRotationMatrix();
         out.push_back(B);
     }

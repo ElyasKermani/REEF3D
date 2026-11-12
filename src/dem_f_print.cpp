@@ -236,10 +236,14 @@ void dem_f::print_state(lexer *p, const vector<dem_body> &bodies)
     if(!out.is_open())
     return;
 
-    // with lift (E 32, E 33) the lift force (part of Fx Fy Fz) in three more columns
+    // with lift (E 32, E 33) the lift force (part of Fx Fy Fz) in three more columns; with the near-bed
+    // closure (E 35) the exposed fraction of the particle, the velocity of its exposed part and the
+    // friction velocity of the logarithmic law at the particle
     bool wlift = liftmodel>0 || magnus>0;
+    bool wnear = nearmodel>0;
     if(head)
-    out<<"# time id x y z qw qx qy qz u v w wx wy wz active resolved Fx Fy Fz ufx ufy ufz"<<(wlift ? " FLx FLy FLz" : "")<<endl;
+    out<<"# time id x y z qw qx qy qz u v w wx wy wz active resolved Fx Fy Fz ufx ufy ufz"<<(wlift ? " FLx FLy FLz" : "")
+       <<(wnear ? " expo uex uey uez ust" : "")<<endl;
 
     out<<setprecision(10);
     for(auto &B : bodies)
@@ -252,6 +256,8 @@ void dem_f::print_state(lexer *p, const vector<dem_body> &bodies)
            <<B.cpl.ufl(0)<<" "<<B.cpl.ufl(1)<<" "<<B.cpl.ufl(2);
         if(wlift)
         out<<" "<<B.cpl.Flift(0)<<" "<<B.cpl.Flift(1)<<" "<<B.cpl.Flift(2);
+        if(wnear)
+        out<<" "<<B.cpl.nb_w<<" "<<B.cpl.nb_ue(0)<<" "<<B.cpl.nb_ue(1)<<" "<<B.cpl.nb_ue(2)<<" "<<B.cpl.nb_ust;
         out<<"\n";
     }
 }

@@ -1973,6 +1973,24 @@ void control::read_control(lexer* p)
                 case 34: control>>E34;
                          clear(c,numint);
                          break;
+                case 35: control>>E35;
+                         clear(c,numint);
+                         break;
+                case 36: control>>E36;
+                         clear(c,numint);
+                         break;
+                case 37: control>>E37;
+                         clear(c,numint);
+                         break;
+                case 38: control>>E38;
+                         clear(c,numint);
+                         break;
+                case 39: control>>E39;
+                         clear(c,numint);
+                         break;
+                case 40: control>>E40;
+                         clear(c,numint);
+                         break;
                 }
                 break;
 

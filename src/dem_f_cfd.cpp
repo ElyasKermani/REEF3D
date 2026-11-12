@@ -37,7 +37,8 @@ Author: Hans Bihs
 
 void dem_f::fluid_cfd(lexer *p, fdm *a, ghostcell *pgc)
 {
-    const int nv = 14 + nlift;      // 14-22: lift samples (E 32, E 33)
+    const int nv = 14 + nlift + nnear;      // 14-22: lift samples (E 32, E 33), 23-26: near-bed reference velocity (E 35)
+    const int kn = 14 + nlift;
     vector<double> buf(nb*nv,0.0);
     dem_vec g(p->W20,p->W21,p->W22);
     bool dolift = liftmodel>0 || magnus>0;
@@ -76,6 +77,46 @@ void dem_f::fluid_cfd(lexer *p, fdm *a, ghostcell *pgc)
         return (phi/del)*ucc(x + (del-phi)*nw);
     };
 
+    // near-bed closure (E 35): bed level around the particles and their reference points; the fixed
+    // floor of a column without particles is the zero of the topo and solid level sets under a point
+    // where they rise along -g (a point next to a wall is moved up, up to four diameters)
+    auto wet = [&](const dem_vec &x) -> bool
+    {
+        return p->ccipol4a(a->ro,x(0),x(1),x(2))>0.5*(p->W1+p->W3);
+    };
+    if(nearmodel>0)
+    {
+        auto floorz = [&](const dem_vec &x) -> double
+        {
+            if(gridwalls!=1 || !(p->toporead>0 || p->S10>0 || p->solidread==1))
+            return -1.0e20;
+            // within the cells and ghost cells of the rank
+            double rm = 2.0*dxs;
+            if(x(0)<p->originx-rm || x(0)>p->endx+rm || x(2)<p->originz-rm || x(2)>p->endz+rm
+               || (p->j_dir==1 && (x(1)<p->originy-rm || x(1)>p->endy+rm)))
+            return -1.0e20;
+            double h = 0.5*dxs;
+            for(int q=0; q<5; ++q)
+            {
+                dem_vec y = x + double(q)*dref*upvec;
+                dem_vec y2 = y + h*upvec;
+                double phi = wallphi_cfd(p,a,y(0),y(1),y(2));
+                double grad = (wallphi_cfd(p,a,y2(0),y2(1),y2(2)) - phi)/h;
+                if(grad>0.5 && phi<1.0e19)
+                return y.dot(upvec) - phi/std::min(grad,1.0);
+            }
+            return -1.0e20;
+        };
+        auto dzloc = [&](const dem_vec &x) -> double
+        {
+            if(fabs(upvec(2))<0.99)
+            return dxs;
+            k = std::max(0,std::min(p->knoz-1,p->posc_k(x(2))));
+            return p->DZN[KP];
+        };
+        nearbed_geometry(p,pgc,floorz,dzloc);
+    }
+
     for(int n=0; n<nb; ++n)
     {
         const dem_body &B = core.bodies[n];
@@ -83,6 +124,9 @@ void dem_f::fluid_cfd(lexer *p, fdm *a, ghostcell *pgc)
         continue;
 
         double *b = &buf[n*nv];
+
+        if(nearmodel>0)
+        nearbed_sample(p,n,uat,wet,&b[kn]);
 
         if(owns(p,B.x(0),B.x(1),B.x(2)))
         {
@@ -144,6 +188,9 @@ void dem_f::fluid_cfd(lexer *p, fdm *a, ghostcell *pgc)
 
         if(dolift)
         lift_store(n,&b[14],cnt);
+
+        if(nearmodel>0)
+        nearbed_store(n,&b[kn]);
     }
 }
 
@@ -554,4 +601,179 @@ void dem_f::internal_cfd(lexer *p, fdm *a, ghostcell *pgc)
             core.bodies[n].cpl.Ifl_valid = true;
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// near-bed closure (E 35 2): eddy viscosity of the fluid in and above a bed of particles
+//
+//  The turbulence models know no wall at the surface of a bed of unresolved particles: their length
+//  scale does not go to zero there, the eddy viscosity stays large and carries momentum into the bed,
+//  which then acts on the flow as a much rougher wall. With E 35 2 the eddy viscosity of the momentum
+//  equations is limited in and above the bed to the mixing length of Li & Sawamoto (1995), as used for
+//  bedload by Revil-Baudard & Chauchat (2013) and Maurin et al. (2015):
+//
+//      l_m(z) = kappa int_0^z (phi_max - phi)/phi_max dz,    nu_t <= (1 - phi) l_m^2 |du/dz|
+//
+//  phi: solid fraction of the cells from the volume quadrature of the particles (no kernel), mean
+//  over the cell and its horizontal neighbours; phi_max = E 40, the solid fraction of the packed bed
+//  (0.6; the log gives the mean solid fraction of the bed cells); the integral starts at the floor of the
+//  column. The limit holds in columns with a bed (solid height of at least 0.3 d) from the floor up
+//  to the first cell above the particles where it no longer binds; above it and in columns without
+//  a bed the eddy viscosity of the turbulence model is kept. The sweep along z is repeated until the
+//  values that cross rank boundaries no longer change.
+// ---------------------------------------------------------------------------------------------
+
+void dem_f::nearbed_eddyv(lexer *p, fdm *a, ghostcell *pgc)
+{
+    if(nearmodel!=2 || dref<=0.0 || fabs(upvec(2))<0.99)
+    return;
+
+    const double kappa = 0.41;
+    const double phimax = near_phimax;
+    const double hbed = 0.3*dref;
+
+    // work fields of this call only (a field is part of the checkpoints while it lives): solid fraction
+    // of the cells and its horizontal mean, mixing length and solid height at the top face of the
+    // cells, state of the limit
+    field4a PHIS(p), PHIM(p), LMT(p), HST(p), NST(p);
+
+    // solid fraction of the cells: quadrature points of the particles (owned, ghosts, fixed) in the
+    // cells of this rank
+    LOOP
+    PHIS(i,j,k) = 0.0;
+
+    for(int n=0; n<nb; ++n)
+    {
+        const dem_body &B = core.bodies[n];
+        if(!B.active || B.mode!=0)
+        continue;
+
+        const dem_shape &S = core.shapes[B.shape];
+        dem_mat R = B.q.toRotationMatrix();
+        for(size_t q=0; q<S.qp.size(); ++q)
+        {
+            dem_vec xq = B.x + R*S.qp[q];
+            if(!owns(p,xq(0),xq(1),xq(2)))
+            continue;
+            i = std::max(0,std::min(p->knox-1,p->posc_i(xq(0))));
+            j = p->j_dir==1 ? std::max(0,std::min(p->knoy-1,p->posc_j(xq(1)))) : 0;
+            k = std::max(0,std::min(p->knoz-1,p->posc_k(xq(2))));
+            if(p->flag4[IJK]>0)
+            PHIS(i,j,k) += S.qw[q];
+        }
+    }
+
+    LOOP
+    PHIS(i,j,k) /= p->DXN[IP]*p->DYN[JP]*p->DZN[KP];
+
+    pgc->start4a(p,PHIS,1);
+
+    // mean over the cell and its horizontal neighbours (fluid cells)
+    LOOP
+    {
+        double sum=0.0, cnt=0.0;
+        for(int ii=-1; ii<=1; ++ii)
+        for(int jj=(p->j_dir==1 ? -1 : 0); jj<=(p->j_dir==1 ? 1 : 0); ++jj)
+        if(p->flag4[(i+ii-p->imin)*p->jmax*p->kmax + (j+jj-p->jmin)*p->kmax + k-p->kmin]>0)
+        {
+            sum += PHIS(i+ii,j+jj,k);
+            cnt += 1.0;
+        }
+        PHIM(i,j,k) = cnt>0.0 ? std::min(1.0,sum/cnt) : 0.0;
+    }
+
+    pgc->start4a(p,PHIM,1);
+
+    // log: solid fraction of the packed bed (mean over the cells denser than 0.3), a guide for E 40
+    if(p->count%std::max(1,p->P12)==0)
+    {
+        double sum=0.0, cnt=0.0;
+        LOOP
+        if(PHIM(i,j,k)>=0.3)
+        {
+            sum += PHIM(i,j,k);
+            cnt += 1.0;
+        }
+        sum = pgc->globalsum(sum);
+        cnt = pgc->globalsum(cnt);
+        if(p->mpirank==0 && cnt>0.0)
+        cout<<"DEM: solid fraction of the bed cells (denser than 0.3) mean "<<sum/cnt<<", phi_max E 40 "<<phimax<<endl;
+    }
+
+    // mixing length and solid height at the top face of the cells, state of the cells:
+    // 0 no bed below, 1 limit active, 2 released above the bed
+    LOOP
+    {
+        LMT(i,j,k) = 0.0;
+        HST(i,j,k) = 0.0;
+        NST(i,j,k) = 0.0;
+    }
+
+    auto dudz = [&]() -> double
+    {
+        int kl = k>0 ? k-1 : k, ku = k<p->knoz-1 ? k+1 : k;
+        double dz = 0.0;
+        for(int q=kl; q<ku; ++q)
+        dz += 0.5*(p->DZN[q+marge] + p->DZN[q+1+marge]);
+        double du = 0.5*(a->u(i,j,ku)+a->u(i-1,j,ku)) - 0.5*(a->u(i,j,kl)+a->u(i-1,j,kl));
+        double dv = p->j_dir==1 ? 0.5*(a->v(i,j,ku)+a->v(i,j-1,ku)) - 0.5*(a->v(i,j,kl)+a->v(i,j-1,kl)) : 0.0;
+        return dz>0.0 ? sqrt(du*du + dv*dv)/dz : 0.0;
+    };
+
+    for(int iter=0; iter<20; ++iter)
+    {
+        double diff = 0.0;
+
+        LOOP
+        {
+            double phi = PHIM(i,j,k);
+            double f = std::max(0.0,std::min(1.0,(phimax-phi)/phimax));
+            bool below = p->flag4[IJKm1]>0;
+            double lb = below ? LMT(i,j,k-1) : 0.0;
+            double hb = below ? HST(i,j,k-1) : 0.0;
+            double sb = below ? NST(i,j,k-1) : 0.0;
+
+            double lt = lb + kappa*f*p->DZN[KP];
+            double ht = hb + phi*p->DZN[KP];
+
+            double st;
+            if(sb>1.5)
+            st = 2.0;
+            else if(ht<hbed)
+            st = 0.0;
+            else if(phi>1.0e-6)
+            st = 1.0;
+            else
+            {
+                // above the particles: active while the limit binds
+                double lc = lb + 0.5*kappa*f*p->DZN[KP];
+                st = lc*lc*dudz()<a->eddyv(i,j,k) ? 1.0 : 2.0;
+            }
+
+            diff = std::max(diff,fabs(lt-LMT(i,j,k)) + fabs(ht-HST(i,j,k)) + fabs(st-NST(i,j,k)));
+            LMT(i,j,k) = lt;
+            HST(i,j,k) = ht;
+            NST(i,j,k) = st;
+        }
+
+        pgc->start4a(p,LMT,1);
+        pgc->start4a(p,HST,1);
+        pgc->start4a(p,NST,1);
+
+        diff = pgc->globalmax(diff);
+        if(diff<1.0e-12)
+        break;
+    }
+
+    // limit
+    LOOP
+    if(NST(i,j,k)>0.5 && NST(i,j,k)<1.5)
+    {
+        double phi = PHIM(i,j,k);
+        double f = std::max(0.0,std::min(1.0,(phimax-phi)/phimax));
+        double lc = (p->flag4[IJKm1]>0 ? LMT(i,j,k-1) : 0.0) + 0.5*kappa*f*p->DZN[KP];
+        a->eddyv(i,j,k) = std::min(a->eddyv(i,j,k),(1.0-phi)*lc*lc*dudz());
+    }
+
+    pgc->start4a(p,a->eddyv,24);
 }

@@ -1,0 +1,17 @@
+{
+ "np": 1,
+ "steps": 100,
+ "files": [
+  "dem.txt"
+ ],
+ "description": "NHFLOW open channel (U 0.5 m/s, 10 sigma layers) over a rough bed of 64 fixed spheres (d 10 mm) with a fixed box on it and four grains: a sphere in a pocket of the bed, a box on the bed, a box on top of the fixed box and a sphere that falls onto the bed: near-bed closure of bed grains (E 35 1) with the bed-grain lift (E 32 2) and velocity fluctuations (E 38 1); the floor of columns without particles is the NHFLOW bed.",
+ "tags": [
+  "3d",
+  "nhflow",
+  "dem"
+ ],
+ "covers": [
+  "dem_f::nearbed_geometry / nearbed_sample with NHFLOW",
+  "dem_f::nearbed"
+ ]
+}

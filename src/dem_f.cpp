@@ -34,6 +34,7 @@ Author: Hans Bihs
 #include<random>
 #include<sys/stat.h>
 #include<mpi.h>
+#include<cstdint>
 
 dem_f::dem_f(lexer *p, ghostcell *pgc)
 {
@@ -86,6 +87,15 @@ dem_f::dem_f(lexer *p, ghostcell *pgc)
     if(p->mpirank==0 && (liftmodel>0 || magnus>0))
     cout<<"DEM: lift of unresolved particles: shear lift "<<(liftmodel==1 ? "Saffman-Mei" : liftmodel==2 ? "bed grains" : "off")
         <<(liftmodel==2 ? " (C_L "+std::to_string(liftcoef)+")" : std::string(""))<<", rotational lift (Magnus) "<<(magnus==1 ? "on" : "off")<<endl;
+    nearmodel = p->E35;
+    near_ks = std::max(p->E36,1.0e-6);
+    near_zref = std::max(p->E37,0.0);
+    near_fluc = std::max(p->E38,0.0);
+    near_tscale = std::max(p->E39,1.0e-6);
+    near_phimax = std::max(0.05,std::min(1.0,p->E40));
+    if(p->mpirank==0 && nearmodel>0)
+    cout<<"DEM: near-bed closure of bed grains"<<(nearmodel==2 && p->A10==6 ? " with the mixing length in the bed (phi_max "+std::to_string(near_phimax)+")" : "")<<": k_s "<<near_ks<<" d, reference height "<<near_zref<<" d, velocity fluctuations "
+        <<(near_fluc>0.0 ? "factor "+std::to_string(near_fluc)+", time scale "+std::to_string(near_tscale)+" d/u*" : std::string("off"))<<endl;
     porinit = 0;
 
     dt_old = 0.0;
@@ -397,6 +407,18 @@ void dem_f::ini(lexer *p, ghostcell *pgc)
     for(auto &B : core.bodies)
     B.cpl.basemode = B.mode;
 
+    // near-bed closure (E 35): mean equivalent diameter of the unresolved particles
+    {
+        double sum=0.0, cnt=0.0;
+        for(auto &B : core.bodies)
+        if(B.mode==0)
+        {
+            sum += core.shapes[B.shape].deq;
+            cnt += 1.0;
+        }
+        dref = cnt>0.0 ? sum/cnt : 0.0;
+    }
+
     if(p->mpirank==0)
     {
         mkdir("./REEF3D_DEM",0777);
@@ -494,6 +516,9 @@ void dem_f::start_cfd(lexer *p, fdm *a, ghostcell *pgc)
 
     feedback_cfd(p,a,pgc);
 
+    // E 35 2: eddy viscosity of the momentum step in and above the particle bed
+    nearbed_eddyv(p,a,pgc);
+
     for(int n=0; n<nb; ++n)
     {
         core.bodies[n].cpl.Fibm.setZero();
@@ -566,6 +591,10 @@ void dem_f::set_loads(lexer *p, ghostcell *pgc)
         continue;
 
         core.bodies[n].cpl.Flift.setZero();
+        core.bodies[n].cpl.nb_w = 0.0;
+        core.bodies[n].cpl.nb_ke = 0.0;
+        core.bodies[n].cpl.nb_ust = 0.0;
+        core.bodies[n].cpl.nb_ue.setZero();
         B.F.setZero();
         B.T.setZero();
         B.K = 0.0;
@@ -606,6 +635,15 @@ void dem_f::set_loads(lexer *p, ghostcell *pgc)
             if(fsub>0.0)
             {
                 drag(p,n,core.bodies[n].cpl.rhof,core.bodies[n].cpl.nuf,core.bodies[n].cpl.epsf);
+
+                // near-bed closure (E 35): drag of the exposed part of a bed grain, its moment, and the
+                // velocities at the top and bottom of the grain for the lift
+                if(nearmodel>0)
+                {
+                    B.T += fsub*nearbed(p,n);
+                    core.bodies[n].cpl.nb_ke *= fsub;
+                }
+
                 B.K *= fsub;
                 B.Kr *= fsub;
 
@@ -847,6 +885,357 @@ dem_vec dem_f::lift(int n)
     F(1) = 0.0;
 
     return F;
+}
+
+// ---------------------------------------------------------------------------------------------
+// near-bed closure of bed grains (E 35-E 39), unresolved particles
+//
+//  On grids with cells of the size of the grains the flow in and just above a layer of grains is the
+//  flow of a porous layer: all grains of the surface see about the same, low velocity, and the force on
+//  a grain does not depend on how far it stands out of the bed. The closure gives the exposed part of a
+//  grain the velocity of the logarithmic law of a rough bed:
+//
+//  bed level z_s (nearbed_geometry, per fluid step, on the rank that owns the grain): the mean height
+//    of the surface of the particles (seen from above, raster of 0.4 d) within 2.5 d around the grain,
+//    without the grain itself; columns without particles count with the fixed floor (grid solids and
+//    topography, NHFLOW bed, walls of dem.txt that face up). d: mean equivalent diameter, heights along -g.
+//  reference point: above the centroid at z_s + z_ref, z_ref = max(E 37 d, one cell); the fluid velocity
+//    there, u_ref, is taken on the rank that holds the point; only its part along the bed is used.
+//  velocity at the height z above z_s: u(z) = u_ref f(z), f = ln(z/z0)/ln(z_ref/z0) for z0 < z < z_ref,
+//    0 below z0 = k_s/30, 1 above z_ref; k_s = E 36 d; u* = kappa |u_ref|/ln(z_ref/z0).
+//  exposed part of a grain with top z_t and bottom z_b: from max(z_b,0) to z_t, fraction of the height
+//    w; its velocity u_e = <f^2>^1/2 u_ref (mean square over the exposed height) + u'.
+//  drag:  F = 1/2 rho C_D w A |u_e - v| (u_e - v) + (1 - w) F_p, C_D of the single grain (Haider &
+//    Levenspiel, no voidage function), F_p the drag of the pore flow as without the closure; implicit
+//    in the grain velocity. The drag of the exposed part acts at the centre of f^2 over the exposed
+//    height, its moment about the centroid is explicit over the fluid step.
+//  lift (E 32 2): the velocities at the top and bottom of the grain are u(z_t) and u(z_b) of the law.
+//  velocity fluctuations (E 38 > 0): u' = E 38 u* (2.30 xi_1 e_s + 1.63 xi_2 e_n), e_s along u_ref, e_n
+//    across (intensities of Nezu & Nakagawa 1993); xi: an Ornstein-Uhlenbeck process of every grain
+//    with unit variance and the time scale T = E 39 d/u*, limited to +-3; the random numbers are a
+//    function of the particle id and the step count (independent of the decomposition, restarts continue).
+//
+//  Grains above the layer (z_b >= z_ref), below the bed level (z_t <= z0) or without particles and
+//  floor around them keep the coupling without the closure. Replicated (tier 1) particles are left out.
+// ---------------------------------------------------------------------------------------------
+
+void dem_f::nearbed_geometry(lexer *p, ghostcell *pgc, const std::function<double(const dem_vec&)> &floorz,
+                             const std::function<double(const dem_vec&)> &dzloc)
+{
+    for(int n=0; n<nb; ++n)
+    core.bodies[n].cpl.nb_on = 0;
+    nb_ras.clear();
+
+    if(nearmodel==0 || coupling==0 || coupling==2 || dref<=0.0)
+    return;
+
+    const double dr = 0.4*dref;         // raster
+    const double Rs = 2.5*dref;         // radius of the bed level around a grain
+    const bool d2 = core.plane2D;
+
+    // horizontal axes
+    dem_vec e1 = dem_vec::UnitX() - upvec(0)*upvec;
+    if(e1.norm()<0.1)
+    e1 = dem_vec::UnitY() - upvec(1)*upvec;
+    e1.normalize();
+    dem_vec e2 = upvec.cross(e1);
+
+    typedef nb_cell rcell;
+    std::unordered_map<long long,rcell> &ras = nb_ras;
+    ras.reserve(size_t(64)*size_t(std::max(nb,1)));
+
+    auto key = [](long long a, long long b) {return nb_key(a,b);};
+    auto idx = [&](double s) {return (long long)(floor(s/dr));};
+    auto put = [&](long long a, long long b, double h, int id)
+    {
+        auto r = ras.emplace(key(a,b),rcell{h,id});
+        if(!r.second && h>r.first->second.top)
+        {
+            r.first->second.top = h;
+            r.first->second.id = id;
+        }
+    };
+
+    // surface of the particles seen from above (owned particles and ghosts, moving and fixed)
+    vector<double> zt(nb,-1.0e20), zb(nb,1.0e20);
+
+    for(int n=0; n<nb; ++n)
+    {
+        const dem_body &B = core.bodies[n];
+        if(!B.active || B.mode!=0)
+        continue;
+
+        const dem_shape &S = core.shapes[B.shape];
+        double hc = B.x.dot(upvec);
+
+        if(S.nodes.empty())
+        {
+            // sphere: the cap over its footprint
+            double r = 0.5*S.deq;
+            zt[n] = hc + r;
+            zb[n] = hc - r;
+            double s1 = B.x.dot(e1), s2 = B.x.dot(e2);
+            long long ic = idx(s1), jc = d2 ? 0 : idx(s2);
+            int m = int(ceil(r/dr));
+            for(int a=-m; a<=m; ++a)
+            for(int b=(d2 ? 0 : -m); b<=(d2 ? 0 : m); ++b)
+            {
+                double x1 = (double(ic+a)+0.5)*dr - s1;
+                double x2 = d2 ? 0.0 : (double(jc+b)+0.5)*dr - s2;
+                double rr = x1*x1 + x2*x2;
+                if(rr<r*r)
+                put(ic+a,jc+b,hc + sqrt(r*r-rr),B.id);
+            }
+            continue;
+        }
+
+        // surface nodes; a node covers the raster cells within half the node spacing
+        dem_mat R = B.q.toRotationMatrix();
+        int m = std::max(0,int(ceil(0.5*node_spacing_factor*S.deq/dr - 0.5)));
+        for(const auto &y : S.nodes)
+        {
+            dem_vec xw = B.x + R*y;
+            double h = xw.dot(upvec);
+            zt[n] = std::max(zt[n],h);
+            zb[n] = std::min(zb[n],h);
+            long long a0 = idx(xw.dot(e1)), b0 = d2 ? 0 : idx(xw.dot(e2));
+            for(int a=-m; a<=m; ++a)
+            for(int b=(d2 ? 0 : -m); b<=(d2 ? 0 : m); ++b)
+            put(a0+a,b0+b,h,B.id);
+        }
+    }
+
+    // bed level around the owned particles, reference height
+    vector<double> gb(2*nb,0.0);
+    int m = int(ceil(Rs/dr));
+
+    for(int n=0; n<nb; ++n)
+    {
+        dem_body &B = core.bodies[n];
+        dem_cpl &c = B.cpl;
+        if(B.ghost || !B.active || B.fixed || B.mode!=0 || B.tier!=0)
+        continue;
+
+        double hc = B.x.dot(upvec);
+        double s1 = B.x.dot(e1), s2 = B.x.dot(e2);
+        long long ic = idx(s1), jc = d2 ? 0 : idx(s2);
+        double sum=0.0, cnt=0.0;
+
+        for(int a=-m; a<=m; ++a)
+        for(int b=(d2 ? 0 : -m); b<=(d2 ? 0 : m); ++b)
+        {
+            double x1 = (double(ic+a)+0.5)*dr - s1;
+            double x2 = d2 ? 0.0 : (double(jc+b)+0.5)*dr - s2;
+            if(x1*x1 + x2*x2>Rs*Rs)
+            continue;
+
+            auto it = ras.find(key(ic+a,jc+b));
+            if(it==ras.end())
+            {
+                // column without particles: the fixed floor (walls of dem.txt that face up, grid),
+                // looked up from above the particle and kept for the other particles
+                dem_vec xf = B.x + x1*e1 + x2*e2 + (zt[n] + 0.5*dref - hc)*upvec;
+                double zf = floorz(xf);
+                for(const auto &P : core.planes)
+                {
+                    double nu = P.n.dot(upvec);
+                    if(nu>0.7)
+                    zf = std::max(zf,xf.dot(upvec) - (P.n.dot(xf) - P.d)/nu);
+                }
+                it = ras.emplace(key(ic+a,jc+b),rcell{zf,-1}).first;
+            }
+
+            const rcell &rc = it->second;
+
+            // not the particle itself, no column without a floor, no obstacle or particle far above
+            if(rc.id==B.id || rc.top<-1.0e19 || rc.top>zt[n]+2.0*dref)
+            continue;
+
+            sum += rc.top;
+            cnt += 1.0;
+        }
+
+        if(cnt<0.5)
+        continue;
+
+        c.nb_zs = sum/cnt;
+        c.nb_zt = zt[n];
+        c.nb_zb = zb[n];
+        c.nb_zr = c.nb_zs + std::max(near_zref*dref,dzloc(B.x));
+        c.nb_on = 1;
+        gb[2*n] = 1.0;
+        gb[2*n+1] = c.nb_zr;
+    }
+
+    // the ghosts take the reference velocity where their rank holds the reference point
+    owner_to_ghosts(pgc,gb,2);
+    for(int n=0; n<nb; ++n)
+    if(core.bodies[n].ghost)
+    {
+        core.bodies[n].cpl.nb_on = gb[2*n]>0.5 ? 1 : 0;
+        core.bodies[n].cpl.nb_zr = gb[2*n+1];
+    }
+}
+
+void dem_f::nearbed_sample(lexer *p, int n, const std::function<dem_vec(const dem_vec&)> &uat,
+                           const std::function<bool(const dem_vec&)> &wet, double *b)
+{
+    const dem_body &B = core.bodies[n];
+    if(B.cpl.nb_on!=1 || B.mode!=0)
+    return;
+
+    dem_vec xr = B.x + (B.cpl.nb_zr - B.x.dot(upvec))*upvec;
+    if(!owns(p,xr(0),xr(1),xr(2)) || !wet(xr))
+    return;
+
+    dem_vec ur = uat(xr);
+    b[0] = ur(0);
+    b[1] = ur(1);
+    b[2] = ur(2);
+    b[3] = 1.0;
+}
+
+void dem_f::nearbed_store(int n, const double *b)
+{
+    dem_cpl &c = core.bodies[n].cpl;
+    if(c.nb_on!=1)
+    return;
+    if(b[3]<0.5)
+    {
+        c.nb_on = 0;
+        return;
+    }
+    c.nb_uref = dem_vec(b[0],b[1],b[2])/b[3];
+}
+
+// drag coefficient of a single particle, Haider & Levenspiel (1989)
+double dem_f::dragcoef(double Re, double phi) const
+{
+    phi = std::max(0.1,std::min(1.0,phi));
+    Re = std::max(Re,1.0e-8);
+    double a1 = exp(2.3288 - 6.4581*phi + 2.4486*phi*phi);
+    double b1 = 0.0964 + 0.5565*phi;
+    double c1 = exp(4.905 - 13.8944*phi + 18.4222*phi*phi - 10.2599*phi*phi*phi);
+    double d1 = exp(1.4681 + 12.2584*phi - 20.7322*phi*phi + 15.8855*phi*phi*phi);
+    return 24.0/Re*(1.0 + a1*pow(Re,b1)) + c1/(1.0 + d1/Re);
+}
+
+// standard normal random number as a function of the particle id, the step count and a component
+double dem_f::gauss(int id, int count, int q) const
+{
+    auto mix = [](uint64_t z)
+    {
+        z += 0x9E3779B97F4A7C15ULL;
+        z = (z ^ (z>>30))*0xBF58476D1CE4E5B9ULL;
+        z = (z ^ (z>>27))*0x94D049BB133111EBULL;
+        return z ^ (z>>31);
+    };
+    uint64_t h1 = mix(mix(uint64_t(id)*4ULL + uint64_t(q)) ^ mix(uint64_t(count) + 0x632BE59BD9B4E019ULL));
+    uint64_t h2 = mix(h1);
+    double u1 = (double(h1>>11) + 0.5)/9007199254740992.0;
+    double u2 = (double(h2>>11) + 0.5)/9007199254740992.0;
+    return sqrt(-2.0*log(u1))*cos(2.0*3.14159265358979323846*u2);
+}
+
+dem_vec dem_f::nearbed(lexer *p, int n)
+{
+    dem_body &B = core.bodies[n];
+    dem_cpl &c = B.cpl;
+    dem_vec T = dem_vec::Zero();
+
+    if(c.nb_on!=1)
+    return T;
+
+    const double pi = 3.14159265358979323846;
+    const double kappa = 0.4;
+    const dem_shape &S = core.shapes[B.shape];
+    double d = S.deq;
+    double A = 0.25*pi*d*d;
+    double z0 = near_ks*dref/30.0;
+    double zr = c.nb_zr - c.nb_zs;          // heights above the bed level
+    double zt = c.nb_zt - c.nb_zs;
+    double zb = c.nb_zb - c.nb_zs;
+
+    // above the near-bed layer (resolved flow at the centroid) or below the bed level (pore flow)
+    if(zr<=1.01*z0 || zb>=zr || zt<=z0 || zt<=zb)
+    return T;
+
+    // reference velocity along the bed, friction velocity of the logarithmic law
+    dem_vec ur = c.nb_uref - c.nb_uref.dot(upvec)*upvec;
+    if(core.plane2D)
+    ur(1) = 0.0;
+    double urn = ur.norm();
+    double lr = log(zr/z0);
+    double ustar = kappa*urn/lr;
+
+    // velocity fluctuations (E 38)
+    dem_vec ut = dem_vec::Zero();
+    if(near_fluc>0.0 && ustar>1.0e-8 && p->dt>0.0)
+    {
+        double a = exp(-p->dt*ustar/(near_tscale*dref));
+        double s = sqrt(std::max(0.0,1.0-a*a));
+        for(int q=0; q<2; ++q)
+        c.nb_xi[q] = std::max(-3.0,std::min(3.0,a*c.nb_xi[q] + s*gauss(B.id,p->count,q)));
+        dem_vec es = ur/urn;
+        dem_vec en = upvec.cross(es);
+        ut = near_fluc*ustar*(2.30*c.nb_xi[0]*es + 1.63*c.nb_xi[1]*en);
+        if(core.plane2D)
+        ut(1) = 0.0;
+    }
+
+    // exposed part of the particle: fraction of its height, mean square and centre of the profile
+    auto fz = [&](double z) {return z<=z0 ? 0.0 : (z<zr ? log(z/z0)/lr : 1.0);};
+    double zl = std::max(zb,0.0);
+    double w = std::max(0.0,std::min(1.0,(zt-zl)/(zt-zb)));
+    const int nq = 8;
+    double q1=0.0, q2=0.0;
+    for(int q=0; q<nq; ++q)
+    {
+        double z = zl + (double(q)+0.5)*(zt-zl)/double(nq);
+        double f = fz(z);
+        q1 += f*f;
+        q2 += f*f*z;
+    }
+    if(w<=0.0 || q1<=1.0e-20)
+    return T;
+    double frms = sqrt(q1/double(nq));
+    double zf = q2/q1;
+
+    // drag of the exposed part (single particle), with the drag of the pore flow of the rest
+    dem_vec ue = frms*ur + ut;
+    dem_vec urel = ue - B.v;
+    double uabs = urel.norm();
+    double nu = std::max(c.nuf,1.0e-12);
+    double Ke = 0.5*c.rhof*w*A*dragcoef(uabs*d/nu,S.sphericity)*uabs;
+    double Kp = (1.0-w)*B.K;
+
+    if(Ke+Kp>0.0)
+    B.uf = (Ke*ue + Kp*B.uf)/(Ke+Kp);
+    B.K = Ke + Kp;
+
+    c.nb_w = w;
+    c.nb_ke = Ke;
+    c.nb_ue = ue;
+    c.nb_ust = ustar;
+
+    // moment of the exposed drag about the centroid
+    T = ((c.nb_zs + zf - B.x.dot(upvec))*upvec).cross(Ke*urel);
+    if(core.plane2D)
+    {
+        T(0) = 0.0;
+        T(2) = 0.0;
+    }
+
+    // velocities at the top and bottom of the particle for the bed-grain lift (E 32 2)
+    double fT = fz(zt), fB = fz(zb);
+    c.uT = fT*ur;
+    c.uB = fB*ur;
+    if(fT>0.0)
+    c.uT += ut;
+    if(fB>0.0)
+    c.uB += ut;
+
+    return T;
 }
 
 // ---------------------------------------------------------------------------------------------
